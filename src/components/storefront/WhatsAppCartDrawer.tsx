@@ -167,7 +167,11 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
 
     // Trigger Instant Baileys System Notification (Arrives directly on seller's & buyer's WhatsApp without relying on buyer opening app)
     try {
-      const serverBase = (import.meta as any).env?.VITE_BAILEYS_SERVER_URL || 'http://localhost:3001';
+      const serverBase =
+        (import.meta as any).env?.VITE_BAILEYS_SERVER_URL ||
+        (typeof window !== 'undefined' && window.location.hostname === 'localhost'
+          ? 'http://localhost:3001'
+          : 'https://ta-whatsapp-bot.onrender.com');
       fetch(`${serverBase}/api/orders/notify/${store.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

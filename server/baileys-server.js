@@ -183,6 +183,26 @@ async function initStoreSession(storeId, storeCatalog = []) {
 // ─── HTTP API ROUTES FOR THE TÁ.SHOP DASHBOARD ──────────────────────────────
 
 /**
+ * Root Route & Service Status
+ */
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    service: 'Tá.shop Multi-Tenant Baileys WhatsApp Engine',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    activeSessions: activeSessions.size,
+    endpoints: {
+      health: 'GET /health',
+      status: 'GET /api/whatsapp/status/:storeId',
+      connect: 'POST /api/whatsapp/connect/:storeId',
+      disconnect: 'POST /api/whatsapp/disconnect/:storeId',
+      orderNotify: 'POST /api/orders/notify/:storeId',
+    },
+  });
+});
+
+/**
  * Health check
  */
 app.get('/health', (req, res) => {

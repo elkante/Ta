@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertCircle,
   Bot,
@@ -83,8 +83,42 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   const [baileysQr, setBaileysQr] = useState<string | null>(null);
   const [isPairingLoading, setIsPairingLoading] = useState(false);
   const [serverEndpoint, setServerEndpoint] = useState(
-    (import.meta as any).env?.VITE_BAILEYS_SERVER_URL || 'http://localhost:3001'
+    (import.meta as any).env?.VITE_BAILEYS_SERVER_URL ||
+      (typeof window !== 'undefined' && window.location.hostname === 'localhost'
+        ? 'http://localhost:3001'
+        : 'https://ta-whatsapp-bot.onrender.com')
   );
+
+  // Poll status when pairing and check status on mount
+  useEffect(() => {
+    let interval: any = null;
+
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(`${serverEndpoint}/api/whatsapp/status/${store.id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.connected || data.status === 'connected') {
+          setBaileysStatus('connected');
+          setBaileysQr(null);
+        } else if (data.qrDataUrl && baileysStatus === 'waiting_scan') {
+          setBaileysQr(data.qrDataUrl);
+        }
+      } catch (e) {
+        // server asleep or not reachable
+      }
+    };
+
+    checkStatus();
+
+    if (baileysStatus === 'waiting_scan') {
+      interval = setInterval(checkStatus, 3000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [baileysStatus, serverEndpoint, store.id]);
 
   const handleStartBaileysPairing = async () => {
     setIsPairingLoading(true);
