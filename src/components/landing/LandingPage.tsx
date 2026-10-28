@@ -29,6 +29,7 @@ interface LandingPageProps {
   onOpenLogin: () => void;
   onOpenSignup: (initialSlug?: string) => void;
   onOpenSuperAdmin?: () => void;
+  onOpenLegal?: (tab: 'terms' | 'privacy' | 'cookies') => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
@@ -37,6 +38,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenLogin,
   onOpenSignup,
   onOpenSuperAdmin,
+  onOpenLegal,
 }) => {
   const [handleInput, setHandleInput] = useState('');
   const [handleError, setHandleError] = useState<string | null>(null);
@@ -513,13 +515,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <span className="font-extrabold text-slate-900">Tá.shop</span>
         </div>
         <p>© {new Date().getFullYear()} Tá.shop. The multi-tenant social commerce catalog platform.</p>
-        <div className="flex items-center justify-center gap-4 pt-1 text-[11px] text-slate-500">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-1 text-[11px] text-slate-500">
           <a href="#featured" className="hover:text-slate-800 transition cursor-pointer font-medium">
             Explore Stores
           </a>
           <span>•</span>
           <button onClick={onOpenLogin} className="hover:text-slate-800 transition cursor-pointer font-medium">
             Seller Login
+          </button>
+          <span>•</span>
+          <button
+            onClick={() => onOpenLegal?.('terms')}
+            className="hover:text-slate-800 transition cursor-pointer font-medium"
+          >
+            Terms & Conditions
+          </button>
+          <span>•</span>
+          <button
+            onClick={() => onOpenLegal?.('privacy')}
+            className="hover:text-slate-800 transition cursor-pointer font-medium"
+          >
+            Privacy Policy
+          </button>
+          <span>•</span>
+          <button
+            onClick={() => onOpenLegal?.('cookies')}
+            className="hover:text-slate-800 transition cursor-pointer font-medium"
+          >
+            Cookie Policy
           </button>
         </div>
       </footer>

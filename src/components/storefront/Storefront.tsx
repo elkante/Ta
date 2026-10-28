@@ -43,6 +43,7 @@ interface StorefrontProps {
   onOpenLogin?: () => void;
   onOpenLanding?: () => void;
   onRefreshData?: () => void;
+  onOpenLegal?: (tab: 'terms' | 'privacy' | 'cookies') => void;
   /** Product ID from ?product= URL param — auto-opens product detail on load */
   initialProductId?: string | null;
 }
@@ -55,6 +56,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
   onOpenLogin,
   onOpenLanding,
   onRefreshData,
+  onOpenLegal,
   initialProductId,
 }) => {
   // Search & Filters
@@ -650,7 +652,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
             )}
           </div>
 
-          <div className="flex items-center justify-center gap-3 text-[11px] text-slate-500">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[11px] text-slate-500">
             <span>© {new Date().getFullYear()} {store.name}</span>
             <span>•</span>
             <span className="text-slate-400">Customer View (Login-Free)</span>
@@ -673,6 +675,31 @@ export const Storefront: React.FC<StorefrontProps> = ({
                   className="text-slate-700 hover:text-slate-900 font-semibold underline cursor-pointer"
                 >
                   Seller Login
+                </button>
+              </>
+            )}
+            {onOpenLegal && (
+              <>
+                <span>•</span>
+                <button
+                  onClick={() => onOpenLegal('terms')}
+                  className="hover:text-slate-900 transition cursor-pointer"
+                >
+                  Terms
+                </button>
+                <span>•</span>
+                <button
+                  onClick={() => onOpenLegal('privacy')}
+                  className="hover:text-slate-900 transition cursor-pointer"
+                >
+                  Privacy
+                </button>
+                <span>•</span>
+                <button
+                  onClick={() => onOpenLegal('cookies')}
+                  className="hover:text-slate-900 transition cursor-pointer"
+                >
+                  Cookies
                 </button>
               </>
             )}

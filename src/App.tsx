@@ -15,6 +15,7 @@ import { SuperAdminDashboard } from './components/admin/SuperAdminDashboard';
 import { SuperAdminLoginModal } from './components/admin/SuperAdminLoginModal';
 import { SplashScreen } from './components/common/SplashScreen';
 import { OnboardingGuide } from './components/onboarding/OnboardingGuide';
+import { LegalModal, LegalTab } from './components/legal/LegalModal';
 import {
   Product,
   SellerSession,
@@ -57,6 +58,8 @@ export default function App() {
   const [isCreateStoreOpen, setIsCreateStoreOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSuperAdminModalOpen, setIsSuperAdminModalOpen] = useState(false);
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState<LegalTab>('terms');
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   /** Product ID from ?product= URL param; passed to Storefront to auto-open detail modal */
@@ -92,6 +95,12 @@ export default function App() {
     const storeParam = urlParams.get('store');   // from QR codes / shared links
     const productParam = urlParams.get('product'); // from product QR codes / shared product links
     if (productParam) setInitialProductId(productParam);
+
+    // Direct legal policy views
+    if (viewParam === 'terms' || viewParam === 'privacy' || viewParam === 'cookies') {
+      setLegalModalTab(viewParam as LegalTab);
+      setIsLegalModalOpen(true);
+    }
 
     // Resolve store slug priority:
     // 1. Explicit arg passed to loadTenantData (e.g. after creating a store)
@@ -278,6 +287,11 @@ export default function App() {
     }
   };
 
+  const handleOpenLegal = (tab: LegalTab = 'terms') => {
+    setLegalModalTab(tab);
+    setIsLegalModalOpen(true);
+  };
+
   if (!currentStore) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-900 text-white font-sans">
@@ -307,6 +321,7 @@ export default function App() {
               setActiveView('superadmin');
             }
           }}
+          onOpenLegal={handleOpenLegal}
         />
         <SellerAuthModal
           isOpen={isAuthModalOpen}
@@ -315,6 +330,11 @@ export default function App() {
           initialSlug={authModalSlug}
           onLoginSuccess={handleLoginSuccess}
           onStoreCreated={handleStoreCreated}
+        />
+        <LegalModal
+          isOpen={isLegalModalOpen}
+          onClose={() => setIsLegalModalOpen(false)}
+          initialTab={legalModalTab}
         />
       </div>
     );
@@ -417,6 +437,7 @@ export default function App() {
                 setActiveView('superadmin');
               }
             }}
+            onOpenLegal={handleOpenLegal}
           />
         ) : activeView === 'storefront' ? (
           isMobileDeviceFrame ? (
@@ -456,6 +477,7 @@ export default function App() {
                     }}
                     onOpenLanding={() => setActiveView('landing')}
                     onRefreshData={handleRefreshData}
+                    onOpenLegal={handleOpenLegal}
                     initialProductId={initialProductId}
                   />
                 </div>
@@ -477,6 +499,7 @@ export default function App() {
               }}
               onOpenLanding={() => setActiveView('landing')}
               onRefreshData={handleRefreshData}
+              onOpenLegal={handleOpenLegal}
               initialProductId={initialProductId}
             />
           )
@@ -532,6 +555,13 @@ export default function App() {
           onSkip={() => setShowOnboarding(false)}
         />
       )}
+
+      {/* Terms, Privacy, and Cookie Legal Modal */}
+      <LegalModal
+        isOpen={isLegalModalOpen}
+        onClose={() => setIsLegalModalOpen(false)}
+        initialTab={legalModalTab}
+      />
     </div>
   );
 }
