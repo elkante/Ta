@@ -240,7 +240,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 pb-20">
+    <div className="min-h-screen bg-slate-100 text-slate-900 pb-20 overflow-x-hidden w-full max-w-full">
       {/* Toast Alert */}
       {actionSuccessMessage && (
         <div className="fixed top-20 right-6 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-top-4">

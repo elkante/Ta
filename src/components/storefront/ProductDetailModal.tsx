@@ -301,11 +301,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="p-4 pb-safe bg-white border-t border-slate-100 flex flex-col sm:flex-row gap-2.5 items-center justify-between shrink-0">
+        <div className="p-3 sm:p-4 pb-safe bg-white border-t border-slate-100 flex flex-col sm:flex-row gap-2 sm:gap-2.5 items-stretch sm:items-center justify-between shrink-0">
           <button
             onClick={handleAddBag}
             disabled={!isAvailable}
-            className={`w-full sm:w-auto px-5 py-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+            className={`w-full sm:w-auto px-4 py-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
               addedToCartToast
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
                 : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700'
@@ -318,14 +318,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <button
             onClick={handleDirectOrder}
             disabled={!isAvailable}
-            className={`w-full sm:flex-1 py-3 px-6 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition cursor-pointer active:scale-[0.99] ${
+            className={`w-full sm:flex-1 py-3 px-3.5 sm:px-6 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 shadow-md transition cursor-pointer active:scale-[0.99] ${
               isAvailable
                 ? 'bg-[#25D366] hover:bg-[#20ba59] text-white shadow-emerald-500/20'
                 : 'bg-slate-100 text-slate-400 cursor-not-allowed'
             }`}
           >
-            <MessageCircle className="w-4 h-4" />
-            <span>Order Now on WhatsApp ({formatPrice(currentPrice, store.currencySymbol)})</span>
+            <MessageCircle className="w-4 h-4 shrink-0" />
+            <span className="truncate">Order on WhatsApp ({formatPrice(currentPrice, store.currencySymbol)})</span>
           </button>
         </div>
       </div>

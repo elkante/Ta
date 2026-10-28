@@ -7,12 +7,14 @@ import {
   LayoutDashboard,
   LogIn,
   LogOut,
+  Menu,
   Plus,
   Share2,
   ShieldCheck,
   Smartphone,
   Store as StoreIcon,
   User,
+  X,
   Zap,
 } from 'lucide-react';
 import { SellerSession, Store, SuperAdminSession } from '../types';
@@ -51,15 +53,16 @@ export const Navigation: React.FC<NavigationProps> = ({
   onToggleMobileDeviceFrame,
 }) => {
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2">
         {/* Left: Brand & Tenant Switcher */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={() => onViewChange('landing')}
-            className="flex items-center gap-2 cursor-pointer group text-left"
+            className="flex items-center gap-2 cursor-pointer group text-left shrink-0"
             title="Go to Tá.shop Platform Home"
           >
             <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs group-hover:scale-105 transition-transform">
@@ -70,35 +73,35 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <span className="font-extrabold text-sm tracking-tight text-slate-900">Tá</span>
                 <span className="font-extrabold text-sm tracking-tight text-amber-500">.shop</span>
               </div>
-              <span className="text-[10px] text-slate-400 block -mt-1 font-mono">multi-tenant engine</span>
+              <span className="text-[10px] text-slate-400 block -mt-1 font-mono">social catalog</span>
             </div>
           </button>
 
-          <div className="h-5 w-px bg-slate-200 hidden sm:block" />
+          <div className="h-5 w-px bg-slate-200 hidden sm:block shrink-0" />
 
           {/* Tenant Switcher Dropdown */}
-          <div className="relative">
+          <div className="relative min-w-0">
             <button
               onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50/80 hover:bg-slate-100/80 transition text-left cursor-pointer group"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 transition text-left cursor-pointer group max-w-[140px] xs:max-w-[170px] sm:max-w-[200px]"
             >
               <img
                 src={currentStore.logoUrl}
                 alt={currentStore.name}
-                className="w-5 h-5 rounded-full object-cover border border-slate-200"
+                className="w-5 h-5 rounded-full object-cover border border-slate-200 shrink-0"
               />
-              <div className="max-w-[120px] sm:max-w-[170px]">
+              <div className="truncate">
                 <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1">
                   <span className="truncate">{currentStore.name}</span>
                   {currentStore.verified && (
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" title="Verified Store" />
                   )}
                 </div>
-                <div className="text-[10px] text-slate-400 font-mono truncate">
+                <div className="text-[10px] text-slate-400 font-mono truncate hidden xs:block">
                   tá.shop/{currentStore.slug}
                 </div>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition shrink-0 ml-auto" />
             </button>
 
             {/* Dropdown Menu */}
@@ -171,8 +174,8 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
         </div>
 
-        {/* Center / Right: View Modes */}
-        <div className="flex items-center gap-2">
+        {/* Desktop Navigation (Visible on sm screens and up) */}
+        <div className="hidden sm:flex items-center gap-2">
           {/* Main View Buttons */}
           <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-semibold">
             <button
@@ -198,8 +201,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               title="Buyer catalog (No login required)"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Buyer Catalog</span>
-              <span className="sm:hidden">Store</span>
+              <span>Buyer Catalog</span>
             </button>
 
             <button
@@ -218,8 +220,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               title="Seller Management Portal"
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Seller Portal</span>
-              <span className="sm:hidden">Admin</span>
+              <span>Seller Portal</span>
             </button>
           </div>
 
@@ -246,7 +247,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition cursor-pointer"
             >
               <Share2 className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Share & QR</span>
+              <span>Share & QR</span>
             </button>
           )}
 
@@ -288,11 +289,188 @@ export const Navigation: React.FC<NavigationProps> = ({
               className="text-xs font-semibold text-slate-700 hover:text-slate-900 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer flex items-center gap-1"
             >
               <LogIn className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Seller Login</span>
+              <span>Seller Login</span>
             </button>
           )}
         </div>
+
+        {/* Mobile Header Right (Zero overflow: Just quick Share + Hamburger Menu) */}
+        <div className="flex sm:hidden items-center gap-1.5 shrink-0">
+          {activeView !== 'landing' && (
+            <button
+              onClick={onOpenShareModal}
+              className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition cursor-pointer"
+              title="Share store link & QR"
+            >
+              <Share2 className="w-4 h-4 text-slate-600" />
+            </button>
+          )}
+
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className={`p-2 rounded-xl border transition cursor-pointer flex items-center justify-center ${
+              mobileMenuOpen
+                ? 'bg-slate-900 border-slate-900 text-white'
+                : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50'
+            }`}
+            aria-label="Toggle navigation menu"
+          >
+            {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
+
+      {/* Mobile Navigation Drawer (Slides cleanly from top/overlay on mobile screens) */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden fixed inset-x-0 top-16 bottom-0 z-50 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150 flex flex-col justify-start">
+          <div
+            className="fixed inset-0"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+
+          <div className="relative bg-white border-b border-slate-200 shadow-2xl p-4 space-y-4 max-h-[85vh] overflow-y-auto z-10 pb-safe">
+            {/* View Switcher Segmented Pills */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
+                Navigation View
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    onViewChange('storefront');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`p-3 rounded-2xl border text-xs font-bold flex items-center gap-2.5 transition cursor-pointer ${
+                    activeView === 'storefront'
+                      ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <Eye className="w-4 h-4 text-emerald-400" />
+                  <div className="text-left">
+                    <span className="block leading-tight">Buyer Catalog</span>
+                    <span className="text-[10px] opacity-70 block font-normal">Customer view</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (!sellerSession) {
+                      onOpenLogin();
+                    } else {
+                      onViewChange('dashboard');
+                    }
+                  }}
+                  className={`p-3 rounded-2xl border text-xs font-bold flex items-center gap-2.5 transition cursor-pointer ${
+                    activeView === 'dashboard'
+                      ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4 text-blue-400" />
+                  <div className="text-left">
+                    <span className="block leading-tight">Seller Portal</span>
+                    <span className="text-[10px] opacity-70 block font-normal">Orders & catalog</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onViewChange('landing');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`p-3 rounded-2xl border text-xs font-bold flex items-center gap-2.5 transition cursor-pointer ${
+                    activeView === 'landing'
+                      ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <Home className="w-4 h-4 text-amber-400" />
+                  <div className="text-left">
+                    <span className="block leading-tight">Tá.shop Home</span>
+                    <span className="text-[10px] opacity-70 block font-normal">Explore stores</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenSuperAdmin();
+                  }}
+                  className={`p-3 rounded-2xl border text-xs font-bold flex items-center gap-2.5 transition cursor-pointer ${
+                    activeView === 'superadmin'
+                      ? 'bg-amber-400 border-amber-400 text-slate-950 shadow-xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 text-amber-600" />
+                  <div className="text-left">
+                    <span className="block leading-tight">Super Admin</span>
+                    <span className="text-[10px] opacity-70 block font-normal">Platform root</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Actions List */}
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenShareModal();
+                }}
+                className="w-full p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-2.5 transition cursor-pointer"
+              >
+                <Share2 className="w-4 h-4 text-slate-500" />
+                <span>Share Store Link & QR Code</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenCreateStore();
+                }}
+                className="w-full p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 text-xs font-bold flex items-center gap-2.5 transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4 text-amber-600" />
+                <span>Launch New Storefront</span>
+              </button>
+
+              {/* Login / Logout */}
+              {sellerSession ? (
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                  <div className="truncate">
+                    <span className="text-[10px] text-slate-400 block font-semibold">Logged in as seller:</span>
+                    <span className="font-bold text-slate-800 truncate">{sellerSession.email}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onLogout();
+                    }}
+                    className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenLogin();
+                  }}
+                  className="w-full p-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
+                >
+                  <LogIn className="w-4 h-4 text-slate-300" />
+                  <span>Merchant Login</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

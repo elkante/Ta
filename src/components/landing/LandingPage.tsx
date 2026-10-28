@@ -59,7 +59,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#fafbfc] text-slate-900 selection:bg-amber-200">
+    <div className="min-h-screen bg-[#fafbfc] text-slate-900 selection:bg-amber-200 overflow-x-hidden w-full max-w-full">
       {/* Landing Navbar */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">

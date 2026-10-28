@@ -90,7 +90,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       {/* Card Content */}
-      <div className="p-4 flex-1 flex flex-col justify-between">
+      <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium mb-1">
             <span className="uppercase tracking-wider truncate">{product.category}</span>
@@ -100,7 +100,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               </span>
               {hasVariants && (
                 <span className="text-slate-500 font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">
-                  {product.variants.length} options
+                  {product.variants.length} opt
                 </span>
               )}
             </div>
@@ -108,36 +108,36 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           <h3
             onClick={() => onOpenDetails(product)}
-            className="font-bold text-slate-900 text-sm line-clamp-2 hover:text-slate-700 transition cursor-pointer leading-snug"
+            className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 hover:text-slate-700 transition cursor-pointer leading-snug"
             title={product.name}
           >
             {product.name}
           </h3>
 
-          <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+          <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed hidden xs:block">
             {product.description}
           </p>
         </div>
 
         {/* Price and Action Buttons */}
-        <div className="pt-3.5 mt-2 border-t border-slate-100">
-          <div className="flex items-baseline gap-2 mb-3">
-            <span className="font-extrabold text-base text-slate-900 font-mono">
-              {hasVariants && product.variants.length > 1 && <span className="text-xs font-normal text-slate-500 font-sans mr-0.5">from </span>}
+        <div className="pt-3 mt-2 border-t border-slate-100">
+          <div className="flex items-baseline gap-1.5 sm:gap-2 mb-2.5">
+            <span className="font-extrabold text-sm sm:text-base text-slate-900 font-mono">
+              {hasVariants && product.variants.length > 1 && <span className="text-[11px] font-normal text-slate-500 font-sans mr-0.5">from </span>}
               {formatPrice(lowestPrice, store.currencySymbol)}
             </span>
             {product.originalPrice && product.originalPrice > lowestPrice && (
-              <span className="text-xs text-slate-400 line-through font-mono">
+              <span className="text-[11px] sm:text-xs text-slate-400 line-through font-mono">
                 {formatPrice(product.originalPrice, store.currencySymbol)}
               </span>
             )}
           </div>
 
-          <div className="grid grid-cols-5 gap-1.5">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => onQuickWhatsApp(product)}
               disabled={!product.inStock}
-              className={`col-span-4 py-2 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-[0.98] ${
+              className={`flex-1 min-w-0 py-2 px-2 sm:px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 sm:gap-1.5 transition cursor-pointer active:scale-[0.98] ${
                 product.inStock
                   ? 'bg-[#25D366] hover:bg-[#20ba59] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-400 cursor-not-allowed'
@@ -145,20 +145,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               title="Order this product directly on WhatsApp"
             >
               <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">Order WhatsApp</span>
+              <span className="truncate">WhatsApp</span>
             </button>
 
             <button
               onClick={() => onAddToCart(product)}
               disabled={!product.inStock}
-              className={`col-span-1 py-2 rounded-xl flex items-center justify-center border transition cursor-pointer ${
+              className={`p-2 w-9 h-9 shrink-0 rounded-xl flex items-center justify-center border transition cursor-pointer ${
                 product.inStock
                   ? 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700'
                   : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
               }`}
               title="Add to WhatsApp Order Bag"
             >
-              <ShoppingBag className="w-3.5 h-3.5" />
+              <ShoppingBag className="w-4 h-4 shrink-0" />
             </button>
           </div>
         </div>

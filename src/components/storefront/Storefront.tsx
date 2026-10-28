@@ -237,7 +237,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
   }, 0);
 
   return (
-    <div className="min-h-screen bg-[#fafbfc] text-slate-900 pb-24">
+    <div className="min-h-screen bg-[#fafbfc] text-slate-900 pb-28 sm:pb-24 overflow-x-hidden w-full max-w-full">
       {/* Top Store Announcement Bar */}
       {store.announcement && (
         <div

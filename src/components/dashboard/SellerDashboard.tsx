@@ -303,7 +303,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20 overflow-x-hidden w-full max-w-full">
       {/* Top Banner / Store Header in Admin */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">

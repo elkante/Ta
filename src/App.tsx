@@ -193,7 +193,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900">
+    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900 overflow-x-hidden w-full max-w-full">
       {/* Top Multi-Tenant Navigation Header */}
       <Navigation
         currentStore={currentStore}
@@ -310,7 +310,7 @@ export default function App() {
                 </div>
 
                 {/* Inner Screen */}
-                <div className="flex-1 bg-white rounded-[36px] overflow-y-auto overflow-x-hidden relative">
+                <div className="flex-1 bg-white rounded-[36px] overflow-y-auto overflow-x-hidden relative [transform:translateZ(0)]">
                   <Storefront
                     store={currentStore}
                     products={storeProducts}
