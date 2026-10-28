@@ -184,11 +184,6 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
     if (onOrderPlaced) {
       onOrderPlaced(savedOrder);
     }
-
-    // Open WhatsApp seamlessly in a popup/tab after sound triggers
-    setTimeout(() => {
-      window.open(waLink, '_blank', 'noopener,noreferrer');
-    }, 350);
   };
 
   const handleCopyOrderId = () => {
@@ -250,7 +245,7 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
                 Order Received!
               </h2>
               <p className="text-xs text-slate-600 max-w-sm mx-auto">
-                Your order was saved to <strong>{store.name}</strong>'s dashboard. A complete copy is ready in your WhatsApp chat.
+                Your order was saved to <strong>{store.name}</strong>'s dashboard. A WhatsApp confirmation has been dispatched to your phone!
               </p>
             </div>
 
@@ -302,7 +297,7 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
                 className="w-full py-4 px-5 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-sm shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2.5 transition active:scale-[0.99] cursor-pointer"
               >
                 <MessageCircle className="w-5 h-5 fill-white" />
-                <span>Open in WhatsApp Now (Sent #{placedOrder.id})</span>
+                <span>Chat with Store on WhatsApp (Optional)</span>
                 <ExternalLink className="w-4 h-4 ml-1 opacity-70" />
               </a>
 

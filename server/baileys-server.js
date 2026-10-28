@@ -19,6 +19,7 @@ import QRCode from 'qrcode';
 import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
+  jidNormalizedUser,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 
@@ -36,6 +37,25 @@ if (!fs.existsSync(SESSIONS_DIR)) {
 // In-memory registry of active store WhatsApp sessions
 // Map<storeId, { sock, status: 'connecting'|'connected'|'disconnected', qrDataUrl: string|null, phone: string|null, catalog: Array }>
 const activeSessions = new Map();
+
+// In-memory store of recent messages for Signal retry key negotiation
+// Essential to prevent "Waiting for this message. This may take a while"
+const messageStore = new Map();
+
+/**
+ * Safely send message and register in local message store for retry decryption requests
+ */
+async function safeSendMessage(sock, jid, content, options) {
+  const sent = await sock.sendMessage(jid, content, options);
+  if (sent?.key?.id) {
+    messageStore.set(sent.key.id, sent);
+    if (messageStore.size > 3000) {
+      const oldestKey = messageStore.keys().next().value;
+      messageStore.delete(oldestKey);
+    }
+  }
+  return sent;
+}
 
 /**
  * Initializes or retrieves an isolated WhatsApp socket for a specific store.
@@ -62,7 +82,15 @@ async function initStoreSession(storeId, storeCatalog = []) {
     auth: state,
     logger: pino({ level: 'silent' }), // suppress verbose protocol logs
     printQRInTerminal: false,
-    browser: ['Tá.shop Social Catalog', 'Chrome', '1.0.0'],
+    browser: ['Ubuntu', 'Chrome', '20.0.04'],
+    syncFullHistory: false,
+    getMessage: async (key) => {
+      if (key?.id && messageStore.has(key.id)) {
+        const stored = messageStore.get(key.id);
+        return stored?.message || stored || undefined;
+      }
+      return undefined;
+    },
   });
 
   sessionData.sock = sock;
@@ -118,7 +146,18 @@ async function initStoreSession(storeId, storeCatalog = []) {
     if (type !== 'notify') return;
 
     for (const msg of messages) {
-      if (!msg.message || msg.key.fromMe) continue;
+      if (!msg.message) continue;
+
+      // Store in memory for Signal retry negotiation
+      if (msg.key?.id) {
+        messageStore.set(msg.key.id, msg);
+        if (messageStore.size > 3000) {
+          const oldestKey = messageStore.keys().next().value;
+          messageStore.delete(oldestKey);
+        }
+      }
+
+      if (msg.key.fromMe) continue;
 
       const remoteJid = msg.key.remoteJid;
       if (!remoteJid || remoteJid.includes('@g.us')) continue; // Ignore group chats
@@ -155,7 +194,7 @@ async function initStoreSession(storeId, storeCatalog = []) {
           `👉 *Tap here to view photos & complete order:*\n` +
           `https://${storeId}.ta.shop/?product=${matchedProduct.id}`;
 
-        await sock.sendMessage(remoteJid, { text: reply });
+        await safeSendMessage(sock, remoteJid, { text: reply });
         continue;
       }
 
@@ -172,7 +211,7 @@ async function initStoreSession(storeId, storeCatalog = []) {
           `👉 *Browse our full online catalog:* https://${storeId}.ta.shop\n` +
           `Reply with any *#Item UID* (e.g. #${topProducts[0]?.uid || 'TA-ITEM'}) to get details!`;
 
-        await sock.sendMessage(remoteJid, { text: reply });
+        await safeSendMessage(sock, remoteJid, { text: reply });
       }
     }
   });
@@ -312,21 +351,25 @@ app.post('/api/orders/notify/:storeId', async (req, res) => {
       ? rawMerchantPhone
       : `${merchantCountry}${rawMerchantPhone}`;
 
-    const merchantJid = `${cleanMerchant}@s.whatsapp.net`;
+    // If notifying the linked number itself, route to user's canonical WhatsApp self chat
+    let merchantJid = `${cleanMerchant}@s.whatsapp.net`;
+    if (session.phone && cleanMerchant.includes(session.phone)) {
+      merchantJid = sock.user?.id ? jidNormalizedUser(sock.user.id) : merchantJid;
+    }
 
     const merchantAlert =
       `🚨 *NEW ORDER RECEIVED VIA TÁ.SHOP!* 🚨\n\n` +
       `🧾 *Order ID:* #${order.id}\n` +
       `👤 *Customer:* ${order.buyerName}\n` +
       `📞 *Phone:* ${order.buyerPhone}\n` +
-      `📍 *Fulfillment:* ${order.fulfillmentMethod.toUpperCase()}\n` +
+      `📍 *Fulfillment:* ${(order.fulfillmentMethod || 'Delivery').toUpperCase()}\n` +
       (order.deliveryAddress ? `🏠 *Address:* ${order.deliveryAddress}\n` : '') +
       (order.buyerNotes ? `💬 *Note:* "${order.buyerNotes}"\n` : '') +
       `\n📦 *PACKING LIST:*\n${itemsText}\n\n` +
       `💰 *Total Amount:* ₦${Number(order.totalAmount).toLocaleString()}\n\n` +
       `⚡ *View Dispatch Waybill in your Dashboard:* https://${store.slug || storeId}.ta.shop/admin`;
 
-    await sock.sendMessage(merchantJid, { text: merchantAlert });
+    await safeSendMessage(sock, merchantJid, { text: merchantAlert });
     console.log(`[Store: ${storeId}] Instant merchant WhatsApp notification sent to ${merchantJid}`);
   } catch (err) {
     console.error('Failed to send merchant order alert:', err);
@@ -353,7 +396,7 @@ app.post('/api/orders/notify/:storeId', async (req, res) => {
         `📍 *Destination:* ${order.deliveryAddress || order.fulfillmentMethod}\n\n` +
         `We are preparing your items for dispatch. We will message you once your rider is on the way! 🚚✨`;
 
-      await sock.sendMessage(buyerJid, { text: buyerReceipt });
+      await safeSendMessage(sock, buyerJid, { text: buyerReceipt });
       console.log(`[Store: ${storeId}] Customer confirmation sent to ${buyerJid}`);
     }
   } catch (err) {
