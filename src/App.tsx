@@ -13,6 +13,7 @@ import { CreateStoreModal } from './components/modals/CreateStoreModal';
 import { SocialShareModal } from './components/modals/SocialShareModal';
 import { SuperAdminDashboard } from './components/admin/SuperAdminDashboard';
 import { SuperAdminLoginModal } from './components/admin/SuperAdminLoginModal';
+import { SplashScreen } from './components/common/SplashScreen';
 import {
   Product,
   SellerSession,
@@ -54,6 +55,7 @@ export default function App() {
   const [isCreateStoreOpen, setIsCreateStoreOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSuperAdminModalOpen, setIsSuperAdminModalOpen] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Initialize and load store based on URL or local storage
   const loadTenantData = (slug?: string) => {
@@ -186,18 +188,14 @@ export default function App() {
   };
 
   if (!currentStore) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-          <span>Loading Tá.shop multi-tenant platform...</span>
-        </div>
-      </div>
-    );
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900 overflow-x-hidden w-full max-w-full">
+      {/* App Splash Screen on Initial Load */}
+      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+
       {/* Top Multi-Tenant Navigation Header */}
       <Navigation
         currentStore={currentStore}
