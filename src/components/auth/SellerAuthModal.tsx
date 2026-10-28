@@ -3,6 +3,7 @@ import {
   AlertCircle,
   BadgeCheck,
   CheckCircle2,
+  Globe,
   Lock,
   LogIn,
   Mail,
@@ -47,7 +48,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
 
   // Login form state
   const [loginEmailOrPhone, setLoginEmailOrPhone] = useState('');
-  const [loginPassword, setLoginPassword] = useState('password123');
+  const [loginPassword, setLoginPassword] = useState('');
 
   // Signup form state
   const [signupStoreName, setSignupStoreName] = useState('');
@@ -55,7 +56,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
   const [signupCountryCode, setSignupCountryCode] = useState('+234');
   const [signupPhone, setSignupPhone] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('password123');
+  const [signupPassword, setSignupPassword] = useState('');
   const [signupCurrency, setSignupCurrency] = useState<CurrencyCode>('NGN');
 
   const [error, setError] = useState<string | null>(null);
@@ -76,13 +77,14 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     onClose();
   };
 
-  const handleQuickDemoLogin = (slug: string, email: string) => {
-    setLoginEmailOrPhone(email);
-    const res = authenticateSeller(slug, 'password123');
-    if (res.success && res.session) {
-      onLoginSuccess(res.session);
-      onClose();
-    }
+  const handleStoreNameChange = (val: string) => {
+    setSignupStoreName(val);
+    const auto = val
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    setSignupSlug(auto);
   };
 
   const handleSignup = (e: React.FormEvent) => {
@@ -99,9 +101,18 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
       return;
     }
 
-    const slugCheck = validateSlug(signupSlug);
+    const autoCleanSlug =
+      signupSlug ||
+      signupStoreName
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') ||
+      `store-${Date.now().toString().slice(-4)}`;
+
+    const slugCheck = validateSlug(autoCleanSlug);
     if (!slugCheck.isValid) {
-      setError(slugCheck.error || 'Invalid slug');
+      setError(slugCheck.error || 'Invalid store name. Please use standard characters.');
       return;
     }
 
@@ -281,117 +292,77 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Store Email, Phone, or Slug
+                  Store Email, Phone, or Handle
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     required
-                    placeholder="e.g. amaka-perfumes or amaka@perfumes.ng"
+                    placeholder="Enter store email, phone, or slug"
                     value={loginEmailOrPhone}
                     onChange={(e) => setLoginEmailOrPhone(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center justify-between">
-                  <span>Owner Password</span>
-                  <span className="text-[11px] text-slate-400">Default: password123</span>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Owner Password
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="password"
                     required
+                    placeholder="Enter your password"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-md transition cursor-pointer flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm shadow-md transition cursor-pointer flex items-center justify-center gap-2"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Sign In to Seller Dashboard</span>
               </button>
-
-              {/* 1-Click Demo Logins */}
-              <div className="pt-2">
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2 text-center">
-                  Or Test with a Demo Store (1-Click)
-                </span>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickDemoLogin('amaka-perfumes', 'amaka@perfumes.ng')}
-                    className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-left text-xs transition cursor-pointer"
-                  >
-                    <span className="font-bold block truncate">Amaka</span>
-                    <span className="text-[10px] text-slate-400 block truncate font-mono">amaka-perfumes</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickDemoLogin('zainab-couture', 'zainab@couture.ng')}
-                    className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-left text-xs transition cursor-pointer"
-                  >
-                    <span className="font-bold block truncate">Zainab</span>
-                    <span className="text-[10px] text-slate-400 block truncate font-mono">zainab-couture</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickDemoLogin('gadget-plug-ng', 'gadget@plug.ng')}
-                    className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-left text-xs transition cursor-pointer"
-                  >
-                    <span className="font-bold block truncate">Gadget Plug</span>
-                    <span className="text-[10px] text-slate-400 block truncate font-mono">gadget-plug-ng</span>
-                  </button>
-                </div>
-              </div>
             </form>
           ) : (
             /* SELLER SIGNUP */
             <form onSubmit={handleSignup} className="space-y-3.5">
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Store / Business Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Amaka Perfumes or Kemi Glow"
-                  value={signupStoreName}
-                  onChange={(e) => {
-                    setSignupStoreName(e.target.value);
-                    if (!signupSlug || signupSlug === '') {
-                      const auto = e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-                      setSignupSlug(auto);
-                    }
-                  }}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center justify-between">
-                  <span>Store Slug Link *</span>
-                  <span className="text-[11px] text-slate-400 font-mono">your-slug.ta.shop</span>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Store / Business Name *
                 </label>
-                <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden focus-within:ring-2 focus-within:ring-slate-900">
+                <div className="relative">
+                  <StoreIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     required
-                    value={signupSlug}
-                    onChange={(e) => setSignupSlug(e.target.value.toLowerCase())}
-                    placeholder="amaka-scents"
-                    className="w-full pl-3 pr-1.5 py-2 text-xs font-mono text-slate-900 bg-transparent focus:outline-none"
+                    placeholder="e.g. Zenith Tech, Bella Scents, Prime Hub"
+                    value={signupStoreName}
+                    onChange={(e) => handleStoreNameChange(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                   />
-                  <span className="pr-3 text-xs text-slate-400 font-mono select-none shrink-0">.ta.shop</span>
                 </div>
               </div>
+
+              {/* Auto-generated Live URL Preview Pill (Slug is automatic - not asked from user) */}
+              {signupSlug ? (
+                <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 font-mono">
+                  <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>Store Link:</span>
+                  <span className="font-bold text-slate-900 truncate">{signupSlug}.ta.shop</span>
+                  <span className="ml-auto text-emerald-600 text-[10px] font-sans font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                    Auto-assigned
+                  </span>
+                </div>
+              ) : null}
 
               {/* WhatsApp Phone */}
               <div className="grid grid-cols-3 gap-2">
@@ -400,7 +371,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                   <select
                     value={signupCountryCode}
                     onChange={(e) => setSignupCountryCode(e.target.value)}
-                    className="w-full px-2 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                    className="w-full px-2 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
                   >
                     <option value="+234">🇳🇬 +234</option>
                     <option value="+1">🇺🇸 +1</option>
@@ -419,7 +390,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     placeholder="08031234567"
                     value={signupPhone}
                     onChange={(e) => setSignupPhone(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                 </div>
               </div>
@@ -433,24 +404,24 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     placeholder="owner@domain.com"
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">Password</label>
                   <input
                     type="password"
-                    placeholder="password123"
+                    placeholder="Create a password"
                     value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-md transition cursor-pointer flex items-center justify-center gap-2 pt-2"
+                className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm shadow-md transition cursor-pointer flex items-center justify-center gap-2 pt-2"
               >
                 <Sparkles className="w-4 h-4 text-amber-400" />
                 <span>Launch My Tá.shop Store</span>

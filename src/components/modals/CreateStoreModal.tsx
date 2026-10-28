@@ -34,7 +34,6 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [isManualSlug, setIsManualSlug] = useState(false);
   const [countryCode, setCountryCode] = useState('+234');
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [currency, setCurrency] = useState<CurrencyCode>('NGN');
@@ -47,34 +46,22 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
 
   const handleNameChange = (val: string) => {
     setName(val);
-    if (!isManualSlug) {
-      const generated = val
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
-      setSlug(generated);
-      checkSlug(generated);
+    const generated = val
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    setSlug(generated);
+    if (generated) {
+      const check = validateSlug(generated);
+      if (!check.isValid) {
+        setValidationError(check.error || 'Please use standard alphanumeric characters');
+      } else {
+        setValidationError(null);
+      }
+    } else {
+      setValidationError(null);
     }
-  };
-
-  const handleSlugChange = (val: string) => {
-    setIsManualSlug(true);
-    setSlug(val.toLowerCase());
-    checkSlug(val);
-  };
-
-  const checkSlug = (s: string) => {
-    if (!s) {
-      setValidationError('Slug cannot be empty');
-      return false;
-    }
-    const check = validateSlug(s);
-    if (!check.isValid) {
-      setValidationError(check.error || 'Invalid slug');
-      return false;
-    }
-    setValidationError(null);
-    return true;
   };
 
   const handleNicheSelect = (nicheId: string) => {
@@ -98,9 +85,18 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
       return;
     }
 
-    const slugCheck = validateSlug(slug);
+    const finalSlug =
+      slug ||
+      name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') ||
+      `store-${Date.now().toString().slice(-4)}`;
+
+    const slugCheck = validateSlug(finalSlug);
     if (!slugCheck.isValid) {
-      setValidationError(slugCheck.error || 'Invalid slug');
+      setValidationError(slugCheck.error || 'Please enter a valid store name');
       return;
     }
 
@@ -267,36 +263,24 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
             <input
               type="text"
               required
-              placeholder="e.g. Amaka Perfumes, Bella Wigs, Gadget Plug"
+              placeholder="e.g. Bella Scents, Zenith Tech, Apex Stores"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
             />
           </div>
 
-          {/* Store Slug with reserved words check */}
-          <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center justify-between">
-              <span>Store Link (Slug) *</span>
-              <span className="text-[11px] text-slate-400 font-normal">Lowercase, unique</span>
-            </label>
-            <div className="flex items-center rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-slate-900 focus-within:border-transparent bg-slate-50">
-              <span className="pl-3 text-xs text-slate-500 font-mono select-none">tá.shop/</span>
-              <input
-                type="text"
-                required
-                placeholder="your-brand-slug"
-                value={slug}
-                onChange={(e) => handleSlugChange(e.target.value)}
-                className="w-full px-2 py-2.5 text-sm font-mono text-slate-900 bg-transparent focus:outline-none"
-              />
-              {slug && !validationError && (
-                <span className="pr-3 text-emerald-600">
-                  <CheckCircle2 className="w-4 h-4" />
-                </span>
-              )}
+          {/* Auto Store Link Preview Pill (No manual input needed) */}
+          {slug ? (
+            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-600">
+              <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>Store Link:</span>
+              <span className="font-bold text-slate-900 truncate">tá.shop/{slug}</span>
+              <span className="ml-auto text-emerald-600 text-[10px] font-sans font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Auto-assigned
+              </span>
             </div>
-          </div>
+          ) : null}
 
           {/* WhatsApp Phone */}
           <div className="grid grid-cols-3 gap-2">
@@ -305,7 +289,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
               <select
                 value={countryCode}
                 onChange={(e) => setCountryCode(e.target.value)}
-                className="w-full px-2.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-2.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
               >
                 <option value="+234">🇳🇬 +234</option>
                 <option value="+1">🇺🇸 +1</option>
@@ -323,7 +307,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
                 placeholder="e.g. 08031234567"
                 value={whatsappNumber}
                 onChange={(e) => setWhatsappNumber(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
               />
             </div>
           </div>
@@ -335,7 +319,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
               >
                 {CURRENCIES.map((c) => (
                   <option key={c.code} value={c.code}>
@@ -352,7 +336,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
                 placeholder="e.g. Lekki, Lagos or Abuja"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
               />
             </div>
           </div>
