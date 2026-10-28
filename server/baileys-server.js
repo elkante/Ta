@@ -257,6 +257,93 @@ app.post('/api/whatsapp/disconnect/:storeId', async (req, res) => {
   res.json({ success: true, message: 'Disconnected' });
 });
 
+/**
+ * Instant System Order Notification (Dispatches WhatsApp alerts automatically)
+ * Sends notification directly to the merchant AND sends receipt confirmation to the buyer!
+ */
+app.post('/api/orders/notify/:storeId', async (req, res) => {
+  const { storeId } = req.params;
+  const { order, store = {} } = req.body;
+
+  if (!order) {
+    return res.status(400).json({ error: 'Missing order details' });
+  }
+
+  const session = activeSessions.get(storeId);
+  if (!session || !session.sock || session.status !== 'connected') {
+    return res.json({
+      success: false,
+      message: 'Store WhatsApp is not actively linked with Baileys yet.',
+    });
+  }
+
+  const sock = session.sock;
+  const itemsText = (order.items || [])
+    .map((item) => `• ${item.quantity}x ${item.productName} (Code: #${item.productUid}) - ₦${Number(item.subtotal).toLocaleString()}`)
+    .join('\n');
+
+  // 1. Notify the Merchant (Store Owner) on their WhatsApp
+  try {
+    const rawMerchantPhone = (store.whatsappNumber || session.phone || '').replace(/\D/g, '');
+    const merchantCountry = (store.whatsappCountryCode || '234').replace(/\D/g, '');
+    const cleanMerchant = rawMerchantPhone.startsWith('0')
+      ? `${merchantCountry}${rawMerchantPhone.slice(1)}`
+      : rawMerchantPhone.startsWith(merchantCountry)
+      ? rawMerchantPhone
+      : `${merchantCountry}${rawMerchantPhone}`;
+
+    const merchantJid = `${cleanMerchant}@s.whatsapp.net`;
+
+    const merchantAlert =
+      `🚨 *NEW ORDER RECEIVED VIA TÁ.SHOP!* 🚨\n\n` +
+      `🧾 *Order ID:* #${order.id}\n` +
+      `👤 *Customer:* ${order.buyerName}\n` +
+      `📞 *Phone:* ${order.buyerPhone}\n` +
+      `📍 *Fulfillment:* ${order.fulfillmentMethod.toUpperCase()}\n` +
+      (order.deliveryAddress ? `🏠 *Address:* ${order.deliveryAddress}\n` : '') +
+      (order.buyerNotes ? `💬 *Note:* "${order.buyerNotes}"\n` : '') +
+      `\n📦 *PACKING LIST:*\n${itemsText}\n\n` +
+      `💰 *Total Amount:* ₦${Number(order.totalAmount).toLocaleString()}\n\n` +
+      `⚡ *View Dispatch Waybill in your Dashboard:* https://${store.slug || storeId}.ta.shop/admin`;
+
+    await sock.sendMessage(merchantJid, { text: merchantAlert });
+    console.log(`[Store: ${storeId}] Instant merchant WhatsApp notification sent to ${merchantJid}`);
+  } catch (err) {
+    console.error('Failed to send merchant order alert:', err);
+  }
+
+  // 2. Notify the Customer (Buyer) on their WhatsApp directly from the system
+  try {
+    if (order.buyerPhone) {
+      const rawBuyer = order.buyerPhone.replace(/\D/g, '');
+      const defaultCountry = (store.whatsappCountryCode || '234').replace(/\D/g, '');
+      const cleanBuyer = rawBuyer.startsWith('0')
+        ? `${defaultCountry}${rawBuyer.slice(1)}`
+        : rawBuyer.startsWith(defaultCountry)
+        ? rawBuyer
+        : `${defaultCountry}${rawBuyer}`;
+
+      const buyerJid = `${cleanBuyer}@s.whatsapp.net`;
+
+      const buyerReceipt =
+        `🎉 Hello *${order.buyerName}*!\n\n` +
+        `Your order *#${order.id}* has been successfully received by *${store.name || 'our store'}*!\n\n` +
+        `📦 *Ordered Items:*\n${itemsText}\n\n` +
+        `💰 *Total:* ₦${Number(order.totalAmount).toLocaleString()}\n` +
+        `📍 *Destination:* ${order.deliveryAddress || order.fulfillmentMethod}\n\n` +
+        `We are preparing your items for dispatch. We will message you once your rider is on the way! 🚚✨`;
+
+      await sock.sendMessage(buyerJid, { text: buyerReceipt });
+      console.log(`[Store: ${storeId}] Customer confirmation sent to ${buyerJid}`);
+    }
+  } catch (err) {
+    console.error('Failed to send buyer order receipt:', err);
+  }
+
+  res.json({ success: true, message: 'Instant WhatsApp notifications dispatched!' });
+});
+
+
 app.listen(PORT, () => {
   console.log(`⚡ Tá.shop Baileys Multi-Tenant WhatsApp Server running on port ${PORT}`);
 });

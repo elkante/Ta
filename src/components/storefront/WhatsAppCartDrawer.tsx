@@ -165,6 +165,17 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
     setPlacedOrder(savedOrder);
     setIsSubmitting(false);
 
+    // Trigger Instant Baileys System Notification (Arrives directly on seller's & buyer's WhatsApp without relying on buyer opening app)
+    try {
+      fetch(`http://localhost:3001/api/orders/notify/${store.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: savedOrder, store }),
+      }).catch(() => {
+        // Silent fallback if server is offline
+      });
+    } catch (e) {}
+
     if (onOrderPlaced) {
       onOrderPlaced(savedOrder);
     }
