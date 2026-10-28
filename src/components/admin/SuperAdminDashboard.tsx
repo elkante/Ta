@@ -482,7 +482,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
                               <span className="font-mono text-slate-700 font-semibold">
-                                tá.shop/{store.slug}
+                                {store.slug}.ta.shop
                               </span>
                               <span>•</span>
                               <span>{store.ownerEmail || 'No email'}</span>
@@ -975,7 +975,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             <div className="text-center space-y-1">
               <h3 className="font-bold text-slate-900 text-base">Delete Store Permanently?</h3>
               <p className="text-xs text-slate-500">
-                Are you sure you want to delete <strong>{storeToDelete.name}</strong> (`tá.shop/{storeToDelete.slug}`)? All catalog items and recorded orders will be erased.
+                Are you sure you want to delete <strong>{storeToDelete.name}</strong> (`{storeToDelete.slug}.ta.shop`)? All catalog items and recorded orders will be erased.
               </p>
             </div>
             <div className="flex gap-2 pt-2">

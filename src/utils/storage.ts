@@ -916,3 +916,74 @@ export function resetPlatformToSeedData(): void {
   localStorage.removeItem('tashop_multi_reviews');
   localStorage.removeItem(PLATFORM_SETTINGS_KEY);
 }
+
+// ----------------------------------------------------
+// Subdomain / URL Helpers
+// ----------------------------------------------------
+
+/** The production root domain (store-first subdomain format). */
+export const TA_ROOT_DOMAIN = 'ta.shop';
+
+/**
+ * Returns the full shareable URL for a store, formatted as:
+ *   https://{slug}.ta.shop               (production)
+ *   http://localhost:PORT?store={slug}   (local dev fallback)
+ *
+ * Always returns a clickable URL. For a pure display label
+ * (without the protocol), use `getStoreDisplayUrl` instead.
+ */
+export function getStoreUrl(
+  slug: string,
+  options?: { productId?: string }
+): string {
+  const isLocal =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.startsWith('192.168.'));
+
+  if (isLocal) {
+    // Local dev: use query-param fallback so the link is actually clickable
+    const base = window.location.origin;
+    const params = new URLSearchParams({ store: slug });
+    if (options?.productId) params.set('product', options.productId);
+    return `${base}?${params.toString()}`;
+  }
+
+  // Production: proper subdomain URL
+  const base = `https://${slug}.${TA_ROOT_DOMAIN}`;
+  if (options?.productId) return `${base}?product=${options.productId}`;
+  return base;
+}
+
+/**
+ * Returns a display-only branded label like "amaka-perfumes.ta.shop"
+ * without a protocol – suitable for UI badges and nav bars.
+ */
+export function getStoreDisplayUrl(slug: string): string {
+  return `${slug}.${TA_ROOT_DOMAIN}`;
+}
+
+/**
+ * Reads the subdomain from the current hostname to determine which
+ * store to load automatically in production.
+ *
+ * Examples:
+ *   amaka-perfumes.ta.shop  →  "amaka-perfumes"
+ *   ta.shop                 →  null  (root domain, show landing)
+ *   localhost               →  null  (dev, use ?store= param)
+ */
+export function getSubdomainFromHostname(): string | null {
+  if (typeof window === 'undefined') return null;
+  const host = window.location.hostname;
+  const parts = host.split('.');
+
+  // Must have at least 3 parts: subdomain.domain.tld
+  if (parts.length >= 3) {
+    const sub = parts[0];
+    // Exclude well-known system subdomains
+    const EXCLUDED = ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp'];
+    if (!EXCLUDED.includes(sub)) return sub;
+  }
+  return null;
+}

@@ -3,6 +3,7 @@ import { Check, Copy, Download, QrCode, Share2, Sparkles, X } from 'lucide-react
 import { Product, Store } from '../../types';
 import { generateQRCodeSVG } from '../../utils/qrCode';
 import { formatPrice } from '../../utils/whatsapp';
+import { getStoreDisplayUrl, getStoreUrl } from '../../utils/storage';
 
 interface SocialShareModalProps {
   isOpen: boolean;
@@ -22,10 +23,15 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
 
   if (!isOpen) return null;
 
-  const baseUrl = window.location.origin;
+  // Use subdomain URL format: slug.ta.shop (or localhost fallback in dev)
   const targetUrl = product
-    ? `${baseUrl}?store=${store.slug}&product=${product.id}`
-    : `${baseUrl}?store=${store.slug}`;
+    ? getStoreUrl(store.slug, { productId: product.id })
+    : getStoreUrl(store.slug);
+
+  // Display label always shows the branded subdomain format
+  const displayUrl = product
+    ? `${getStoreDisplayUrl(store.slug)}?product=${product.id}`
+    : getStoreDisplayUrl(store.slug);
 
   const qrSvg = generateQRCodeSVG(targetUrl, 220, store.accentColor || '#111827', '#ffffff');
 
@@ -131,7 +137,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
                 <div className="relative aspect-video w-full bg-slate-100 overflow-hidden">
                   <img src={image} alt={title} className="w-full h-full object-cover" />
                   <span className="absolute bottom-2 left-2 bg-black/70 backdrop-blur-xs text-white text-[10px] font-medium px-2 py-0.5 rounded-sm">
-                    tá.shop/{store.slug}
+                    {getStoreDisplayUrl(store.slug)}
                   </span>
                 </div>
                 <div className="p-3">
@@ -154,7 +160,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
               <input
                 type="text"
                 readOnly
-                value={targetUrl}
+                value={displayUrl}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-700 select-all"
               />
               <button

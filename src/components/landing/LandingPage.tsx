@@ -131,31 +131,31 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </h1>
 
           <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            Every seller gets their own branded store at <strong className="text-slate-900 font-mono">tá.shop/yourbrand</strong>.
+            Every seller gets their own branded store at <strong className="text-slate-900 font-mono">yourbrand.ta.shop</strong>.
             Customers search by <strong>Item UID</strong> and order in 1 click without ever needing to log in.
           </p>
 
           {/* Claim Handle Bar */}
           <div className="max-w-md mx-auto pt-2">
             <form onSubmit={handleClaim} className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-2xl shadow-xl border border-slate-200">
-              <div className="flex-1 flex items-center pl-3">
-                <span className="text-xs font-mono font-bold text-slate-400 select-none">tá.shop/</span>
+              <div className="flex-1 flex items-center px-3 min-w-0">
                 <input
                   type="text"
-                  placeholder="amaka-scents"
+                  placeholder="your-brand-name"
                   value={handleInput}
                   onChange={(e) => {
                     setHandleInput(e.target.value);
                     setHandleError(null);
                   }}
-                  className="w-full px-1.5 py-2 text-xs sm:text-sm font-mono font-semibold text-slate-900 focus:outline-none bg-transparent"
+                  className="w-full py-2 text-xs sm:text-sm font-mono font-semibold text-slate-900 focus:outline-none bg-transparent min-w-0"
                 />
+                <span className="text-xs font-mono font-bold text-slate-400 select-none shrink-0 ml-1">.ta.shop</span>
               </div>
               <button
                 type="submit"
                 className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <span>Claim My Link</span>
+                <span>Claim My Store</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </form>
@@ -218,7 +218,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                   <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-xs text-slate-900 font-mono text-[10px] font-bold px-2.5 py-1 rounded-full shadow-xs">
-                    tá.shop/{s.slug}
+                    {s.slug}.ta.shop
                   </span>
                 </div>
 
@@ -335,7 +335,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                 <ul className="mt-6 space-y-2.5 text-xs text-slate-700">
                   <li className="flex items-center gap-2">✓ Up to 10 products with variants</li>
-                  <li className="flex items-center gap-2">✓ Custom link: <strong>tá.shop/yourbrand</strong></li>
+                  <li className="flex items-center gap-2">✓ Custom link: <strong>yourbrand.ta.shop</strong></li>
                   <li className="flex items-center gap-2">✓ Item UID search & WhatsApp checkout</li>
                   <li className="flex items-center gap-2">✓ Loud audio order alerts & dashboard logging</li>
                   <li className="flex items-center gap-2">✓ Printable store QR code</li>

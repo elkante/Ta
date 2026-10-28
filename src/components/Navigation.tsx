@@ -98,7 +98,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   )}
                 </div>
                 <div className="text-[10px] text-slate-400 font-mono truncate hidden xs:block">
-                  tá.shop/{currentStore.slug}
+                  {currentStore.slug}.ta.shop
                 </div>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition shrink-0 ml-auto" />
@@ -145,7 +145,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                                 s.id === currentStore.id ? 'text-slate-300' : 'text-slate-400'
                               }`}
                             >
-                              tá.shop/{s.slug}
+                              {s.slug}.ta.shop
                             </div>
                           </div>
                         </div>

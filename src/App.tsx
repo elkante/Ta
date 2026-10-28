@@ -32,6 +32,7 @@ import {
   getStoreBySlug,
   getStoredStores,
   getSuperAdminSession,
+  getSubdomainFromHostname,
   setCurrentTenantSlug,
 } from './utils/storage';
 
@@ -70,7 +71,10 @@ export default function App() {
     // Read URL params
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
-    const urlStoreSlug = slug || urlParams.get('store') || getCurrentTenantSlug();
+
+    // Resolve store slug: explicit arg → subdomain → ?store= param → localStorage fallback
+    const subdomainSlug = getSubdomainFromHostname();
+    const urlStoreSlug = slug || subdomainSlug || urlParams.get('store') || getCurrentTenantSlug();
 
     if (viewParam === 'landing') {
       setActiveView('landing');
@@ -306,7 +310,7 @@ export default function App() {
                 {/* In-app Browser URL bar */}
                 <div className="bg-slate-900 text-slate-300 text-[11px] font-mono py-1.5 px-3 rounded-full mt-3 mb-2 mx-2 text-center truncate flex items-center justify-center gap-1.5 border border-slate-800 z-20">
                   <span className="text-emerald-400">🔒</span>
-                  <span>tá.shop/{currentStore.slug}</span>
+                  <span>{currentStore.slug}.ta.shop</span>
                 </div>
 
                 {/* Inner Screen */}

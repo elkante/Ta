@@ -47,6 +47,8 @@ import {
   getStoredInquiries,
   getStoredProducts,
   getStoredStores,
+  getStoreUrl,
+  getStoreDisplayUrl,
   saveInquiries,
   saveProducts,
   saveStores,
@@ -267,13 +269,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   };
 
   const handleCopyStoreLink = () => {
-    const url = `${window.location.origin}?store=${store.slug}`;
+    const url = getStoreUrl(store.slug);
     navigator.clipboard.writeText(url);
     setCopiedStoreLink(true);
     setTimeout(() => setCopiedStoreLink(false), 2000);
   };
 
-  const storeCatalogUrl = `${window.location.origin}?store=${store.slug}`;
+  const storeCatalogUrl = getStoreUrl(store.slug);
   const qrSvg = generateQRCodeSVG(storeCatalogUrl, 260, store.accentColor || '#111827', '#ffffff');
 
   const handleDownloadStoreQR_PNG = () => {
@@ -329,7 +331,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                  <span className="font-mono text-slate-600">/s/{store.slug}</span>
+                  <span className="font-mono text-slate-600">{store.slug}.ta.shop</span>
                   <span>•</span>
                   <span>WhatsApp: {store.whatsappCountryCode} {store.whatsappNumber}</span>
                 </div>
@@ -1268,7 +1270,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   dangerouslySetInnerHTML={{ __html: qrSvg }}
                 />
                 <span className="mt-3 text-xs font-mono text-slate-600 font-semibold">
-                  tá.shop/{store.slug}
+                  {store.slug}.ta.shop
                 </span>
               </div>
 

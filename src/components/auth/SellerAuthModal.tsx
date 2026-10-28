@@ -224,7 +224,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                 {mode === 'login' ? 'Seller Merchant Portal' : 'Launch Your Tá.shop Store'}
               </h3>
               <p className="text-xs text-slate-500">
-                {mode === 'login' ? 'Manage your WhatsApp catalog & orders' : 'Claim your tá.shop/handle in 30 seconds'}
+                {mode === 'login' ? 'Manage your WhatsApp catalog & orders' : 'Claim your handle — yourbrand.ta.shop'}
               </p>
             </div>
           </div>
@@ -378,17 +378,18 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center justify-between">
                   <span>Store Slug Link *</span>
-                  <span className="text-[11px] text-slate-400 font-mono">tá.shop/your-slug</span>
+                  <span className="text-[11px] text-slate-400 font-mono">your-slug.ta.shop</span>
                 </label>
                 <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden focus-within:ring-2 focus-within:ring-slate-900">
-                  <span className="pl-3 text-xs text-slate-400 font-mono select-none">tá.shop/</span>
                   <input
                     type="text"
                     required
                     value={signupSlug}
                     onChange={(e) => setSignupSlug(e.target.value.toLowerCase())}
-                    className="w-full px-1.5 py-2 text-xs font-mono text-slate-900 bg-transparent focus:outline-none"
+                    placeholder="amaka-scents"
+                    className="w-full pl-3 pr-1.5 py-2 text-xs font-mono text-slate-900 bg-transparent focus:outline-none"
                   />
+                  <span className="pr-3 text-xs text-slate-400 font-mono select-none shrink-0">.ta.shop</span>
                 </div>
               </div>
 
