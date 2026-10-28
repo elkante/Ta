@@ -35,7 +35,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onShareProduct,
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(undefined);
+  const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>(() => {
+    return product?.variants && product.variants.length > 0 ? [product.variants[0].id] : [];
+  });
   const [buyerLocation, setBuyerLocation] = useState('');
   const [buyerNote, setBuyerNote] = useState('');
   const [addedToCartToast, setAddedToCartToast] = useState(false);
@@ -43,12 +45,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   if (!isOpen || !product) return null;
 
-  const effectiveVariant =
-    selectedVariant ?? (product.variants && product.variants.length > 0 ? product.variants[0] : undefined);
+  const toggleVariant = (id: string) => {
+    setSelectedVariantIds((prev) => {
+      if (prev.includes(id)) {
+        const next = prev.filter((vId) => vId !== id);
+        return next.length > 0 ? next : [id];
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
 
-  const currentPrice = effectiveVariant ? effectiveVariant.price : product.price;
-  const currentOriginalPrice = effectiveVariant?.originalPrice || product.originalPrice;
-  const isAvailable = effectiveVariant ? effectiveVariant.inStock : product.inStock;
+  const primaryVariant = product.variants?.find((v) => selectedVariantIds.includes(v.id)) || product.variants?.[0];
+  const currentPrice = primaryVariant ? primaryVariant.price : product.price;
+  const currentOriginalPrice = primaryVariant?.originalPrice || product.originalPrice;
+  const isAvailable = primaryVariant ? primaryVariant.inStock : product.inStock;
 
   const images =
     product.images.length > 0
@@ -65,13 +76,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   };
 
   const handleAddBag = () => {
-    onAddToCart(product, effectiveVariant);
+    if (product.variants && product.variants.length > 0) {
+      const selected = product.variants.filter((v) => selectedVariantIds.includes(v.id));
+      if (selected.length > 0) {
+        selected.forEach((v) => onAddToCart(product, v));
+      } else {
+        onAddToCart(product, product.variants[0]);
+      }
+    } else {
+      onAddToCart(product);
+    }
     setAddedToCartToast(true);
     setTimeout(() => setAddedToCartToast(false), 2200);
   };
 
   const handleDirectOrder = () => {
-    onOrderWhatsApp(product, effectiveVariant, buyerLocation, buyerNote);
+    onOrderWhatsApp(product, primaryVariant, buyerLocation, buyerNote);
   };
 
   const discountPercent =
@@ -214,29 +234,39 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* Description */}
           <p className="text-sm text-slate-600 leading-relaxed">{product.description}</p>
 
-          {/* Variants */}
+          {/* Variants with Checkboxes */}
           {product.variants && product.variants.length > 0 && (
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-2 uppercase tracking-wide">
-                Choose Option
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 block uppercase tracking-wide">
+                Available Options (Mark Checkbox)
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {product.variants.map((v) => (
-                  <button
-                    key={v.id}
-                    onClick={() => setSelectedVariant(v)}
-                    className={`p-3 rounded-xl border text-left text-xs flex items-center justify-between transition cursor-pointer ${
-                      effectiveVariant?.id === v.id
-                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-800'
-                    } ${!v.inStock ? 'opacity-50' : ''}`}
-                  >
-                    <span className="font-bold">{v.name}</span>
-                    <span className={`font-mono text-xs ${effectiveVariant?.id === v.id ? 'text-amber-300' : 'text-slate-500'}`}>
-                      {formatPrice(v.price, store.currencySymbol)}
-                    </span>
-                  </button>
-                ))}
+              <div className="space-y-2">
+                {product.variants.map((v) => {
+                  const isChecked = selectedVariantIds.includes(v.id);
+                  return (
+                    <label
+                      key={v.id}
+                      className={`p-3 rounded-2xl border text-xs flex items-center justify-between transition cursor-pointer select-none ${
+                        isChecked
+                          ? 'border-emerald-600 bg-emerald-50 text-slate-900 font-bold shadow-xs'
+                          : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                      } ${!v.inStock ? 'opacity-50' : ''}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleVariant(v.id)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                        />
+                        <span className="font-semibold">{v.name}</span>
+                      </div>
+                      <span className="font-mono text-xs font-bold text-slate-800">
+                        {formatPrice(v.price, store.currencySymbol)}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
           )}

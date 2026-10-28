@@ -23,6 +23,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const [cartBounce, setCartBounce] = useState(false);
 
   const hasVariants = product.variants && product.variants.length > 0;
+  const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>(() => {
+    return hasVariants ? [product.variants[0].id] : [];
+  });
+
+  const toggleVariant = (variantId: string) => {
+    setSelectedVariantIds((prev) => {
+      if (prev.includes(variantId)) {
+        const next = prev.filter((id) => id !== variantId);
+        return next.length > 0 ? next : [variantId];
+      } else {
+        return [...prev, variantId];
+      }
+    });
+  };
+
   const lowestPrice = hasVariants
     ? Math.min(...product.variants.map((v) => v.price))
     : product.price;
@@ -35,8 +50,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!product.inStock) return;
-    const defaultVariant = hasVariants && product.variants.length > 0 ? product.variants[0] : undefined;
-    onAddToCart(product, defaultVariant);
+
+    if (hasVariants) {
+      const selectedVariants = product.variants.filter((v) => selectedVariantIds.includes(v.id));
+      if (selectedVariants.length > 0) {
+        selectedVariants.forEach((v) => onAddToCart(product, v));
+      } else {
+        onAddToCart(product, product.variants[0]);
+      }
+    } else {
+      onAddToCart(product);
+    }
+
     setCartBounce(true);
     setTimeout(() => setCartBounce(false), 900);
   };
@@ -139,6 +164,39 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </span>
           )}
         </div>
+
+        {/* Variant Checkboxes */}
+        {hasVariants && product.variants.length > 1 && (
+          <div className="pt-1.5 space-y-1">
+            {product.variants.map((v) => {
+              const isChecked = selectedVariantIds.includes(v.id);
+              return (
+                <label
+                  key={v.id}
+                  onClick={(e) => e.stopPropagation()}
+                  className={`flex items-center justify-between px-2 py-1 rounded-lg border text-[11px] cursor-pointer transition select-none ${
+                    isChecked
+                      ? 'border-emerald-600 bg-emerald-50/70 text-slate-900 font-bold'
+                      : 'border-slate-200 bg-white hover:border-slate-300 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleVariant(v.id)}
+                      className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                    />
+                    <span className="truncate">{v.name}</span>
+                  </div>
+                  <span className="font-mono text-[10px] text-slate-500 shrink-0 ml-1">
+                    {formatPrice(v.price, store.currencySymbol)}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        )}
 
         {/* Add to Cart button */}
         <div className="pt-2 border-t border-slate-100">

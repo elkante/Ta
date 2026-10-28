@@ -410,24 +410,41 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
           </div>
 
           {/* Variants & Options Section */}
-          <div className="pt-2 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <span className="text-xs font-semibold text-slate-800 block">
-                  Product Variants (Sizes / Colors)
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  Add options with individual prices (e.g. 50ml, 100ml)
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleAddVariant}
-                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Variant</span>
-              </button>
+          <div className="pt-2 border-t border-slate-100 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={variants.length > 0}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      handleAddVariant();
+                    } else {
+                      setVariants([]);
+                    }
+                  }}
+                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-semibold text-slate-800 block">
+                    This item has variants (Sizes / Colors / Scents)
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    Keep options under this single item instead of creating separate products
+                  </span>
+                </div>
+              </label>
+
+              {variants.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleAddVariant}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Option</span>
+                </button>
+              )}
             </div>
 
             {variants.length > 0 && (
