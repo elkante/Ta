@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   CheckCircle2,
   Globe,
+  Instagram,
   Lock,
   LogIn,
   Mail,
@@ -59,6 +60,11 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
   const [signupPassword, setSignupPassword] = useState('');
   const [signupCurrency, setSignupCurrency] = useState<CurrencyCode>('NGN');
 
+  // Optional social links
+  const [socialInstagram, setSocialInstagram] = useState('');
+  const [socialFacebook, setSocialFacebook] = useState('');
+  const [socialTiktok, setSocialTiktok] = useState('');
+
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -79,11 +85,13 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
 
   const handleStoreNameChange = (val: string) => {
     setSignupStoreName(val);
+    // Auto-generate slug: spaces → hyphens, lowercase, strip specials
     const auto = val
       .toLowerCase()
       .trim()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+      .replace(/\s+/g, '-')           // spaces to hyphens
+      .replace(/[^a-z0-9-]+/g, '')    // remove non-alphanumeric except hyphens
+      .replace(/^-+|-+$/g, '');       // strip leading/trailing hyphens
     setSignupSlug(auto);
   };
 
@@ -149,7 +157,11 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
       location: 'Lagos, Nigeria',
       announcement: `✨ Welcome to ${signupStoreName}! Search by Item UID to order via WhatsApp.`,
       deliveryInfo: 'Fast dispatch available nationwide. Inquire via WhatsApp for exact rates.',
-      socialLinks: {},
+      socialLinks: {
+        instagram: socialInstagram.trim() ? `https://instagram.com/${socialInstagram.trim().replace(/^@/, '')}` : undefined,
+        facebook: socialFacebook.trim() ? `https://facebook.com/${socialFacebook.trim().replace(/^@/, '')}` : undefined,
+        tiktok: socialTiktok.trim() ? `https://tiktok.com/@${socialTiktok.trim().replace(/^@/, '')}` : undefined,
+      },
       tier: 'free',
       verified: false,
       createdAt: new Date().toISOString(),
@@ -415,6 +427,52 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Optional Social Links */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5" /> Social Links <span className="font-normal normal-case text-slate-400">(Optional — shown on your store)</span>
+                </p>
+
+                {/* Instagram */}
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                  <span className="text-base shrink-0">📸</span>
+                  <span className="text-xs text-slate-400 font-mono shrink-0">instagram.com/</span>
+                  <input
+                    type="text"
+                    placeholder="yourusername"
+                    value={socialInstagram}
+                    onChange={(e) => setSocialInstagram(e.target.value.replace(/^@/, ''))}
+                    className="flex-1 text-xs font-medium text-slate-900 bg-transparent placeholder:text-slate-300 focus:outline-none min-w-0"
+                  />
+                </div>
+
+                {/* Facebook */}
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                  <span className="text-base shrink-0">👤</span>
+                  <span className="text-xs text-slate-400 font-mono shrink-0">facebook.com/</span>
+                  <input
+                    type="text"
+                    placeholder="yourpagename"
+                    value={socialFacebook}
+                    onChange={(e) => setSocialFacebook(e.target.value.replace(/^@/, ''))}
+                    className="flex-1 text-xs font-medium text-slate-900 bg-transparent placeholder:text-slate-300 focus:outline-none min-w-0"
+                  />
+                </div>
+
+                {/* TikTok */}
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                  <span className="text-base shrink-0">🎵</span>
+                  <span className="text-xs text-slate-400 font-mono shrink-0">tiktok.com/@</span>
+                  <input
+                    type="text"
+                    placeholder="yourusername"
+                    value={socialTiktok}
+                    onChange={(e) => setSocialTiktok(e.target.value.replace(/^@/, ''))}
+                    className="flex-1 text-xs font-medium text-slate-900 bg-transparent placeholder:text-slate-300 focus:outline-none min-w-0"
                   />
                 </div>
               </div>
