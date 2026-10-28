@@ -16,7 +16,6 @@ import {
   Zap,
 } from 'lucide-react';
 import { SellerSession, Store, SuperAdminSession } from '../types';
-
 interface NavigationProps {
   currentStore: Store;
   allStores: Store[];
@@ -53,26 +52,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // ─── 6-tap Easter egg on logo → opens Super Admin ───────────────────────
-  const [logoTapCount, setLogoTapCount] = useState(0);
-  const logoTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleLogoTap = () => {
-    const next = logoTapCount + 1;
-    setLogoTapCount(next);
-
-    // Clear any existing reset timer
-    if (logoTapTimer.current) clearTimeout(logoTapTimer.current);
-
-    if (next >= 6) {
-      // 🎉 Easter egg unlocked — open Super Admin
-      setLogoTapCount(0);
-      onOpenSuperAdmin();
-    } else {
-      // Auto-reset if idle for 2.5 s
-      logoTapTimer.current = setTimeout(() => setLogoTapCount(0), 2500);
-    }
-  };
+  // ─── Admin access via secret URL only: ?view=superadmin&key=ta_root ──────
+  // Logo tap removed — users could discover it. Access is now URL-only.
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
@@ -81,11 +62,11 @@ export const Navigation: React.FC<NavigationProps> = ({
         {/* Left: Brand & Tenant Switcher */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
-            onClick={handleLogoTap}
-            className="flex items-center gap-2 cursor-pointer group text-left shrink-0 relative"
-            title={logoTapCount >= 2 ? `🔐 ${6 - logoTapCount} more tap${6 - logoTapCount !== 1 ? 's' : ''}…` : 'Tá.shop'}
+            onClick={() => onViewChange('storefront')}
+            className="flex items-center gap-2 cursor-pointer group text-left shrink-0"
+            title="Tá.shop"
           >
-            <div className={`w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs group-hover:scale-105 transition-transform ${logoTapCount >= 2 ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
+            <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs group-hover:scale-105 transition-transform">
               Tá
             </div>
             <div className="hidden sm:block">
@@ -95,11 +76,6 @@ export const Navigation: React.FC<NavigationProps> = ({
               </div>
               <span className="text-[10px] text-slate-400 block -mt-1 font-mono">social catalog</span>
             </div>
-            {logoTapCount >= 3 && (
-              <span className="absolute -bottom-6 left-0 bg-slate-900 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap z-50 animate-in fade-in zoom-in duration-150">
-                🔒 Tap {6 - logoTapCount} more time{6 - logoTapCount > 1 ? 's' : ''}
-              </span>
-            )}
           </button>
 
           <div className="h-5 w-px bg-slate-200 hidden sm:block shrink-0" />

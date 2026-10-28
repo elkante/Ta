@@ -88,6 +88,7 @@ export default function App() {
     // Read URL params
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
+    const keyParam  = urlParams.get('key');   // secret admin key: ?view=superadmin&key=ta_root_9921
     const storeParam = urlParams.get('store');   // from QR codes / shared links
     const productParam = urlParams.get('product'); // from product QR codes / shared product links
     if (productParam) setInitialProductId(productParam);
@@ -103,8 +104,17 @@ export default function App() {
     if (viewParam === 'landing' || stores.length === 0) {
       setActiveView('landing');
     } else if (viewParam === 'admin' || viewParam === 'superadmin') {
+      // Secret key check: ?view=superadmin&key=ta_root_9921 (set your own in storage.ts)
+      const SECRET_ADMIN_KEY = 'ta_root_9921';
       if (adminSession) {
         setActiveView('superadmin');
+      } else if (keyParam === SECRET_ADMIN_KEY) {
+        // Auto-open login modal when correct key is in URL
+        setIsSuperAdminModalOpen(true);
+        // Clear key from URL so it's not visible in browser history
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('key');
+        window.history.replaceState({}, '', cleanUrl.toString());
       } else {
         setIsSuperAdminModalOpen(true);
       }

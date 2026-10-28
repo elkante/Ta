@@ -64,9 +64,11 @@ export interface Store {
     tiktok?: string;
     twitter?: string;
   };
-  tier: 'free' | 'pro';
+  tier: 'free' | 'starter' | 'pro' | 'business';
   verified: boolean;
-  status?: 'active' | 'suspended';
+  status?: 'active' | 'suspended' | 'deleted';
+  planExpiresAt?: string;
+  adminNotes?: string[];
   aiBotConfig?: StoreAIBotConfig;
   /** Optional open-hours info shown on storefront hero */
   openHours?: {

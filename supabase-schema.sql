@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS public.stores (
   tier TEXT DEFAULT 'free',
   verified BOOLEAN DEFAULT false,
   status TEXT DEFAULT 'active',
+  plan_expires_at TIMESTAMPTZ DEFAULT NULL,
+  admin_notes JSONB DEFAULT '[]'::jsonb,
   ai_bot_config JSONB DEFAULT '{}'::jsonb,
   open_hours JSONB DEFAULT NULL,
   restock_countdown JSONB DEFAULT NULL,
