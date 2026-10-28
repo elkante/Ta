@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   Check,
   ChevronDown,
   Eye,
-  Home,
   LayoutDashboard,
   LogIn,
   LogOut,
   Menu,
   Plus,
   Share2,
-  ShieldCheck,
   Smartphone,
   Store as StoreIcon,
   User,
@@ -55,17 +53,39 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // ─── 6-tap Easter egg on logo → opens Super Admin ───────────────────────
+  const [logoTapCount, setLogoTapCount] = useState(0);
+  const logoTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleLogoTap = () => {
+    const next = logoTapCount + 1;
+    setLogoTapCount(next);
+
+    // Clear any existing reset timer
+    if (logoTapTimer.current) clearTimeout(logoTapTimer.current);
+
+    if (next >= 6) {
+      // 🎉 Easter egg unlocked — open Super Admin
+      setLogoTapCount(0);
+      onOpenSuperAdmin();
+    } else {
+      // Auto-reset if idle for 2.5 s
+      logoTapTimer.current = setTimeout(() => setLogoTapCount(0), 2500);
+    }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2">
         {/* Left: Brand & Tenant Switcher */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
-            onClick={() => onViewChange('landing')}
-            className="flex items-center gap-2 cursor-pointer group text-left shrink-0"
-            title="Go to Tá.shop Platform Home"
+            onClick={handleLogoTap}
+            className="flex items-center gap-2 cursor-pointer group text-left shrink-0 relative"
+            title={logoTapCount >= 2 ? `🔐 ${6 - logoTapCount} more tap${6 - logoTapCount !== 1 ? 's' : ''}…` : 'Tá.shop'}
           >
-            <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs group-hover:scale-105 transition-transform">
+            <div className={`w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs group-hover:scale-105 transition-transform ${logoTapCount >= 2 ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
               Tá
             </div>
             <div className="hidden sm:block">
@@ -75,6 +95,11 @@ export const Navigation: React.FC<NavigationProps> = ({
               </div>
               <span className="text-[10px] text-slate-400 block -mt-1 font-mono">social catalog</span>
             </div>
+            {logoTapCount >= 3 && (
+              <span className="absolute -bottom-6 left-0 bg-slate-900 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap z-50 animate-in fade-in zoom-in duration-150">
+                🔒 Tap {6 - logoTapCount} more time{6 - logoTapCount > 1 ? 's' : ''}
+              </span>
+            )}
           </button>
 
           <div className="h-5 w-px bg-slate-200 hidden sm:block shrink-0" />
@@ -179,19 +204,6 @@ export const Navigation: React.FC<NavigationProps> = ({
           {/* Main View Buttons */}
           <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-semibold">
             <button
-              onClick={() => onViewChange('landing')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                activeView === 'landing'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="Platform Landing Page"
-            >
-              <Home className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Tá.shop</span>
-            </button>
-
-            <button
               onClick={() => onViewChange('storefront')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition cursor-pointer ${
                 activeView === 'storefront'
@@ -250,24 +262,6 @@ export const Navigation: React.FC<NavigationProps> = ({
               <span>Share & QR</span>
             </button>
           )}
-
-          {/* Super Admin Access Button */}
-          <button
-            onClick={onOpenSuperAdmin}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
-              activeView === 'superadmin'
-                ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-sm font-bold'
-                : superAdminSession
-                ? 'bg-slate-900 text-amber-300 border-slate-800 hover:bg-slate-800'
-                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-            }`}
-            title="Super Admin (Manage All Stores & Website)"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-            <span className="hidden xl:inline text-[11px]">
-              {superAdminSession ? 'Super Admin' : 'Admin'}
-            </span>
-          </button>
 
           {/* Seller Auth Status / Logout */}
           {sellerSession ? (
@@ -372,42 +366,6 @@ export const Navigation: React.FC<NavigationProps> = ({
                   <div className="text-left">
                     <span className="block leading-tight">Seller Portal</span>
                     <span className="text-[10px] opacity-70 block font-normal">Orders & catalog</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    onViewChange('landing');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`p-3 rounded-2xl border text-xs font-bold flex items-center gap-2.5 transition cursor-pointer ${
-                    activeView === 'landing'
-                      ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Home className="w-4 h-4 text-amber-400" />
-                  <div className="text-left">
-                    <span className="block leading-tight">Tá.shop Home</span>
-                    <span className="text-[10px] opacity-70 block font-normal">Explore stores</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onOpenSuperAdmin();
-                  }}
-                  className={`p-3 rounded-2xl border text-xs font-bold flex items-center gap-2.5 transition cursor-pointer ${
-                    activeView === 'superadmin'
-                      ? 'bg-amber-400 border-amber-400 text-slate-950 shadow-xs'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <ShieldCheck className="w-4 h-4 text-amber-600" />
-                  <div className="text-left">
-                    <span className="block leading-tight">Super Admin</span>
-                    <span className="text-[10px] opacity-70 block font-normal">Platform root</span>
                   </div>
                 </button>
               </div>

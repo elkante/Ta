@@ -552,18 +552,18 @@ export const Storefront: React.FC<StorefrontProps> = ({
 
         {/* Footer & Platform Branding */}
         <footer className="mt-16 text-center text-xs text-slate-400 space-y-4">
-          {/* Moved Tá.shop button to footer */}
+          {/* Explore Stores & Platform Hub */}
           <div className="flex flex-wrap items-center justify-center gap-2.5">
             {onOpenLanding && (
               <button
                 onClick={onOpenLanding}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md shadow-slate-900/10 transition active:scale-95 cursor-pointer"
-                title="Go to Tá.shop Platform Hub"
+                title="Explore all stores on Tá.shop"
               >
                 <div className="w-5 h-5 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-black text-[10px]">
                   Tá
                 </div>
-                <span>Tá.shop Platform</span>
+                <span>Explore Stores on Tá.shop</span>
               </button>
             )}
 
@@ -583,6 +583,17 @@ export const Storefront: React.FC<StorefrontProps> = ({
             <span>© {new Date().getFullYear()} {store.name}</span>
             <span>•</span>
             <span className="text-slate-400">Customer View (Login-Free)</span>
+            {onOpenLanding && (
+              <>
+                <span>•</span>
+                <button
+                  onClick={onOpenLanding}
+                  className="text-slate-700 hover:text-slate-900 font-semibold underline cursor-pointer"
+                >
+                  Explore Stores
+                </button>
+              </>
+            )}
             {onOpenLogin && (
               <>
                 <span>•</span>

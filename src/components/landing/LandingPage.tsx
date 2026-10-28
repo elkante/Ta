@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ArrowRight,
   BadgeCheck,
@@ -13,7 +13,6 @@ import {
   MessageCircle,
   Package,
   Search,
-  ShieldCheck,
   ShoppingBag,
   Sparkles,
   Star,
@@ -41,6 +40,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [handleInput, setHandleInput] = useState('');
   const [handleError, setHandleError] = useState<string | null>(null);
 
+  // ─── 6-tap Easter egg on logo → opens Super Admin ───────────────────────
+  const [logoTapCount, setLogoTapCount] = useState(0);
+  const logoTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleLogoTap = () => {
+    const next = logoTapCount + 1;
+    setLogoTapCount(next);
+
+    if (logoTapTimer.current) clearTimeout(logoTapTimer.current);
+
+    if (next >= 6) {
+      setLogoTapCount(0);
+      onOpenSuperAdmin?.();
+    } else {
+      logoTapTimer.current = setTimeout(() => setLogoTapCount(0), 2500);
+    }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleClaim = (e: React.FormEvent) => {
     e.preventDefault();
     if (!handleInput.trim()) {
@@ -63,8 +81,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Landing Navbar */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs">
+          <button
+            onClick={handleLogoTap}
+            className="flex items-center gap-2 cursor-pointer text-left relative"
+            title={logoTapCount >= 2 ? `🔐 ${6 - logoTapCount} more tap${6 - logoTapCount !== 1 ? 's' : ''}…` : 'Tá.shop'}
+          >
+            <div className={`w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs ${logoTapCount >= 2 ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
               Tá
             </div>
             <div className="flex items-baseline">
@@ -74,15 +96,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <span className="hidden sm:inline-block ml-2 text-[10px] font-semibold text-slate-400 border border-slate-200 rounded-md px-1.5 py-0.5">
               Social Catalog
             </span>
-          </div>
+            {logoTapCount >= 3 && (
+              <span className="absolute -bottom-6 left-0 bg-slate-900 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap z-50 animate-in fade-in zoom-in duration-150">
+                🔒 Tap {6 - logoTapCount} more time{6 - logoTapCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </button>
 
           <div className="flex items-center gap-2.5 sm:gap-4">
-            <a
-              href="#featured"
-              className="text-xs font-semibold text-slate-600 hover:text-slate-900 hidden md:inline-block transition"
-            >
-              Explore Stores
-            </a>
             <a
               href="#features"
               className="text-xs font-semibold text-slate-600 hover:text-slate-900 hidden md:inline-block transition"
@@ -395,19 +416,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
         <p>© {new Date().getFullYear()} Tá.shop. The multi-tenant social commerce catalog platform.</p>
         <div className="flex items-center justify-center gap-4 pt-1 text-[11px] text-slate-500">
-          <button onClick={onOpenLogin} className="hover:text-slate-800 transition cursor-pointer">
+          <a href="#featured" className="hover:text-slate-800 transition cursor-pointer font-medium">
+            Explore Stores
+          </a>
+          <span>•</span>
+          <button onClick={onOpenLogin} className="hover:text-slate-800 transition cursor-pointer font-medium">
             Seller Login
           </button>
-          <span>•</span>
-          {onOpenSuperAdmin && (
-            <button
-              onClick={onOpenSuperAdmin}
-              className="hover:text-amber-800 text-slate-400 transition cursor-pointer flex items-center gap-1"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-              <span>Super Admin Portal</span>
-            </button>
-          )}
         </div>
       </footer>
     </div>
