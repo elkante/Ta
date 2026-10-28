@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   BadgeCheck,
   CheckCircle,
@@ -43,6 +43,8 @@ interface StorefrontProps {
   onOpenLogin?: () => void;
   onOpenLanding?: () => void;
   onRefreshData?: () => void;
+  /** Product ID from ?product= URL param — auto-opens product detail on load */
+  initialProductId?: string | null;
 }
 
 export const Storefront: React.FC<StorefrontProps> = ({
@@ -53,6 +55,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
   onOpenLogin,
   onOpenLanding,
   onRefreshData,
+  initialProductId,
 }) => {
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,6 +68,21 @@ export const Storefront: React.FC<StorefrontProps> = ({
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareTargetProduct, setShareTargetProduct] = useState<Product | undefined>(undefined);
+
+  // Auto-open a product from ?product= URL param (e.g. scanned product QR code)
+  useEffect(() => {
+    if (initialProductId && products.length > 0) {
+      const match = products.find((p) => p.id === initialProductId || p.uid === initialProductId);
+      if (match) {
+        setSelectedProduct(match);
+        setIsDetailOpen(true);
+        // Clean the param from URL so refresh doesn't re-open it
+        const url = new URL(window.location.href);
+        url.searchParams.delete('product');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, [initialProductId, products]);
 
   // WhatsApp Message Preview Modal state
   const [previewModalOpen, setPreviewModalOpen] = useState(false);

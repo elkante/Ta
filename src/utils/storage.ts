@@ -737,7 +737,8 @@ export function getCurrentTenantSlug(): string {
   } catch (e) {
     // fallback
   }
-  return 'amaka-perfumes';
+  // No hardcoded default — return empty string so App.tsx falls through to stores[0]
+  return '';
 }
 
 export function setCurrentTenantSlug(slug: string) {

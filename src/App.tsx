@@ -56,6 +56,8 @@ export default function App() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSuperAdminModalOpen, setIsSuperAdminModalOpen] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  /** Product ID from ?product= URL param; passed to Storefront to auto-open detail modal */
+  const [initialProductId, setInitialProductId] = useState<string | null>(null);
 
   // Initialize and load store based on URL or local storage
   const loadTenantData = (slug?: string) => {
@@ -73,10 +75,17 @@ export default function App() {
     // Read URL params
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
+    const storeParam = urlParams.get('store');   // from QR codes / shared links
+    const productParam = urlParams.get('product'); // from product QR codes / shared product links
+    if (productParam) setInitialProductId(productParam);
 
-    // Resolve store slug: explicit arg → subdomain → ?store= param → localStorage fallback
+    // Resolve store slug priority:
+    // 1. Explicit arg passed to loadTenantData (e.g. after creating a store)
+    // 2. Subdomain in hostname (e.g. amaka-perfumes.ta.shop)
+    // 3. ?store= URL param — QR code scans / shared links (MUST beat localStorage)
+    // 4. localStorage last-visited store (lowest priority)
     const subdomainSlug = getSubdomainFromHostname();
-    const urlStoreSlug = slug || subdomainSlug || urlParams.get('store') || getCurrentTenantSlug();
+    const urlStoreSlug = slug || subdomainSlug || storeParam || getCurrentTenantSlug();
 
     if (viewParam === 'landing') {
       setActiveView('landing');
@@ -86,6 +95,9 @@ export default function App() {
       } else {
         setIsSuperAdminModalOpen(true);
       }
+    } else if (storeParam || subdomainSlug) {
+      // Explicit store in URL (QR scan or shared link) → always go straight to storefront
+      setActiveView('storefront');
     }
 
     let targetStore = stores.find((s) => s.slug.toLowerCase() === urlStoreSlug.toLowerCase());
@@ -340,6 +352,7 @@ export default function App() {
                     }}
                     onOpenLanding={() => setActiveView('landing')}
                     onRefreshData={handleRefreshData}
+                    initialProductId={initialProductId}
                   />
                 </div>
               </div>
@@ -360,6 +373,7 @@ export default function App() {
               }}
               onOpenLanding={() => setActiveView('landing')}
               onRefreshData={handleRefreshData}
+              initialProductId={initialProductId}
             />
           )
         ) : (
