@@ -5,6 +5,7 @@ import {
   Bot,
   Check,
   CheckCircle2,
+  ChevronRight,
   Clock,
   Copy,
   CreditCard,
@@ -15,6 +16,7 @@ import {
   Filter,
   Layers,
   MapPin,
+  Menu,
   MessageCircle,
   Package,
   Phone,
@@ -33,6 +35,7 @@ import {
   Truck,
   Users,
   Volume2,
+  X,
   Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -142,6 +145,9 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
   // Link copy toast
   const [copiedStoreLink, setCopiedStoreLink] = useState(false);
+
+  // Mobile sidebar drawer
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Analytics Metrics
   const totalCatalogValue = products.reduce((sum, p) => sum + p.price, 0);
@@ -319,134 +325,210 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     img.src = url;
   };
 
+  // ─── Nav definition (shared by sidebar + mobile bottom bar) ───────────────
+  type TabId = 'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing';
+  const allTabs: { id: TabId; label: string; icon: React.ElementType; badge?: string }[] = [
+    { id: 'orders',    label: 'Orders',          icon: ShoppingBag,   badge: pendingOrdersCount > 0 ? `${pendingOrdersCount}` : undefined },
+    { id: 'products',  label: 'Products',         icon: Package,       badge: `${products.length}` },
+    { id: 'uid-bot',   label: 'UID Drop Bot',     icon: Bot,           badge: 'Auto' },
+    { id: 'marketing', label: 'Status & QR',      icon: QrCode },
+    { id: 'inquiries', label: 'WA Clicks',         icon: MessageCircle, badge: inquiries.length > 0 ? `${inquiries.length}` : undefined },
+    { id: 'settings',  label: 'Store Settings',   icon: Settings },
+    { id: 'billing',   label: 'Subscription',     icon: CreditCard },
+  ];
+  // Bottom 5 for mobile notched nav (FAB is center — index 2 slot)
+  const bottomTabs: TabId[] = ['orders', 'products', 'marketing', 'settings'];
+
+  const NavItem = ({ tab, compact = false }: { tab: typeof allTabs[0]; compact?: boolean }) => {
+    const Icon = tab.icon;
+    const active = activeTab === tab.id;
+    return (
+      <button
+        key={tab.id}
+        onClick={() => { setActiveTab(tab.id); setIsSidebarOpen(false); }}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
+          active
+            ? 'bg-white/15 text-white font-semibold'
+            : 'text-slate-400 hover:text-white hover:bg-white/8 font-medium'
+        }`}
+      >
+        <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-amber-400' : ''}`} />
+        {!compact && <span className="text-sm flex-1 truncate">{tab.label}</span>}
+        {!compact && tab.badge && (
+          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+            tab.id === 'orders' && pendingOrdersCount > 0
+              ? 'bg-rose-500 text-white animate-pulse'
+              : 'bg-white/20 text-white/70'
+          }`}>
+            {tab.badge}
+          </span>
+        )}
+      </button>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20 overflow-x-hidden w-full max-w-full">
-      {/* Top Banner / Store Header in Admin */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <img
-                src={store.logoUrl}
-                alt={store.name}
-                className="w-14 h-14 rounded-2xl object-cover border border-slate-200 shadow-xs"
-              />
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold text-slate-900">{store.name}</h1>
-                  {store.tier === 'pro' ? (
-                    <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-amber-600 fill-amber-600" />
-                      Pro Seller
-                    </span>
-                  ) : (
-                    <span className="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
-                      Starter Plan (₦500/mo)
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                  <span className="font-mono text-slate-600">{store.slug}.ta.shop</span>
-                  <span>•</span>
-                  <span>WhatsApp: {store.whatsappCountryCode} {store.whatsappNumber}</span>
-                </div>
-              </div>
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 overflow-x-hidden w-full max-w-full">
+
+      {/* ── DESKTOP SIDEBAR ── */}
+      <aside className="hidden md:flex flex-col w-60 min-h-screen bg-slate-900 flex-shrink-0 sticky top-0 overflow-y-auto">
+        {/* Store identity */}
+        <div className="p-5 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <img
+              src={store.logoUrl}
+              alt={store.name}
+              className="w-10 h-10 rounded-xl object-cover border border-white/20 flex-shrink-0"
+            />
+            <div className="min-w-0">
+              <p className="text-white font-bold text-sm truncate leading-tight">{store.name}</p>
+              <span className={`inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${
+                store.tier === 'business'
+                  ? 'bg-violet-500/30 text-violet-300'
+                  : store.tier === 'pro'
+                  ? 'bg-amber-500/20 text-amber-300'
+                  : 'bg-white/10 text-slate-400'
+              }`}>
+                {store.tier === 'business' ? '🤖 Business AI' : store.tier === 'pro' ? '⚡ Pro' : 'Starter'}
+              </span>
             </div>
-
-            {/* Quick Actions */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => {
-                  setStatusStudioProduct(products[0] || null);
-                  setIsStatusStudioOpen(true);
-                }}
-                className="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-                title="Create 9:16 Status & Story image"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                <span>Status Studio</span>
-              </button>
-
-              <button
-                onClick={handleCopyStoreLink}
-                className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-              >
-                {copiedStoreLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedStoreLink ? 'Link Copied!' : 'Copy Link'}</span>
-              </button>
-
-              <button
-                onClick={onOpenStorefront}
-                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>View Buyer Catalog</span>
-              </button>
-
-              {onOpenGuide && (
-                <button
-                  onClick={onOpenGuide}
-                  className="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border border-indigo-200"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Platform Guide</span>
-                </button>
-              )}
-
-              {store.tier === 'free' && (
-                <button
-                  onClick={() => setIsPaystackOpen(true)}
-                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>Upgrade to Pro</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Navigation Tabs */}
-          <div className="flex gap-2 sm:gap-6 mt-6 border-b border-slate-100 overflow-x-auto text-xs font-semibold scrollbar-none">
-            {[
-              {
-                id: 'orders',
-                label: `Orders (${storeOrders.length})`,
-                icon: ShoppingBag,
-                badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} new` : undefined,
-              },
-              { id: 'products', label: `Products (${products.length})`, icon: Package },
-              { id: 'uid-bot', label: 'Drop UID Bot', icon: Bot, badge: 'Auto' },
-              { id: 'marketing', label: 'Status & QR Studio', icon: QrCode },
-              { id: 'inquiries', label: `WhatsApp Clicks (${inquiries.length})`, icon: MessageCircle },
-              { id: 'settings', label: 'Store Settings', icon: Settings },
-              { id: 'billing', label: 'Subscription Plan', icon: CreditCard },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`pb-3 flex items-center gap-1.5 whitespace-nowrap transition border-b-2 cursor-pointer ${
-                    activeTab === tab.id
-                      ? 'border-slate-900 text-slate-900'
-                      : 'border-transparent text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                  {tab.badge && (
-                    <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
           </div>
         </div>
-      </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6">
+        {/* Nav items */}
+        <nav className="flex-1 p-3 space-y-1">
+          {allTabs.map(tab => <NavItem key={tab.id} tab={tab} />)}
+        </nav>
+
+        {/* Sidebar bottom actions */}
+        <div className="p-3 border-t border-white/10 space-y-2">
+          <button
+            onClick={onOpenStorefront}
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition text-sm cursor-pointer"
+          >
+            <Eye className="w-4 h-4" />
+            <span>View Store</span>
+          </button>
+          {onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition text-sm cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Platform Guide</span>
+            </button>
+          )}
+          {store.tier === 'free' && (
+            <button
+              onClick={() => setIsPaystackOpen(true)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold shadow transition cursor-pointer"
+            >
+              <Zap className="w-4 h-4" />
+              Upgrade to Pro
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* ── MOBILE SIDEBAR OVERLAY + DRAWER ── */}
+      {isSidebarOpen && (
+        <div className="md:hidden fixed inset-0 z-[200] flex">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+          {/* Drawer */}
+          <aside className="relative w-72 bg-slate-900 h-full flex flex-col shadow-2xl overflow-y-auto">
+            <div className="p-5 flex items-center justify-between border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <img src={store.logoUrl} alt={store.name} className="w-9 h-9 rounded-xl object-cover border border-white/20" />
+                <div>
+                  <p className="text-white font-bold text-sm truncate">{store.name}</p>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
+                    store.tier === 'business' ? 'bg-violet-500/30 text-violet-300' :
+                    store.tier === 'pro' ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-slate-400'
+                  }`}>
+                    {store.tier === 'business' ? '🤖 Business AI' : store.tier === 'pro' ? '⚡ Pro' : 'Starter'}
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-white p-1 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <nav className="flex-1 p-3 space-y-1">
+              {allTabs.map(tab => <NavItem key={tab.id} tab={tab} />)}
+            </nav>
+            <div className="p-3 border-t border-white/10 space-y-2">
+              <button onClick={onOpenStorefront} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition text-sm cursor-pointer">
+                <Eye className="w-4 h-4" />
+                <span>View Store</span>
+              </button>
+              {onOpenGuide && (
+                <button onClick={onOpenGuide} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition text-sm cursor-pointer">
+                  <Sparkles className="w-4 h-4 text-amber-400" /><span>Platform Guide</span>
+                </button>
+              )}
+              {store.tier === 'free' && (
+                <button onClick={() => { setIsPaystackOpen(true); setIsSidebarOpen(false); }} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold cursor-pointer">
+                  <Zap className="w-4 h-4" />Upgrade to Pro
+                </button>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* ── MAIN CONTENT ── */}
+      <div className="flex-1 flex flex-col min-w-0">
+
+        {/* Compact top header */}
+        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 h-14 flex items-center justify-between sticky top-0 z-50 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden p-2 rounded-xl hover:bg-slate-100 text-slate-600 cursor-pointer"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div>
+              <p className="font-bold text-slate-900 text-sm leading-tight">{store.name}</p>
+              <p className="text-[11px] text-slate-400 hidden sm:block font-mono">{store.slug}.ta.shop</p>
+            </div>
+          </div>
+
+          {/* Header quick actions */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setStatusStudioProduct(products[0] || null); setIsStatusStudioOpen(true); }}
+              className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              <span className="hidden sm:inline">Status Studio</span>
+            </button>
+            <button
+              onClick={handleCopyStoreLink}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+            >
+              {copiedStoreLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{copiedStoreLink ? 'Copied!' : 'Copy Link'}</span>
+            </button>
+            {store.tier === 'free' && (
+              <button
+                onClick={() => setIsPaystackOpen(true)}
+                className="hidden sm:flex px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold items-center gap-1.5 shadow transition cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5" /><span>Upgrade</span>
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* Content area */}
+        <div className="flex-1 p-4 sm:p-6 pb-28 md:pb-8 overflow-x-hidden">
+
         {/* Analytics Highlights Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
@@ -1522,10 +1604,98 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   </button>
                 )}
               </div>
+
+              {/* Business AI Plan */}
+              <div className={`p-5 rounded-2xl border bg-gradient-to-br from-violet-50/80 to-white ${store.tier === 'business' ? 'ring-2 ring-violet-500 border-violet-300' : 'border-slate-200'}`}>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                    <span>Business AI</span>
+                    <Bot className="w-3.5 h-3.5 text-violet-500" />
+                  </h4>
+                  <span className="bg-violet-100 text-violet-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                    🤖 AI Powered
+                  </span>
+                </div>
+                <div className="mt-2 text-2xl font-black font-mono">₦25,000 <span className="text-xs font-normal text-slate-400">/ month</span></div>
+                <ul className="mt-4 space-y-2 text-xs text-slate-700">
+                  <li className="flex items-center gap-2 font-medium">✓ <strong>Everything in Pro</strong></li>
+                  <li className="flex items-center gap-2 font-medium">✓ <strong>24/7 AI WhatsApp Bot</strong> — auto-replies</li>
+                  <li className="flex items-center gap-2 font-medium">✓ Smart product recommendations</li>
+                  <li className="flex items-center gap-2 font-medium">✓ Auto order-confirmation messages</li>
+                  <li className="flex items-center gap-2 font-medium">✓ Unlimited bot conversations</li>
+                  <li className="flex items-center gap-2 font-medium">✓ Priority support &amp; early access</li>
+                </ul>
+                {store.tier !== 'business' && (
+                  <button
+                    onClick={() => setIsPaystackOpen(true)}
+                    className="mt-4 w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white text-xs font-semibold shadow transition cursor-pointer"
+                  >
+                    Activate Business AI
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
-      </div>
+        </div>{/* /content area */}
+      </div>{/* /main flex-1 */}
+
+      {/* ── MOBILE NOTCHED BOTTOM NAV ── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 h-16 flex items-end"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex w-full items-center h-16 relative">
+          {/* Left 2 tabs */}
+          {['orders', 'products'].map((tabId) => {
+            const tab = allTabs.find(t => t.id === tabId)!;
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer relative"
+              >
+                <div className="relative">
+                  <Icon className={`w-5 h-5 ${active ? 'text-amber-600' : 'text-slate-400'}`} />
+                  {tab.badge && tab.id === 'orders' && pendingOrdersCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                      {pendingOrdersCount}
+                    </span>
+                  )}
+                </div>
+                <span className={`text-[10px] font-semibold ${active ? 'text-amber-600' : 'text-slate-400'}`}>{tab.label}</span>
+              </button>
+            );
+          })}
+
+          {/* CENTER NOTCH FAB */}
+          <div className="flex-1 flex justify-center items-end pb-1 relative">
+            <button
+              onClick={() => { setActiveTab('products'); setIsAddProductOpen(true); }}
+              className="absolute -top-6 w-14 h-14 bg-amber-500 hover:bg-amber-600 active:scale-95 rounded-full shadow-xl flex items-center justify-center transition cursor-pointer border-4 border-white"
+            >
+              <Plus className="w-7 h-7 text-white" strokeWidth={3} />
+            </button>
+          </div>
+
+          {/* Right 2 tabs */}
+          {['marketing', 'settings'].map((tabId) => {
+            const tab = allTabs.find(t => t.id === tabId)!;
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer"
+              >
+                <Icon className={`w-5 h-5 ${active ? 'text-amber-600' : 'text-slate-400'}`} />
+                <span className={`text-[10px] font-semibold ${active ? 'text-amber-600' : 'text-slate-400'}`}>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       {/* Product Add/Edit Modal */}
       <AddEditProductModal
