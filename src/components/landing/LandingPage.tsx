@@ -206,6 +206,63 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
+      {/* ── Social Proof Strip ─────────────────────────────────────── */}
+      <div className="bg-slate-900 py-10 overflow-hidden">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4 sm:gap-8 text-center mb-10">
+            {[
+              { value: '2,847+', label: 'Orders this week' },
+              { value: '380+', label: 'Active storefronts' },
+              { value: '< 2 min', label: 'Average setup time' },
+            ].map((s) => (
+              <div key={s.label}>
+                <div className="text-2xl sm:text-3xl font-black text-amber-400">{s.value}</div>
+                <div className="text-[11px] sm:text-xs text-slate-400 mt-1 leading-snug">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Seller testimonials */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              {
+                quote: 'I moved 40 orders in my first week. My customers love how clean my catalog looks.',
+                name: 'Amaka C.',
+                store: 'Amaka Perfumes · Lagos',
+                emoji: '🌸',
+              },
+              {
+                quote: "No more 'what's your price' DMs. They see everything, click, and order directly.",
+                name: 'Zainab M.',
+                store: 'Zainab Couture · Abuja',
+                emoji: '👗',
+              },
+              {
+                quote: 'The QR code on my packaging brings repeat buyers back automatically. Game changer!',
+                name: 'Chidi O.',
+                store: 'Gadget Hub · Port Harcourt',
+                emoji: '📱',
+              },
+            ].map((t) => (
+              <div
+                key={t.name}
+                className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 hover:bg-white/8 transition"
+              >
+                <p className="text-sm text-slate-200 italic leading-relaxed">"{t.quote}"</p>
+                <div className="flex items-center gap-2.5 pt-2 border-t border-white/10">
+                  <span className="text-xl">{t.emoji}</span>
+                  <div>
+                    <div className="text-xs font-bold text-white">{t.name}</div>
+                    <div className="text-[10px] text-slate-400">{t.store}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Featured Stores Carousel / Grid */}
       <section id="featured" className="py-12 bg-white border-y border-slate-200/80 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">

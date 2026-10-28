@@ -272,12 +272,22 @@ export const Storefront: React.FC<StorefrontProps> = ({
       <div className="relative bg-slate-900 text-white overflow-hidden">
         {/* Background Image with Gradient Overlay */}
         <div className="absolute inset-0 z-0">
-          <img
-            src={store.bannerUrl}
-            alt={store.name}
-            className="w-full h-full object-cover opacity-25"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/80 to-slate-900/60" />
+          {store.bannerUrl ? (
+            <img
+              src={store.bannerUrl}
+              alt={store.name}
+              className="w-full h-full object-cover opacity-30"
+            />
+          ) : (
+            /* Gradient fallback generated from store accent colour */
+            <div
+              className="w-full h-full"
+              style={{
+                background: `linear-gradient(135deg, ${store.accentColor || '#0f172a'} 0%, ${store.accentColor || '#1e293b'}cc 50%, #0f172a 100%)`,
+              }}
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/70 to-slate-900/40" />
         </div>
 
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-8">
@@ -287,7 +297,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
               <img
                 src={store.logoUrl}
                 alt={store.name}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover ring-4 ring-white/10 shadow-xl bg-slate-800"
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-2xl bg-slate-800 ring-4 ring-amber-400/70 ring-offset-2 ring-offset-slate-900"
               />
               {store.verified && (
                 <div
@@ -313,7 +323,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 )}
               </div>
 
-              <p className="text-sm text-slate-300 mt-1 font-medium">{store.tagline}</p>
+              <p className="text-base sm:text-xl text-white mt-1 font-black leading-snug">{store.tagline}</p>
 
               <div className="flex flex-wrap items-center gap-y-1 gap-x-4 mt-3 text-xs text-slate-300">
                 <div className="flex items-center gap-1 text-slate-300">
@@ -321,10 +331,28 @@ export const Storefront: React.FC<StorefrontProps> = ({
                   <span>{store.location}</span>
                 </div>
 
-                <div className="flex items-center gap-1 text-emerald-400 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Accepting WhatsApp orders</span>
-                </div>
+                {/* Open Hours — dynamic badge */}
+                {store.openHours ? (
+                  <div className={`flex items-center gap-1 font-medium ${store.openHours.isOpenNow ? 'text-emerald-400' : 'text-slate-400'}`}>
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${store.openHours.isOpenNow ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                    <span>{store.openHours.isOpenNow ? 'Open now' : 'Closed'} · {store.openHours.label}</span>
+                    {store.openHours.replyTime && store.openHours.isOpenNow && (
+                      <span className="text-slate-400 ml-1">· {store.openHours.replyTime}</span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-emerald-400 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Accepting WhatsApp orders</span>
+                  </div>
+                )}
+
+                {/* Restock countdown badge */}
+                {store.restockCountdown && (
+                  <span className="flex items-center gap-1 bg-amber-400/20 border border-amber-400/30 text-amber-300 px-2.5 py-0.5 rounded-full font-semibold">
+                    🔔 {store.restockCountdown.label}
+                  </span>
+                )}
 
                 {store.socialLinks?.instagram && (
                   <a
@@ -459,32 +487,56 @@ export const Storefront: React.FC<StorefrontProps> = ({
 
         {/* Catalog Products Grid */}
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200/80 p-8 space-y-3">
-            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mx-auto">
-              <Search className="w-8 h-8" />
+          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200/80 p-8 space-y-4 animate-in fade-in duration-300">
+            {/* Branded empty state */}
+            <div className="mx-auto w-20 h-20 relative">
+              <div className="w-20 h-20 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center">
+                <ShoppingBag className="w-9 h-9 text-amber-400" />
+              </div>
+              <span className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-base font-black border-2 border-white">?</span>
             </div>
-            <h3 className="font-bold text-slate-800 text-base">No products found</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              No products match "{searchQuery}" in category "{selectedCategory}". Try clearing your search or filters.
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('All');
-                setOnlyInStock(false);
-              }}
-              className="mt-2 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition cursor-pointer"
-            >
-              Reset Filters
-            </button>
+            <div>
+              <h3 className="font-black text-slate-900 text-lg">
+                Nothing found{searchQuery ? ` for "${searchQuery}"` : ''}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto leading-relaxed">
+                {selectedCategory !== 'All'
+                  ? `No ${selectedCategory} items right now.`
+                  : 'Try a different search — or ask the seller directly on WhatsApp.'}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('All');
+                  setOnlyInStock(false);
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition cursor-pointer"
+              >
+                Clear Filters
+              </button>
+              <a
+                href={`https://wa.me/${store.whatsappCountryCode.replace('+', '')}${store.whatsappNumber}?text=${encodeURIComponent(
+                  `Hi ${store.name}! I was searching for "${searchQuery || selectedCategory}" but didn't find it. Do you have it?`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Ask the Seller on WhatsApp
+              </a>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-5">
-            {filteredProducts.map((product) => (
+            {filteredProducts.map((product, idx) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 store={store}
+                index={idx}
                 onOpenDetails={(p) => {
                   setSelectedProduct(p);
                   setIsDetailOpen(true);

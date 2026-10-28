@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import {
-  AlertCircle,
   Check,
-  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
-  Heart,
   MapPin,
   MessageCircle,
   Share2,
@@ -35,20 +34,29 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onAddToCart,
   onShareProduct,
 }) => {
-  if (!isOpen || !product) return null;
-
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(
-    product.variants && product.variants.length > 0 ? product.variants[0] : undefined
-  );
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(undefined);
   const [buyerLocation, setBuyerLocation] = useState('');
   const [buyerNote, setBuyerNote] = useState('');
   const [addedToCartToast, setAddedToCartToast] = useState(false);
   const [copiedUid, setCopiedUid] = useState(false);
 
-  const currentPrice = selectedVariant ? selectedVariant.price : product.price;
-  const currentOriginalPrice = selectedVariant?.originalPrice || product.originalPrice;
-  const isAvailable = selectedVariant ? selectedVariant.inStock : product.inStock;
+  if (!isOpen || !product) return null;
+
+  const effectiveVariant =
+    selectedVariant ?? (product.variants && product.variants.length > 0 ? product.variants[0] : undefined);
+
+  const currentPrice = effectiveVariant ? effectiveVariant.price : product.price;
+  const currentOriginalPrice = effectiveVariant?.originalPrice || product.originalPrice;
+  const isAvailable = effectiveVariant ? effectiveVariant.inStock : product.inStock;
+
+  const images =
+    product.images.length > 0
+      ? product.images
+      : ['https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80'];
+
+  const prevImage = () => setActiveImageIndex((i) => (i - 1 + images.length) % images.length);
+  const nextImage = () => setActiveImageIndex((i) => (i + 1) % images.length);
 
   const handleCopyUid = () => {
     navigator.clipboard.writeText(`#${product.uid || product.id}`);
@@ -56,193 +64,193 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setTimeout(() => setCopiedUid(false), 2000);
   };
 
-  const handleVariantChange = (variant: ProductVariant) => {
-    setSelectedVariant(variant);
-  };
-
   const handleAddBag = () => {
-    onAddToCart(product, selectedVariant);
+    onAddToCart(product, effectiveVariant);
     setAddedToCartToast(true);
     setTimeout(() => setAddedToCartToast(false), 2200);
   };
 
   const handleDirectOrder = () => {
-    onOrderWhatsApp(product, selectedVariant, buyerLocation, buyerNote);
+    onOrderWhatsApp(product, effectiveVariant, buyerLocation, buyerNote);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="fixed inset-0" onClick={onClose} />
-      <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 flex flex-col max-h-[92vh] sm:max-h-[90vh] z-10">
-        {/* Mobile Drag Indicator */}
-        <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+  const discountPercent =
+    currentOriginalPrice && currentOriginalPrice > currentPrice
+      ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100)
+      : null;
 
-        {/* Modal Header */}
-        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-white z-10 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              {product.category}
-            </span>
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0" onClick={onClose} />
+
+      {/* Bottom-sheet on mobile, centred card on desktop */}
+      <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 animate-in slide-in-from-bottom sm:zoom-in-95 duration-250 flex flex-col max-h-[94vh] sm:max-h-[90vh] z-10">
+
+        {/* Mobile drag pill */}
+        <div className="w-10 h-1.5 bg-slate-200 rounded-full mx-auto mt-3 mb-1 sm:hidden shrink-0" />
+
+        {/* ── IMAGE GALLERY ───────────────────────────── */}
+        <div className="relative bg-slate-100 shrink-0" style={{ aspectRatio: '16/9' }}>
+          <img
+            key={activeImageIndex}
+            src={images[activeImageIndex]}
+            alt={product.name}
+            className={`w-full h-full object-cover transition-opacity duration-200 ${!isAvailable ? 'grayscale opacity-70' : ''}`}
+          />
+
+          {/* Prev / Next */}
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={prevImage}
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-xs text-white flex items-center justify-center hover:bg-black/60 transition cursor-pointer z-10"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={nextImage}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-xs text-white flex items-center justify-center hover:bg-black/60 transition cursor-pointer z-10"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              {/* Dot indicators */}
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+                {images.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveImageIndex(i)}
+                    className={`rounded-full transition-all cursor-pointer ${i === activeImageIndex ? 'w-4 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/50'}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Badges */}
+          <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
             {product.badge && (
-              <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5 text-amber-600" />
-                <span>{product.badge}</span>
+              <span className="bg-slate-900/90 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-400" />
+                {product.badge}
+              </span>
+            )}
+            {discountPercent && isAvailable && (
+              <span className="bg-rose-500 text-white text-[11px] font-black px-2.5 py-1 rounded-full">
+                Save {discountPercent}%
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5">
+
+          {/* Top-right controls */}
+          <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
             <button
               onClick={() => onShareProduct(product)}
-              className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-              title="Share product link & QR code"
+              className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-xs text-white flex items-center justify-center hover:bg-black/60 transition cursor-pointer"
             >
               <Share2 className="w-4 h-4" />
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+              className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-xs text-white flex items-center justify-center hover:bg-black/60 transition cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
+
+          {!isAvailable && (
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+              <span className="bg-white text-slate-900 text-sm font-black px-4 py-2 rounded-full uppercase tracking-widest shadow-xl">
+                Sold Out
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Modal Scrollable Body */}
-        <div className="overflow-y-auto p-5 sm:p-6 space-y-6">
-          {/* Main Grid: Gallery & Info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Gallery */}
-            <div className="space-y-3">
-              <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/80 shadow-xs">
-                <img
-                  src={product.images[activeImageIndex] || product.images[0]}
-                  alt={product.name}
-                  className={`w-full h-full object-cover transition-opacity duration-300 ${
-                    !isAvailable ? 'grayscale opacity-75' : ''
-                  }`}
-                />
-                {!isAvailable && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <span className="bg-white text-slate-900 text-xs font-black px-3.5 py-1.5 rounded-full uppercase tracking-wider">
-                      Currently Sold Out
-                    </span>
-                  </div>
-                )}
-              </div>
+        {/* ── SCROLLABLE BODY ─────────────────────────── */}
+        <div className="overflow-y-auto flex-1 p-5 sm:p-6 space-y-5">
 
-              {/* Thumbnails if multiple images */}
-              {product.images.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {product.images.map((img, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setActiveImageIndex(idx)}
-                      className={`relative w-14 h-14 rounded-xl overflow-hidden border-2 shrink-0 transition cursor-pointer ${
-                        activeImageIndex === idx ? 'border-slate-900 ring-2 ring-slate-900/10' : 'border-transparent opacity-70'
-                      }`}
-                    >
-                      <img src={img} alt="" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Product Meta */}
-            <div className="flex flex-col justify-between space-y-4">
-              <div>
-                <h2 className="text-xl font-extrabold text-slate-900 leading-snug">
-                  {product.name}
-                </h2>
-
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-[11px] font-mono font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200">
-                    Item UID: #{product.uid || product.id}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyUid}
-                    className="text-[11px] text-slate-500 hover:text-slate-800 underline font-medium cursor-pointer"
-                  >
-                    {copiedUid ? 'Copied UID!' : 'Copy UID'}
-                  </button>
-                </div>
-
-                {/* Price Display */}
-                <div className="mt-2.5 flex items-baseline gap-2.5">
-                  <span className="text-2xl font-black text-slate-900 font-mono">
-                    {formatPrice(currentPrice, store.currencySymbol)}
-                  </span>
-                  {currentOriginalPrice && currentOriginalPrice > currentPrice && (
-                    <span className="text-sm text-slate-400 line-through font-mono">
-                      {formatPrice(currentOriginalPrice, store.currencySymbol)}
-                    </span>
-                  )}
-                  {isAvailable ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      In Stock
-                    </span>
-                  ) : (
-                    <span className="text-[11px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">
-                      Out of Stock
-                    </span>
-                  )}
-                </div>
-
-                <p className="mt-3 text-xs text-slate-600 leading-relaxed">
-                  {product.description}
-                </p>
-              </div>
-
-              {/* Variants Selector */}
-              {product.variants && product.variants.length > 0 && (
-                <div className="pt-3 border-t border-slate-100">
-                  <label className="text-xs font-semibold text-slate-700 block mb-2">
-                    Select Option / Size:
-                  </label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {product.variants.map((v) => (
-                      <button
-                        key={v.id}
-                        onClick={() => handleVariantChange(v)}
-                        className={`p-2.5 rounded-xl border text-left text-xs flex items-center justify-between transition cursor-pointer ${
-                          selectedVariant?.id === v.id
-                            ? 'border-slate-900 bg-slate-900 text-white font-medium shadow-xs'
-                            : 'border-slate-200 bg-white hover:border-slate-300 text-slate-800'
-                        } ${!v.inStock ? 'opacity-50' : ''}`}
-                      >
-                        <span className="font-semibold">{v.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-mono text-xs ${selectedVariant?.id === v.id ? 'text-amber-300' : 'text-slate-600'}`}>
-                            {formatPrice(v.price, store.currencySymbol)}
-                          </span>
-                          {!v.inStock && (
-                            <span className="text-[10px] uppercase font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded">
-                              Sold Out
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+          {/* Category + UID */}
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] uppercase tracking-widest font-bold text-slate-400">
+              {product.category}
+            </span>
+            <button
+              onClick={handleCopyUid}
+              className="text-[11px] font-mono font-bold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-200 transition cursor-pointer flex items-center gap-1"
+              title="Copy Item UID"
+            >
+              {copiedUid ? <Check className="w-3 h-3 text-emerald-600" /> : null}
+              #{product.uid || product.id.slice(-6)}
+            </button>
           </div>
 
-          {/* Product Specific Attributes (e.g. Fragrance Notes, Fabric, Specs) */}
+          {/* Name */}
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+            {product.name}
+          </h2>
+
+          {/* Price */}
+          <div className="flex items-baseline flex-wrap gap-3">
+            <span className="text-3xl font-black text-amber-600 font-mono leading-none">
+              {formatPrice(currentPrice, store.currencySymbol)}
+            </span>
+            {currentOriginalPrice && currentOriginalPrice > currentPrice && (
+              <span className="text-base text-slate-400 line-through font-mono">
+                {formatPrice(currentOriginalPrice, store.currencySymbol)}
+              </span>
+            )}
+            {isAvailable ? (
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1 ml-auto">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                In Stock
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full ml-auto">
+                Out of Stock
+              </span>
+            )}
+          </div>
+
+          {/* Description */}
+          <p className="text-sm text-slate-600 leading-relaxed">{product.description}</p>
+
+          {/* Variants */}
+          {product.variants && product.variants.length > 0 && (
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-2 uppercase tracking-wide">
+                Choose Option
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {product.variants.map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => setSelectedVariant(v)}
+                    className={`p-3 rounded-xl border text-left text-xs flex items-center justify-between transition cursor-pointer ${
+                      effectiveVariant?.id === v.id
+                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-800'
+                    } ${!v.inStock ? 'opacity-50' : ''}`}
+                  >
+                    <span className="font-bold">{v.name}</span>
+                    <span className={`font-mono text-xs ${effectiveVariant?.id === v.id ? 'text-amber-300' : 'text-slate-500'}`}>
+                      {formatPrice(v.price, store.currencySymbol)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Attributes */}
           {product.attributes && Object.keys(product.attributes).length > 0 && (
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5">
-                Product Specifications & Notes
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
+                Specifications
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 {Object.entries(product.attributes).map(([key, val]) => (
                   <div key={key} className="bg-white p-2.5 rounded-xl border border-slate-100">
-                    <span className="font-semibold text-slate-700 block text-[11px] text-slate-400 uppercase">
-                      {key}
-                    </span>
+                    <span className="font-semibold text-slate-400 text-[10px] uppercase block">{key}</span>
                     <span className="text-slate-800 font-medium">{val}</span>
                   </div>
                 ))}
@@ -250,82 +258,83 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           )}
 
-          {/* WhatsApp Order Personalization Box */}
-          <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-900">
+          {/* Personalisation */}
+          <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
               <MessageCircle className="w-4 h-4 text-emerald-600" />
-              <span>Personalize Your WhatsApp Message (Optional)</span>
+              <span>Personalise your order (optional)</span>
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
                 <label className="text-[11px] font-semibold text-slate-600 block mb-1 flex items-center gap-1">
                   <MapPin className="w-3 h-3 text-slate-400" />
-                  <span>Your Delivery City / Area</span>
+                  Delivery City / Area
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Lekki Phase 1, Lagos or Abuja"
+                  placeholder="e.g. Lekki Phase 1, Lagos"
                   value={buyerLocation}
                   onChange={(e) => setBuyerLocation(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-emerald-200/80 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-emerald-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
-
               <div>
                 <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-                  Special Note or Question
+                  Special Note
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Can it arrive today? Need gift bag"
+                  placeholder="e.g. Gift wrap? Urgent delivery?"
                   value={buyerNote}
                   onChange={(e) => setBuyerNote(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-emerald-200/80 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-emerald-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
           </div>
 
-          {/* Delivery & Trust reassurance banner */}
-          <div className="flex items-center justify-between text-[11px] text-slate-500 bg-slate-50 px-4 py-2.5 rounded-xl">
+          {/* Delivery trust bar */}
+          <div className="flex items-center justify-between text-[11px] text-slate-500 bg-slate-50 px-4 py-3 rounded-xl">
             <div className="flex items-center gap-1.5">
               <Truck className="w-3.5 h-3.5 text-slate-400" />
               <span>{store.deliveryInfo || 'Fast dispatch available nationwide.'}</span>
             </div>
-            <div className="flex items-center gap-1.5 hidden sm:flex">
+            <div className="hidden sm:flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span>Replies on WhatsApp promptly</span>
+              <span>Replies promptly on WhatsApp</span>
             </div>
           </div>
+
+          {/* Spacer so content clears sticky footer on mobile */}
+          <div className="h-2 sm:hidden" />
         </div>
 
-        {/* Modal Footer Actions */}
-        <div className="p-3 sm:p-4 pb-safe bg-white border-t border-slate-100 flex flex-col sm:flex-row gap-2 sm:gap-2.5 items-stretch sm:items-center justify-between shrink-0">
+        {/* ── STICKY FOOTER CTA ─────────────────────── */}
+        <div className="shrink-0 p-3 sm:p-4 bg-white border-t border-slate-100 flex gap-2" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
           <button
             onClick={handleAddBag}
             disabled={!isAvailable}
-            className={`w-full sm:w-auto px-4 py-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+            className={`flex-none px-4 py-3.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
               addedToCartToast
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
                 : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700'
             } ${!isAvailable ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             {addedToCartToast ? <Check className="w-4 h-4 text-emerald-600" /> : <ShoppingBag className="w-4 h-4" />}
-            <span>{addedToCartToast ? 'Added to WhatsApp Bag!' : 'Add to WhatsApp Bag'}</span>
+            {addedToCartToast ? 'Added!' : 'Add to Bag'}
           </button>
 
           <button
             onClick={handleDirectOrder}
             disabled={!isAvailable}
-            className={`w-full sm:flex-1 py-3 px-3.5 sm:px-6 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 shadow-md transition cursor-pointer active:scale-[0.99] ${
+            className={`flex-1 py-3.5 px-4 rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-lg transition cursor-pointer active:scale-[0.99] ${
               isAvailable
-                ? 'bg-[#25D366] hover:bg-[#20ba59] text-white shadow-emerald-500/20'
+                ? 'bg-[#25D366] hover:bg-[#20ba59] text-white shadow-emerald-500/25'
                 : 'bg-slate-100 text-slate-400 cursor-not-allowed'
             }`}
           >
             <MessageCircle className="w-4 h-4 shrink-0" />
-            <span className="truncate">Order on WhatsApp ({formatPrice(currentPrice, store.currencySymbol)})</span>
+            <span>Order · {formatPrice(currentPrice, store.currencySymbol)}</span>
           </button>
         </div>
       </div>

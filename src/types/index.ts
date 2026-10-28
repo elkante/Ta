@@ -68,6 +68,22 @@ export interface Store {
   verified: boolean;
   status?: 'active' | 'suspended';
   aiBotConfig?: StoreAIBotConfig;
+  /** Optional open-hours info shown on storefront hero */
+  openHours?: {
+    /** e.g. "Mon–Sat · 9am–8pm WAT" */
+    label: string;
+    /** true = currently open, false = closed */
+    isOpenNow: boolean;
+    /** e.g. "Replies within 30 min" */
+    replyTime?: string;
+  };
+  /** Optional restock countdown badge on storefront hero */
+  restockCountdown?: {
+    /** e.g. "New drop in 2 days" */
+    label: string;
+    /** ISO date string of next restock event */
+    date: string;
+  };
   createdAt: string;
 }
 
