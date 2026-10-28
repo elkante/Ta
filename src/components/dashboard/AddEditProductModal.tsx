@@ -12,13 +12,18 @@ interface AddEditProductModalProps {
 }
 
 const PRESET_IMAGES = [
-  { name: 'Perfume Noir', url: 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80' },
-  { name: 'Perfume Amber', url: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=800&auto=format&fit=crop&q=80' },
-  { name: 'Perfume Gold', url: 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?w=800&auto=format&fit=crop&q=80' },
-  { name: 'Silk Abaya', url: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&auto=format&fit=crop&q=80' },
-  { name: 'iPhone Device', url: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80' },
-  { name: 'AirPods Audio', url: 'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&auto=format&fit=crop&q=80' },
+  { name: 'Perfume Noir', category: 'Perfumes', url: 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80' },
+  { name: 'Perfume Amber', category: 'Perfumes', url: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=800&auto=format&fit=crop&q=80' },
+  { name: 'Gold Extrait', category: 'Perfumes', url: 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?w=800&auto=format&fit=crop&q=80' },
+  { name: 'Silk Abaya', category: 'Fashion', url: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&auto=format&fit=crop&q=80' },
+  { name: 'Luxury Dress', category: 'Fashion', url: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=800&auto=format&fit=crop&q=80' },
+  { name: 'iPhone Device', category: 'Gadgets', url: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80' },
+  { name: 'AirPods Audio', category: 'Gadgets', url: 'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&auto=format&fit=crop&q=80' },
+  { name: 'Beauty Care', category: 'Beauty', url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80' },
+  { name: 'Luxury Watch', category: 'Accessories', url: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&auto=format&fit=crop&q=80' },
 ];
+
+export const DEFAULT_FALLBACK_IMAGE = PRESET_IMAGES[0].url;
 
 export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
   isOpen,
@@ -355,38 +360,62 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
 
           {/* Image URL & Quick Presets */}
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1.5 flex items-center justify-between">
-              <span>Product Image URL</span>
-              <span className="text-[11px] text-slate-400">Direct image link</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-700">Product Image URL</label>
+              <span className="text-[11px] text-amber-600 font-medium">Auto-fallback preset active</span>
+            </div>
             <div className="flex gap-2">
               <input
                 type="url"
-                placeholder="https://..."
+                placeholder="Paste direct image link, or pick a preset below..."
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
               />
-              {imageUrl && (
-                <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 border border-slate-200">
-                  <img src={imageUrl} alt="" className="w-full h-full object-cover" />
-                </div>
-              )}
+              <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100">
+                <img
+                  src={imageUrl.trim() || DEFAULT_FALLBACK_IMAGE}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = DEFAULT_FALLBACK_IMAGE;
+                  }}
+                />
+              </div>
             </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              If left blank, a high-quality preset image will display automatically on your storefront until you update it.
+            </p>
 
-            {/* Quick Preset Selector */}
-            <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] text-slate-500">
-              <span className="shrink-0 font-medium text-slate-400">Presets:</span>
-              {PRESET_IMAGES.map((img) => (
-                <button
-                  type="button"
-                  key={img.name}
-                  onClick={() => setImageUrl(img.url)}
-                  className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 shrink-0 cursor-pointer"
-                >
-                  {img.name}
-                </button>
-              ))}
+            {/* Quick Preset Selector with Image Thumbnails */}
+            <div className="mt-2.5">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                Quick Preset Images:
+              </span>
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                {PRESET_IMAGES.map((img) => {
+                  const isSelected = imageUrl === img.url;
+                  return (
+                    <button
+                      type="button"
+                      key={img.name}
+                      onClick={() => setImageUrl(img.url)}
+                      className={`group relative rounded-xl overflow-hidden border text-left transition cursor-pointer p-1 flex flex-col items-center gap-1 ${
+                        isSelected
+                          ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-400'
+                          : 'border-slate-200 hover:border-slate-300 bg-slate-50'
+                      }`}
+                    >
+                      <div className="w-full h-12 rounded-lg overflow-hidden bg-slate-200">
+                        <img src={img.url} alt={img.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      </div>
+                      <span className="text-[10px] font-semibold text-slate-700 truncate w-full text-center">
+                        {img.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

@@ -82,7 +82,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       >
         <img
           src={
-            product.images[0] ||
+            product.images?.[0] ||
             'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=600&auto=format&fit=crop&q=80'
           }
           alt={product.name}
@@ -90,6 +90,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             !product.inStock ? 'grayscale opacity-60' : ''
           }`}
           loading="lazy"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src =
+              'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=600&auto=format&fit=crop&q=80';
+          }}
         />
 
         {/* Top-left: product badge */}

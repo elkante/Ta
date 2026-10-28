@@ -93,10 +93,13 @@ export function mapProductFromDB(row: any): Product {
     name: row.name,
     slug: row.slug || row.name.toLowerCase().replace(/\s+/g, '-'),
     description: row.description || '',
-    price: Number(row.price) || 0,
-    originalPrice: row.original_price ? Number(row.original_price) : undefined,
+    price: Math.max(0, Number(row.price) || 0),
+    originalPrice: row.original_price ? Math.max(0, Number(row.original_price)) : undefined,
     category: row.category || 'General',
-    images: Array.isArray(row.images) ? row.images : [],
+    images:
+      Array.isArray(row.images) && row.images.length > 0 && row.images[0]
+        ? row.images
+        : ['https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80'],
     inStock: Boolean(row.in_stock),
     isLowStock: Boolean(row.is_low_stock),
     badge: row.badge || undefined,
@@ -116,11 +119,14 @@ export function mapProductToDB(product: Product): any {
     name: product.name,
     slug: product.slug,
     description: product.description,
-    price: product.price,
-    original_price: product.originalPrice,
-    category: product.category,
-    images: product.images,
-    in_stock: product.inStock,
+    price: Math.max(0, Number(product.price) || 0),
+    original_price: product.originalPrice ? Math.max(0, Number(product.originalPrice)) : null,
+    category: product.category || 'General',
+    images:
+      Array.isArray(product.images) && product.images.length > 0 && product.images[0]
+        ? product.images
+        : ['https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80'],
+    in_stock: product.inStock ?? true,
     is_low_stock: product.isLowStock,
     badge: product.badge,
     options: product.options,

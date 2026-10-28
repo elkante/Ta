@@ -197,9 +197,26 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const handleSaveProduct = (payload: Partial<Product>) => {
     const allProducts = getStoredProducts();
 
+    // Sanitize image array to ensure preset fallback is always active if empty or missing
+    const sanitizedImages =
+      payload.images && payload.images.length > 0 && payload.images[0]?.trim()
+        ? payload.images.map((img) => img.trim())
+        : ['https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80'];
+
+    const safePrice = Math.max(0, Number(payload.price) || 0);
+
     if (productToEdit) {
       // Update existing
-      const updated = allProducts.map((p) => (p.id === productToEdit.id ? { ...p, ...payload } : p));
+      const updated = allProducts.map((p) =>
+        p.id === productToEdit.id
+          ? {
+              ...p,
+              ...payload,
+              price: safePrice,
+              images: sanitizedImages,
+            }
+          : p
+      );
       saveProducts(updated);
     } else {
       // Add new
@@ -207,13 +224,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         id: `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         uid: payload.uid || generateItemUid(store.slug, allProducts.length + 1),
         storeId: store.id,
-        name: payload.name || 'New Product',
+        name: payload.name?.trim() || 'New Product',
         slug: (payload.name || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        description: payload.description || '',
-        price: payload.price || 0,
-        originalPrice: payload.originalPrice,
+        description: payload.description?.trim() || '',
+        price: safePrice,
+        originalPrice: payload.originalPrice ? Math.max(0, Number(payload.originalPrice)) : undefined,
         category: payload.category || 'General',
-        images: payload.images || [],
+        images: sanitizedImages,
         inStock: payload.inStock ?? true,
         badge: payload.badge,
         variants: payload.variants || [],
