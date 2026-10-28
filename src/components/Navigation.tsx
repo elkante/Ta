@@ -76,7 +76,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
+    <header className="sticky top-0 z-[60] bg-white/95 backdrop-blur-md border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2">
         {/* Left: Brand & Tenant Switcher */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -340,7 +340,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       {/* Mobile Navigation Drawer (Slides cleanly from top/overlay on mobile screens) */}
       {mobileMenuOpen && (
-        <div className="sm:hidden fixed inset-x-0 top-16 bottom-0 z-50 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150 flex flex-col justify-start">
+        <div className="sm:hidden fixed inset-x-0 top-16 bottom-0 z-[70] bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150 flex flex-col justify-start">
           <div
             className="fixed inset-0"
             onClick={() => setMobileMenuOpen(false)}
