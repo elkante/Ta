@@ -1,10 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   BadgeCheck,
   Check,
   ChevronRight,
   Compass,
+  Download,
   ExternalLink,
   Eye,
   Hash,
@@ -59,6 +60,40 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
   // ─────────────────────────────────────────────────────────────────────────
 
+  // ─── PWA Install Prompt (Landing page only) ─────────────────────────────
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    const handlePrompt = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setInstallPrompt(null);
+    };
+
+    window.addEventListener('beforeinstallprompt', handlePrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handlePrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    if (choice?.outcome === 'accepted') {
+      setIsInstalled(true);
+    }
+    setInstallPrompt(null);
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleClaim = (e: React.FormEvent) => {
     e.preventDefault();
     if (!handleInput.trim()) {
@@ -110,6 +145,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               Pricing
             </a>
+
+            {installPrompt && !isInstalled && (
+              <button
+                type="button"
+                onClick={handleInstallApp}
+                className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                title="Install Tá.shop App to your home screen"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-600" />
+                <span className="hidden xs:inline">Install App</span>
+              </button>
+            )}
 
             <button
               onClick={onOpenLogin}

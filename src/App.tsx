@@ -156,6 +156,39 @@ export default function App() {
     loadTenantData();
   }, []);
 
+  // ─── PWA ONLY on Landing Page ──────────────────────────────────────────
+  useEffect(() => {
+    const isLanding = !currentStore || activeView === 'landing';
+    const existing = document.querySelector('link[data-pwa="landing"]');
+
+    if (isLanding) {
+      if (!existing) {
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = '/manifest.webmanifest';
+        link.setAttribute('data-pwa', 'landing');
+        document.head.appendChild(link);
+      }
+    } else {
+      if (existing) {
+        existing.remove();
+      }
+    }
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      if (!isLanding) {
+        // Suppress browser install prompt completely on customer storefronts and seller dashboards
+        e.preventDefault();
+        return false;
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, [currentStore, activeView]);
+
   // Internal helper — bypasses the buyer guard (used by login/signup flows)
   const switchStore = (store: Store) => {
     setCurrentStore(store);
