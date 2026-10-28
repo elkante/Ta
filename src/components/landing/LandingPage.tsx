@@ -84,9 +84,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <button
             onClick={handleLogoTap}
             className="flex items-center gap-2 cursor-pointer text-left relative"
-            title={logoTapCount >= 2 ? `🔐 ${6 - logoTapCount} more tap${6 - logoTapCount !== 1 ? 's' : ''}…` : 'Tá.shop'}
           >
-            <div className={`w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs ${logoTapCount >= 2 ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
+            <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs">
               Tá
             </div>
             <div className="flex items-baseline">
@@ -96,11 +95,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <span className="hidden sm:inline-block ml-2 text-[10px] font-semibold text-slate-400 border border-slate-200 rounded-md px-1.5 py-0.5">
               Social Catalog
             </span>
-            {logoTapCount >= 3 && (
-              <span className="absolute -bottom-6 left-0 bg-slate-900 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap z-50 animate-in fade-in zoom-in duration-150">
-                🔒 Tap {6 - logoTapCount} more time{6 - logoTapCount > 1 ? 's' : ''}
-              </span>
-            )}
           </button>
 
           <div className="flex items-center gap-2.5 sm:gap-4">
@@ -212,8 +206,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 sm:gap-8 text-center mb-10">
             {[
-              { value: '2,847+', label: 'Orders this week' },
-              { value: '380+', label: 'Active storefronts' },
+              { value: '200+', label: 'Orders this week' },
+              { value: '30+', label: 'Active storefronts' },
               { value: '< 2 min', label: 'Average setup time' },
             ].map((s) => (
               <div key={s.label}>

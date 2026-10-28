@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { KeyRound, Lock, Mail, ShieldCheck, X } from 'lucide-react';
 import { SuperAdminSession } from '../../types';
-import { authenticateSuperAdmin } from '../../utils/storage';
+import { setSuperAdminSession } from '../../utils/storage';
 import { supabase } from '../../utils/supabase';
 
 interface SuperAdminLoginModalProps {
@@ -28,36 +28,33 @@ export const SuperAdminLoginModal: React.FC<SuperAdminLoginModalProps> = ({
     setIsLoading(true);
 
     try {
-      // 1. First attempt Supabase Auth if credentials exist in auth.users
-      if (email.trim() && password.trim()) {
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password.trim(),
-        });
-
-        if (!authError && data?.session) {
-          const session: SuperAdminSession = {
-            email: data.user.email || email.trim(),
-            isLoggedIn: true,
-            authenticatedAt: new Date().toISOString(),
-          };
-          onLoginSuccess(session);
-          onClose();
-          return;
-        }
-      }
-
-      // 2. Fallback to master credential validation
-      const result = authenticateSuperAdmin(password, email);
-      if (result.success && result.session) {
-        onLoginSuccess(result.session);
-        onClose();
+      if (!email.trim() || !password.trim()) {
+        setError('Please enter both admin email and password');
+        setIsLoading(false);
         return;
       }
 
-      setError(result.error || 'Invalid administrator credentials');
+      // Authenticate directly against Supabase Auth using the password you set in Supabase Dashboard
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
+      });
+
+      if (authError || !data?.session) {
+        setError(authError?.message || 'Invalid administrator email or password.');
+        return;
+      }
+
+      const session: SuperAdminSession = {
+        email: data.user.email || email.trim(),
+        isLoggedIn: true,
+        authenticatedAt: new Date().toISOString(),
+      };
+      setSuperAdminSession(session);
+      onLoginSuccess(session);
+      onClose();
     } catch (err: any) {
-      setError(err?.message || 'Authentication error');
+      setError(err?.message || 'Authentication error connecting to Supabase');
     } finally {
       setIsLoading(false);
     }
