@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageCircle, ShoppingBag, Sparkles } from 'lucide-react';
+import { Check, ShoppingBag, Sparkles } from 'lucide-react';
 import { Product, Store } from '../../types';
 import { formatPrice } from '../../utils/whatsapp';
 
@@ -17,7 +17,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   store,
   onOpenDetails,
-  onQuickWhatsApp,
   onAddToCart,
   index = 0,
 }) => {
@@ -36,15 +35,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!product.inStock) return;
+    // If product has variants, open details so buyer can select their variant
+    if (hasVariants && product.variants.length > 1) {
+      onOpenDetails(product);
+      return;
+    }
     onAddToCart(product);
     setCartBounce(true);
-    setTimeout(() => setCartBounce(false), 600);
-  };
-
-  const handleWhatsApp = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!product.inStock) return;
-    onQuickWhatsApp(product);
+    setTimeout(() => setCartBounce(false), 900);
   };
 
   // Stagger: 0, 60, 120 ... capped at 360ms
@@ -146,34 +144,35 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           )}
         </div>
 
-        {/* Action buttons — always visible, no hover gating */}
-        <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-100">
-          <button
-            onClick={handleWhatsApp}
-            disabled={!product.inStock}
-            className={`flex-1 py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.97] ${
-              product.inStock
-                ? 'bg-[#25D366] hover:bg-[#20ba59] text-white shadow-sm shadow-emerald-500/20'
-                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            }`}
-          >
-            <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-            <span>Order</span>
-          </button>
-
+        {/* Add to Cart button */}
+        <div className="pt-2 border-t border-slate-100">
           <button
             onClick={handleAddToCart}
             disabled={!product.inStock}
-            className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center border transition-all duration-150 ${
-              cartBounce
-                ? 'bg-emerald-50 border-emerald-400 text-emerald-700 scale-125'
-                : product.inStock
-                ? 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700'
-                : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+            className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer ${
+              !product.inStock
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                : cartBounce
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-slate-900 hover:bg-slate-800 text-white shadow-sm'
             }`}
-            title="Add to bag"
           >
-            <ShoppingBag className={`w-4 h-4 shrink-0 ${cartBounce ? 'animate-bounce' : ''}`} />
+            {cartBounce ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-white" />
+                <span>Added to Cart!</span>
+              </>
+            ) : hasVariants && product.variants.length > 1 ? (
+              <>
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>Choose Option</span>
+              </>
+            ) : (
+              <>
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>Add to Cart</span>
+              </>
+            )}
           </button>
         </div>
       </div>

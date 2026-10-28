@@ -14,7 +14,7 @@ import {
 import { Product, Store } from '../../types';
 import { formatPrice } from '../../utils/whatsapp';
 import { generateQRCodeSVG } from '../../utils/qrCode';
-import { getStoreDisplayUrl, getStoreUrl } from '../../utils/storage';
+import { getStoreUrl } from '../../utils/storage';
 
 interface StatusStudioModalProps {
   isOpen: boolean;
@@ -40,21 +40,17 @@ export const StatusStudioModal: React.FC<StatusStudioModalProps> = ({
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const previewCardRef = useRef<HTMLDivElement>(null);
-
   if (!isOpen || !selectedProduct) return null;
 
   const productUrl = getStoreUrl(store.slug, { productId: selectedProduct.id });
-  const displayUrl = `${getStoreDisplayUrl(store.slug)}`;
   const qrSvg = generateQRCodeSVG(productUrl, 160, '#0f172a', '#ffffff');
 
-  // Pre-formatted viral status caption
-  const statusCaption = `🛍️ NEW DROP on ${store.name}!
-Item: ${selectedProduct.name}
+  // Pre-formatted viral status caption without hardcoding "on WhatsApp"
+  const statusCaption = `🛍️ NEW DROP: ${selectedProduct.name}
 Code: #${selectedProduct.uid}
 Price: ${formatPrice(selectedProduct.price, store.currencySymbol)}
 
-👉 Reply with #${selectedProduct.uid} on WhatsApp to order or tap:
+👉 Reply with #${selectedProduct.uid} to order or tap:
 ${productUrl}`;
 
   const handleCopyCaption = () => {
@@ -63,8 +59,8 @@ ${productUrl}`;
     setTimeout(() => setCopiedCaption(false), 2000);
   };
 
-  // High-Resolution 9:16 Canvas PNG Exporter
-  const handleDownloadPNG = () => {
+  // High-Resolution 9:16 Canvas PNG Exporter with uploaded logo and no website link text
+  const handleDownloadPNG = async () => {
     setIsExporting(true);
 
     try {
@@ -103,138 +99,164 @@ ${productUrl}`;
       }
       ctx.fillRect(0, 0, width, height);
 
-      // Store Top Header (Logo + Store Name)
-      ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
-      ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(store.name.toUpperCase(), width / 2, 160);
+      // Helper to safely load images
+      const loadImage = (url: string): Promise<HTMLImageElement | null> => {
+        return new Promise((resolve) => {
+          if (!url) return resolve(null);
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = url;
+        });
+      };
 
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = '600 28px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(`⚡ ${displayUrl}`, width / 2, 210);
+      const [logoImg, prodImg] = await Promise.all([
+        loadImage(store.logoUrl),
+        loadImage(selectedProduct.images[0] || store.logoUrl),
+      ]);
 
-      // Product Image
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        // Draw image in rounded container
-        const imgX = 90;
-        const imgY = 270;
-        const imgW = 900;
-        const imgH = 900;
-        const radius = 48;
+      // 1. Draw Uploaded Store Logo & Store Title (NO website link text — QR code handles it alone)
+      if (logoImg) {
+        const logoSize = 100;
+        const logoX = (width - logoSize) / 2;
+        const logoY = 90;
 
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(logoX, logoY, logoSize, logoSize, 24);
+        ctx.clip();
+        ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+        ctx.restore();
+
+        // Logo ring
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(logoX, logoY, logoSize, logoSize, 24);
+        ctx.stroke();
+
+        // Store Name directly under logo
+        ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
+        ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(store.name.toUpperCase(), width / 2, 235);
+      } else {
+        // Fallback Store Name header without logo
+        ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
+        ctx.font = 'bold 50px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(store.name.toUpperCase(), width / 2, 180);
+      }
+
+      // 2. Product Image
+      const imgX = 90;
+      const imgY = 270;
+      const imgW = 900;
+      const imgH = 900;
+      const radius = 48;
+
+      if (prodImg) {
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(imgX, imgY, imgW, imgH, radius);
         ctx.clip();
-        ctx.drawImage(img, imgX, imgY, imgW, imgH);
+        ctx.drawImage(prodImg, imgX, imgY, imgW, imgH);
         ctx.restore();
 
-        // Image border / shadow ring
+        // Image border ring
         ctx.strokeStyle = theme === 'clean-minimal' ? '#cbd5e1' : 'rgba(255,255,255,0.15)';
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.roundRect(imgX, imgY, imgW, imgH, radius);
         ctx.stroke();
+      }
 
-        // Item UID Badge (Floating on image)
-        const uidBgX = 140;
-        const uidBgY = 320;
-        ctx.fillStyle = '#0f172a';
-        ctx.beginPath();
-        ctx.roundRect(uidBgX, uidBgY, 320, 70, 20);
-        ctx.fill();
-        ctx.strokeStyle = '#f59e0b';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+      // 3. Item UID Badge (Floating on image)
+      const uidBgX = 140;
+      const uidBgY = 320;
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.roundRect(uidBgX, uidBgY, 320, 70, 20);
+      ctx.fill();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 3;
+      ctx.stroke();
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '900 32px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(`#${selectedProduct.uid}`, uidBgX + 24, uidBgY + 48);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 32px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`#${selectedProduct.uid}`, uidBgX + 24, uidBgY + 48);
 
-        // Product Name
-        ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
-        ctx.font = 'bold 54px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.textAlign = 'center';
-        const cleanName = selectedProduct.name.length > 36
+      // 4. Product Name
+      ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
+      ctx.font = 'bold 54px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      const cleanName =
+        selectedProduct.name.length > 36
           ? `${selectedProduct.name.slice(0, 36)}...`
           : selectedProduct.name;
-        ctx.fillText(cleanName, width / 2, 1260);
+      ctx.fillText(cleanName, width / 2, 1260);
 
-        // Price Tag Banner
-        const priceBgW = 560;
-        const priceBgH = 110;
-        const priceBgX = (width - priceBgW) / 2;
-        const priceBgY = 1320;
+      // 5. Price Tag Banner
+      const priceBgW = 560;
+      const priceBgH = 110;
+      const priceBgX = (width - priceBgW) / 2;
+      const priceBgY = 1320;
 
-        ctx.fillStyle = '#f59e0b';
-        ctx.beginPath();
-        ctx.roundRect(priceBgX, priceBgY, priceBgW, priceBgH, 30);
-        ctx.fill();
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.roundRect(priceBgX, priceBgY, priceBgW, priceBgH, 30);
+      ctx.fill();
 
-        ctx.fillStyle = '#0f172a';
-        ctx.font = '900 58px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(
-          formatPrice(selectedProduct.price, store.currencySymbol),
-          width / 2,
-          priceBgY + 76
-        );
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 58px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        formatPrice(selectedProduct.price, store.currencySymbol),
+        width / 2,
+        priceBgY + 76
+      );
 
-        // Call to action box at bottom
-        const ctaY = 1500;
-        ctx.fillStyle = theme === 'clean-minimal' ? '#ffffff' : 'rgba(255,255,255,0.06)';
-        ctx.beginPath();
-        ctx.roundRect(90, ctaY, 900, 280, 36);
-        ctx.fill();
-        ctx.strokeStyle = theme === 'clean-minimal' ? '#e2e8f0' : 'rgba(255,255,255,0.1)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+      // 6. Call to action box at bottom (NO "on WhatsApp" text)
+      const ctaY = 1500;
+      ctx.fillStyle = theme === 'clean-minimal' ? '#ffffff' : 'rgba(255,255,255,0.06)';
+      ctx.beginPath();
+      ctx.roundRect(90, ctaY, 900, 280, 36);
+      ctx.fill();
+      ctx.strokeStyle = theme === 'clean-minimal' ? '#e2e8f0' : 'rgba(255,255,255,0.1)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-        // CTA Text
-        ctx.textAlign = 'left';
-        ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
-        ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.fillText('Order Instantly on WhatsApp', 140, ctaY + 75);
+      // CTA Text — clean without "on WhatsApp"
+      ctx.textAlign = 'left';
+      ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
+      ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('Instant Order', 140, ctaY + 75);
 
-        ctx.fillStyle = '#f59e0b';
-        ctx.font = '700 30px monospace';
-        ctx.fillText(`Reply with: #${selectedProduct.uid}`, 140, ctaY + 130);
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = '700 32px monospace';
+      ctx.fillText(`Item Code: #${selectedProduct.uid}`, 140, ctaY + 130);
 
-        ctx.fillStyle = theme === 'clean-minimal' ? '#64748b' : '#94a3b8';
-        ctx.font = '500 24px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.fillText(`Or scan QR code with phone camera`, 140, ctaY + 180);
+      ctx.fillStyle = theme === 'clean-minimal' ? '#64748b' : '#94a3b8';
+      ctx.font = '500 24px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(`Scan QR code with phone camera`, 140, ctaY + 180);
 
-        // QR Code in bottom right of CTA box
-        const qrImg = new Image();
-        const svgBlob = new Blob([qrSvg], { type: 'image/svg+xml;charset=utf-8' });
-        const qrUrl = URL.createObjectURL(svgBlob);
-        qrImg.onload = () => {
-          ctx.drawImage(qrImg, 760, ctaY + 40, 200, 200);
-          URL.revokeObjectURL(qrUrl);
+      // 7. QR Code in bottom right of CTA box
+      const svgBlob = new Blob([qrSvg], { type: 'image/svg+xml;charset=utf-8' });
+      const qrUrl = URL.createObjectURL(svgBlob);
+      const qrImg = await loadImage(qrUrl);
+      if (qrImg) {
+        ctx.drawImage(qrImg, 760, ctaY + 40, 200, 200);
+      }
+      URL.revokeObjectURL(qrUrl);
 
-          // Trigger download
-          const link = document.createElement('a');
-          link.download = `${selectedProduct.uid}-status-card.png`;
-          link.href = canvas.toDataURL('image/png');
-          link.click();
-          setIsExporting(false);
-        };
-        qrImg.src = qrUrl;
-      };
-
-      img.onerror = () => {
-        // Fallback without image
-        const link = document.createElement('a');
-        link.download = `${selectedProduct.uid}-status-card.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        setIsExporting(false);
-      };
-
-      img.src = selectedProduct.images[0] || store.logoUrl;
+      // Trigger download
+      const link = document.createElement('a');
+      link.download = `${selectedProduct.uid}-status-card.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      setIsExporting(false);
     } catch (e) {
       console.error('Error generating card', e);
       setIsExporting(false);
@@ -253,7 +275,8 @@ ${productUrl}`;
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
           </div>
 
-          <div className="w-full max-w-[280px] aspect-[9/16] rounded-3xl shadow-2xl overflow-hidden border-2 border-slate-700/80 flex flex-col justify-between p-4 relative text-white"
+          <div
+            className="w-full max-w-[280px] aspect-[9/16] rounded-3xl shadow-2xl overflow-hidden border-2 border-slate-700/80 flex flex-col justify-between p-4 relative text-white"
             style={{
               background:
                 theme === 'luxury-dark'
@@ -266,13 +289,17 @@ ${productUrl}`;
               color: theme === 'clean-minimal' ? '#0f172a' : '#ffffff',
             }}
           >
-            {/* Top Store Header */}
-            <div className="text-center pt-1">
-              <span className="text-[11px] font-black tracking-wider uppercase block truncate">
+            {/* Top Store Header with uploaded logo — NO website link */}
+            <div className="flex items-center justify-center gap-2 pt-1">
+              {store.logoUrl && (
+                <img
+                  src={store.logoUrl}
+                  alt={store.name}
+                  className="w-7 h-7 rounded-lg object-cover border border-amber-400/80 shadow-xs shrink-0"
+                />
+              )}
+              <span className="text-[11px] font-black tracking-wider uppercase truncate">
                 {store.name}
-              </span>
-              <span className="text-[9px] font-bold text-amber-400 font-mono">
-                {displayUrl}
               </span>
             </div>
 
@@ -301,7 +328,7 @@ ${productUrl}`;
               </div>
             </div>
 
-            {/* Bottom Call to Action + QR Box */}
+            {/* Bottom Call to Action + QR Box (NO 'on WhatsApp') */}
             <div
               className={`p-2.5 rounded-2xl flex items-center justify-between gap-2 border ${
                 theme === 'clean-minimal'
@@ -311,7 +338,7 @@ ${productUrl}`;
             >
               <div className="truncate">
                 <span className="text-[9px] font-bold uppercase tracking-wider block text-amber-400">
-                  Order on WhatsApp
+                  Instant Order
                 </span>
                 <span className="text-[10px] font-black font-mono block truncate">
                   Send #{selectedProduct.uid}
@@ -328,7 +355,7 @@ ${productUrl}`;
           </div>
 
           <span className="mt-3 text-[11px] text-slate-400 font-medium">
-            📱 9:16 Vertical Card for WhatsApp Status & IG Stories
+            📱 9:16 Vertical Card for Status & Stories
           </span>
         </div>
 
@@ -400,11 +427,11 @@ ${productUrl}`;
               </div>
             </div>
 
-            {/* Ready-to-Paste WhatsApp Caption */}
+            {/* Ready-to-Paste Caption */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-slate-700">
-                  WhatsApp Status Pitch
+                  Status Caption Pitch
                 </label>
                 <button
                   onClick={handleCopyCaption}
@@ -431,10 +458,10 @@ ${productUrl}`;
               className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
             >
               <Download className="w-4 h-4 text-amber-400" />
-              <span>{isExporting ? 'Generating High-Res Card...' : 'Download 9:16 Image for Status / Story'}</span>
+              <span>{isExporting ? 'Generating High-Res Card...' : 'Download 9:16 Image for Status'}</span>
             </button>
             <p className="text-[10px] text-center text-slate-400">
-              Exports full-resolution 1080×1920 graphic ready for WhatsApp Status, Instagram & TikTok
+              Includes store logo & scannable QR code. No URL clutter.
             </p>
           </div>
         </div>

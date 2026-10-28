@@ -201,7 +201,7 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-base leading-tight">
-                {placedOrder ? 'Order Placed!' : 'WhatsApp Checkout Bag'}
+                {placedOrder ? 'Order Placed!' : 'Shopping Cart'}
               </h3>
               <p className="text-xs text-slate-500">
                 {placedOrder
@@ -350,15 +350,15 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
                   <ShoppingBag className="w-8 h-8" />
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-800 text-sm">Your order bag is empty</p>
+                  <p className="font-semibold text-slate-800 text-sm">Your cart is empty</p>
                   <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                    Add products from {store.name}'s catalog to send a complete order with Item UIDs to WhatsApp.
+                    Add products from {store.name}'s catalog to view and complete your order.
                   </p>
                 </div>
               </div>
             ) : (
               <>
-                {/* Bag Items list */}
+                {/* Cart Items list */}
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -368,7 +368,7 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
                       onClick={onClearCart}
                       className="text-xs text-rose-500 hover:text-rose-600 font-medium cursor-pointer"
                     >
-                      Clear Bag
+                      Clear Cart
                     </button>
                   </div>
 

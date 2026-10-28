@@ -998,3 +998,52 @@ export function getSubdomainFromHostname(): string | null {
   }
   return null;
 }
+
+
+/**
+ * Categories management per store for easy reuse
+ */
+export function getStoreCategories(storeId: string): string[] {
+  const customKey = `ta_custom_categories_${storeId}`;
+  let customCategories: string[] = [];
+  try {
+    const raw = localStorage.getItem(customKey);
+    if (raw) customCategories = JSON.parse(raw);
+  } catch (e) {
+    // ignore
+  }
+
+  // Also collect categories from existing products
+  const products = getProductsByStore(storeId);
+  const set = new Set<string>();
+  products.forEach((p) => {
+    if (p.category && p.category.trim()) {
+      set.add(p.category.trim());
+    }
+  });
+  customCategories.forEach((c) => {
+    if (c && c.trim()) set.add(c.trim());
+  });
+
+  const result = Array.from(set);
+  return result.length > 0 ? result : ['General'];
+}
+
+export function addStoreCategory(storeId: string, categoryName: string): string[] {
+  const clean = categoryName.trim();
+  if (!clean) return getStoreCategories(storeId);
+  const customKey = `ta_custom_categories_${storeId}`;
+  let existing: string[] = [];
+  try {
+    const raw = localStorage.getItem(customKey);
+    if (raw) existing = JSON.parse(raw);
+  } catch (e) {
+    // ignore
+  }
+
+  if (!existing.some((c) => c.toLowerCase() === clean.toLowerCase())) {
+    existing.push(clean);
+    localStorage.setItem(customKey, JSON.stringify(existing));
+  }
+  return getStoreCategories(storeId);
+}

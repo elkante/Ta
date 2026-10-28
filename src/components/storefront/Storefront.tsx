@@ -695,7 +695,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 </span>
               </div>
               <span className="font-sans font-bold">
-                View Bag ({totalCartCount} item{totalCartCount > 1 ? 's' : ''})
+                View Cart ({totalCartCount} item{totalCartCount > 1 ? 's' : ''})
               </span>
             </div>
             <div className="flex items-center gap-2">

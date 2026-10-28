@@ -309,32 +309,30 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <div className="h-2 sm:hidden" />
         </div>
 
-        {/* ── STICKY FOOTER CTA ─────────────────────── */}
-        <div className="shrink-0 p-3 sm:p-4 bg-white border-t border-slate-100 flex gap-2" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+        {/* ── STICKY FOOTER CTA: Add to Cart Focus ─────────────────────── */}
+        <div className="shrink-0 p-3 sm:p-4 bg-white border-t border-slate-100 flex gap-2" style={{ paddingBottom: 'max(14px, env(safe-area-inset-bottom))' }}>
           <button
             onClick={handleAddBag}
             disabled={!isAvailable}
-            className={`flex-none px-4 py-3.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
-              addedToCartToast
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700'
-            } ${!isAvailable ? 'opacity-40 cursor-not-allowed' : ''}`}
-          >
-            {addedToCartToast ? <Check className="w-4 h-4 text-emerald-600" /> : <ShoppingBag className="w-4 h-4" />}
-            {addedToCartToast ? 'Added!' : 'Add to Bag'}
-          </button>
-
-          <button
-            onClick={handleDirectOrder}
-            disabled={!isAvailable}
-            className={`flex-1 py-3.5 px-4 rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-lg transition cursor-pointer active:scale-[0.99] ${
-              isAvailable
-                ? 'bg-[#25D366] hover:bg-[#20ba59] text-white shadow-emerald-500/25'
-                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+            className={`w-full py-3.5 px-6 rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-lg transition cursor-pointer active:scale-[0.99] ${
+              !isAvailable
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                : addedToCartToast
+                ? 'bg-emerald-600 text-white shadow-emerald-600/25'
+                : 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/25'
             }`}
           >
-            <MessageCircle className="w-4 h-4 shrink-0" />
-            <span>Order · {formatPrice(currentPrice, store.currencySymbol)}</span>
+            {addedToCartToast ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-300" />
+                <span>Added to Cart!</span>
+              </>
+            ) : (
+              <>
+                <ShoppingBag className="w-4 h-4" />
+                <span>Add to Cart · {formatPrice(currentPrice, store.currencySymbol)}</span>
+              </>
+            )}
           </button>
         </div>
       </div>

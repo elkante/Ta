@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Image as ImageIcon, Plus, Trash2, X } from 'lucide-react';
+import { AlertCircle, Check, Image as ImageIcon, Lock, Plus, Tag, Trash2, X } from 'lucide-react';
 import { Product, ProductVariant, Store } from '../../types';
+import { addStoreCategory, getStoreCategories } from '../../utils/storage';
 
 interface AddEditProductModalProps {
   isOpen: boolean;
@@ -32,6 +33,9 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
   const [price, setPrice] = useState<number>(0);
   const [originalPrice, setOriginalPrice] = useState<number | undefined>(undefined);
   const [category, setCategory] = useState('');
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [inStock, setInStock] = useState(true);
   const [badge, setBadge] = useState('');
@@ -39,33 +43,56 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    // Load available categories for this store
+    const cats = getStoreCategories(store.id);
+    setAvailableCategories(cats);
+
     if (productToEdit) {
       setName(productToEdit.name);
       setUid(productToEdit.uid || '');
       setDescription(productToEdit.description);
       setPrice(productToEdit.price);
       setOriginalPrice(productToEdit.originalPrice);
-      setCategory(productToEdit.category);
+      setCategory(productToEdit.category || cats[0] || 'General');
       setImageUrl(productToEdit.images[0] || '');
       setInStock(productToEdit.inStock);
       setBadge(productToEdit.badge || '');
       setVariants(productToEdit.variants || []);
     } else {
       setName('');
-      setUid(`TA-${store.slug.split('-')[0]?.toUpperCase().slice(0, 3) || 'ITM'}-${Math.floor(100 + Math.random() * 899)}`);
+      // Generate immutable Item SKU for new product
+      const prefix = store.slug.split('-')[0]?.toUpperCase().slice(0, 3) || 'ITM';
+      const autoSku = `TA-${prefix}-${Math.floor(100 + Math.random() * 899)}`;
+      setUid(autoSku);
       setDescription('');
       setPrice(0);
       setOriginalPrice(undefined);
-      setCategory('');
+      setCategory(cats[0] || 'General');
       setImageUrl(PRESET_IMAGES[0].url);
       setInStock(true);
       setBadge('');
       setVariants([]);
     }
+    setIsCreatingCategory(false);
+    setNewCategoryName('');
     setError(null);
-  }, [productToEdit, isOpen, store.slug]);
+  }, [productToEdit, isOpen, store.slug, store.id]);
 
   if (!isOpen) return null;
+
+  const handleCreateCategory = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const clean = newCategoryName.trim();
+    if (!clean) return;
+
+    const updated = addStoreCategory(store.id, clean);
+    setAvailableCategories(updated);
+    setCategory(clean);
+    setNewCategoryName('');
+    setIsCreatingCategory(false);
+  };
 
   const handleAddVariant = () => {
     const newVariant: ProductVariant = {
@@ -100,13 +127,17 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
       return;
     }
 
+    const finalCategory = category.trim() || 'General';
+    // Ensure category is registered in store categories
+    addStoreCategory(store.id, finalCategory);
+
     const payload: Partial<Product> = {
       name: name.trim(),
-      uid: uid.trim().toUpperCase() || `TA-${Math.floor(100 + Math.random() * 899)}`,
+      uid: uid, // Non-editable, kept intact
       description: description.trim(),
       price: Number(price),
       originalPrice: originalPrice ? Number(originalPrice) : undefined,
-      category: category.trim() || 'General',
+      category: finalCategory,
       images: [imageUrl.trim() || PRESET_IMAGES[0].url],
       inStock,
       badge: badge.trim() || undefined,
@@ -131,7 +162,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
               {productToEdit ? 'Edit Product' : 'Add New Product'}
             </h3>
             <p className="text-xs text-slate-500">
-              Update catalog details, Item UID, and WhatsApp ordering options
+              Update catalog details, categories, and inventory options
             </p>
           </div>
           <button
@@ -151,7 +182,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
             </div>
           )}
 
-          {/* Product Title and Item UID */}
+          {/* Product Title and Item SKU (Locked/Non-editable) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <label className="text-xs font-semibold text-slate-700 block mb-1">Product Title *</label>
@@ -166,42 +197,117 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
             </div>
             <div>
               <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center justify-between">
-                <span>Item UID *</span>
-                <span className="text-[10px] text-slate-400 font-mono">For Search</span>
+                <span>Item SKU</span>
+                <span className="text-[10px] text-slate-400 font-mono flex items-center gap-0.5">
+                  <Lock className="w-2.5 h-2.5 text-slate-400" /> Locked
+                </span>
               </label>
-              <input
-                type="text"
-                required
-                placeholder="TA-BR540"
-                value={uid}
-                onChange={(e) => setUid(e.target.value.toUpperCase())}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-900 uppercase focus:outline-none focus:ring-2 focus:ring-slate-900"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  readOnly
+                  disabled
+                  value={uid}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-100/90 text-xs font-mono font-bold text-slate-500 uppercase cursor-not-allowed select-all"
+                  title="Item SKU is permanent and cannot be edited to preserve barcodes, waybills and QR codes"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-0.5">Permanent barcode & UID</p>
             </div>
           </div>
 
-          {/* Category & Badge */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Category</label>
-              <input
-                type="text"
-                placeholder="e.g. Perfumes, Dresses, iPhones"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
-              />
+          {/* Reusable Category System */}
+          <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-amber-500" />
+                <span>Product Category *</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsCreatingCategory(!isCreatingCategory)}
+                className="text-xs font-bold text-amber-600 hover:text-amber-700 inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{isCreatingCategory ? 'Cancel' : 'New Category'}</span>
+              </button>
             </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Badge (Optional)</label>
-              <input
-                type="text"
-                placeholder="e.g. Bestseller, New Arrival, Viral"
-                value={badge}
-                onChange={(e) => setBadge(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
-              />
+
+            {/* Quick Inline Category Creator */}
+            {isCreatingCategory && (
+              <div className="p-2.5 bg-white rounded-xl border border-amber-200 shadow-xs flex items-center gap-2 animate-in fade-in duration-150">
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="e.g. Dresses, Shoes, Extrait, Decants..."
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCreateCategory();
+                    }
+                  }}
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCreateCategory()}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1"
+                >
+                  <Check className="w-3 h-3 text-emerald-400" />
+                  <span>Save</span>
+                </button>
+              </div>
+            )}
+
+            {/* Category Select Dropdown */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 cursor-pointer"
+                >
+                  {availableCategories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <input
+                  type="text"
+                  placeholder="Optional badge (e.g. Bestseller, New)"
+                  value={badge}
+                  onChange={(e) => setBadge(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+              </div>
             </div>
+
+            {/* Quick Category Chips for One-Tap Reuse */}
+            {availableCategories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[10px] text-slate-400 font-medium">Quick switch:</span>
+                {availableCategories.map((cat) => (
+                  <button
+                    type="button"
+                    key={cat}
+                    onClick={() => setCategory(cat)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                      category === cat
+                        ? 'bg-slate-900 text-white shadow-2xs'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Price & Discount Price */}
@@ -289,7 +395,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
             <div>
               <span className="text-xs font-semibold text-slate-800 block">Inventory Stock Status</span>
               <span className="text-[11px] text-slate-500">
-                {inStock ? 'Available for WhatsApp orders' : 'Marked as Sold Out on storefront'}
+                {inStock ? 'Available for catalog orders' : 'Marked as Sold Out on storefront'}
               </span>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -303,7 +409,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
             </label>
           </div>
 
-          {/* Variants & Options Section (The "Shopify-style" multi-option support) */}
+          {/* Variants & Options Section */}
           <div className="pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between mb-2">
               <div>
