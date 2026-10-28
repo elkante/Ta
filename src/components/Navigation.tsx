@@ -104,99 +104,123 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           <div className="h-5 w-px bg-slate-200 hidden sm:block shrink-0" />
 
-          {/* Tenant Switcher Dropdown */}
-          <div className="relative min-w-0">
-            <button
-              onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
-              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 transition text-left cursor-pointer group max-w-[140px] xs:max-w-[170px] sm:max-w-[200px]"
-            >
-              <img
-                src={currentStore.logoUrl}
-                alt={currentStore.name}
-                className="w-5 h-5 rounded-full object-cover border border-slate-200 shrink-0"
-              />
-              <div className="truncate">
-                <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1">
-                  <span className="truncate">{currentStore.name}</span>
-                  {currentStore.verified && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" title="Verified Store" />
-                  )}
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono truncate hidden xs:block">
-                  {currentStore.slug}.ta.shop
-                </div>
-              </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition shrink-0 ml-auto" />
-            </button>
-
-            {/* Dropdown Menu */}
-            {storeDropdownOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-30"
-                  onClick={() => setStoreDropdownOpen(false)}
+          {/* ─── Tenant Switcher: ONLY for logged-in sellers or super admin ─── */}
+          {(sellerSession || superAdminSession) ? (
+            <div className="relative min-w-0">
+              <button
+                onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
+                className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 transition text-left cursor-pointer group max-w-[140px] xs:max-w-[170px] sm:max-w-[200px]"
+              >
+                <img
+                  src={currentStore.logoUrl}
+                  alt={currentStore.name}
+                  className="w-5 h-5 rounded-full object-cover border border-slate-200 shrink-0"
                 />
-                <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl bg-white shadow-xl border border-slate-100 z-40 p-2 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                    Select Active Storefront
+                <div className="truncate">
+                  <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1">
+                    <span className="truncate">{currentStore.name}</span>
+                    {currentStore.verified && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" title="Verified Store" />
+                    )}
                   </div>
-                  <div className="max-h-60 overflow-y-auto space-y-1">
-                    {allStores.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => {
-                          onSelectStore(s);
-                          setStoreDropdownOpen(false);
-                          if (activeView === 'landing') {
-                            onViewChange('storefront');
-                          }
-                        }}
-                        className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition cursor-pointer ${
-                          s.id === currentStore.id
-                            ? 'bg-slate-900 text-white font-medium'
-                            : 'hover:bg-slate-50 text-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 truncate">
-                          <img
-                            src={s.logoUrl}
-                            alt={s.name}
-                            className="w-7 h-7 rounded-lg object-cover shrink-0 border border-slate-200/40"
-                          />
-                          <div className="truncate">
-                            <div className="truncate font-semibold">{s.name}</div>
-                            <div
-                              className={`text-[10px] font-mono truncate ${
-                                s.id === currentStore.id ? 'text-slate-300' : 'text-slate-400'
-                              }`}
-                            >
-                              {s.slug}.ta.shop
+                  <div className="text-[10px] text-slate-400 font-mono truncate hidden xs:block">
+                    {currentStore.slug}.ta.shop
+                  </div>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition shrink-0 ml-auto" />
+              </button>
+
+              {/* Dropdown Menu */}
+              {storeDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setStoreDropdownOpen(false)}
+                  />
+                  <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl bg-white shadow-xl border border-slate-100 z-40 p-2 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      Select Active Storefront
+                    </div>
+                    <div className="max-h-60 overflow-y-auto space-y-1">
+                      {allStores.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            onSelectStore(s);
+                            setStoreDropdownOpen(false);
+                            if (activeView === 'landing') {
+                              onViewChange('storefront');
+                            }
+                          }}
+                          className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition cursor-pointer ${
+                            s.id === currentStore.id
+                              ? 'bg-slate-900 text-white font-medium'
+                              : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <img
+                              src={s.logoUrl}
+                              alt={s.name}
+                              className="w-7 h-7 rounded-lg object-cover shrink-0 border border-slate-200/40"
+                            />
+                            <div className="truncate">
+                              <div className="truncate font-semibold">{s.name}</div>
+                              <div
+                                className={`text-[10px] font-mono truncate ${
+                                  s.id === currentStore.id ? 'text-slate-300' : 'text-slate-400'
+                                }`}
+                              >
+                                {s.slug}.ta.shop
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        {s.id === currentStore.id && (
-                          <Check className="w-4 h-4 text-emerald-400 shrink-0 ml-2" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
+                          {s.id === currentStore.id && (
+                            <Check className="w-4 h-4 text-emerald-400 shrink-0 ml-2" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
 
-                  <div className="border-t border-slate-100 mt-2 pt-2">
-                    <button
-                      onClick={() => {
-                        setStoreDropdownOpen(false);
-                        onOpenCreateStore();
-                      }}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold transition cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Launch New Storefront</span>
-                    </button>
+                    <div className="border-t border-slate-100 mt-2 pt-2">
+                      <button
+                        onClick={() => {
+                          setStoreDropdownOpen(false);
+                          onOpenCreateStore();
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold transition cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Launch New Storefront</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            /* Buyers: static store identity — no switcher, no navigation away */
+            activeView === 'storefront' && (
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <img
+                  src={currentStore.logoUrl}
+                  alt={currentStore.name}
+                  className="w-5 h-5 rounded-full object-cover border border-slate-200 shrink-0"
+                />
+                <div className="truncate hidden xs:block">
+                  <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1">
+                    <span className="truncate">{currentStore.name}</span>
+                    {currentStore.verified && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" title="Verified Store" />
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-mono truncate">
+                    {currentStore.slug}.ta.shop
                   </div>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+            )
+          )}
         </div>
 
         {/* Desktop Navigation (Visible on sm screens and up) */}
@@ -384,16 +408,19 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <span>Share Store Link & QR Code</span>
               </button>
 
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onOpenCreateStore();
-                }}
-                className="w-full p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 text-xs font-bold flex items-center gap-2.5 transition cursor-pointer"
-              >
-                <Plus className="w-4 h-4 text-amber-600" />
-                <span>Launch New Storefront</span>
-              </button>
+              {/* Only sellers/admins can launch new storefronts */}
+              {(sellerSession || superAdminSession) && (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenCreateStore();
+                  }}
+                  className="w-full p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 text-xs font-bold flex items-center gap-2.5 transition cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-amber-600" />
+                  <span>Launch New Storefront</span>
+                </button>
+              )}
 
               {/* Login / Logout */}
               {sellerSession ? (

@@ -696,7 +696,9 @@ export const Storefront: React.FC<StorefrontProps> = ({
       />
 
       {/* Floating AI Shopping Assistant Bubble (Strictly for this store) */}
+      {/* key={store.id} forces full unmount+remount on store change → resets all chat state */}
       <StoreAIBotBubble
+        key={store.id}
         store={store}
         products={products}
         onOpenProductDetail={(prod) => {

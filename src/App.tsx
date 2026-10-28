@@ -112,7 +112,8 @@ export default function App() {
     loadTenantData();
   }, []);
 
-  const handleSelectStore = (store: Store) => {
+  // Internal helper — bypasses the buyer guard (used by login/signup flows)
+  const switchStore = (store: Store) => {
     setCurrentStore(store);
     setCurrentTenantSlug(store.slug);
 
@@ -127,10 +128,22 @@ export default function App() {
     setStoreReviews(getReviewsByStore(store.id));
   };
 
+  const handleSelectStore = (store: Store) => {
+    // 🔒 Role-based guard: buyers cannot switch stores.
+    // Only logged-in sellers or super admin are allowed to switch.
+    const isSeller = sellerSession !== null;
+    const isAdmin = superAdminSession !== null;
+    if (!isSeller && !isAdmin) {
+      // Silently ignore — buyer cannot navigate away to another store
+      return;
+    }
+    switchStore(store);
+  };
+
   const handleStoreCreated = (newStore: Store) => {
     setIsCreateStoreOpen(false);
     loadTenantData(newStore.slug);
-    handleSelectStore(newStore);
+    switchStore(newStore); // bypasses guard — creator is already authenticated
     setActiveView('dashboard'); // take seller directly to their new dashboard
   };
 
@@ -139,7 +152,7 @@ export default function App() {
     const stores = getStoredStores();
     const matchedStore = stores.find((s) => s.id === session.storeId) || stores[0];
     if (matchedStore) {
-      handleSelectStore(matchedStore);
+      switchStore(matchedStore); // bypasses guard — session just set above
     }
     setActiveView('dashboard');
   };
