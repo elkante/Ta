@@ -925,42 +925,52 @@ export function resetPlatformToSeedData(): void {
 export const TA_ROOT_DOMAIN = 'ta.shop';
 
 /**
- * Returns the full shareable URL for a store, formatted as:
- *   https://{slug}.ta.shop               (production)
- *   http://localhost:PORT?store={slug}   (local dev fallback)
+ * Returns the active shareable URL for a store.
+ * Automatically adapts to the current environment:
+ * - If running on Vercel / Netlify / custom host: uses current origin + ?store={slug}
+ * - If running on *.ta.shop: uses https://{slug}.ta.shop
+ * - If running on local dev / Wi-Fi IP: uses current origin + ?store={slug}
  *
- * Always returns a clickable URL. For a pure display label
- * (without the protocol), use `getStoreDisplayUrl` instead.
+ * This guarantees QR codes and share links ALWAYS open the live deployed app
+ * regardless of whether you are hosted on Vercel or a custom domain.
  */
 export function getStoreUrl(
   slug: string,
-  options?: { productId?: string }
+  options?: { productId?: string; forceSubdomain?: boolean }
 ): string {
-  const isLocal =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.startsWith('192.168.'));
-
-  if (isLocal) {
-    // Local dev: use query-param fallback so the link is actually clickable
-    const base = window.location.origin;
-    const params = new URLSearchParams({ store: slug });
-    if (options?.productId) params.set('product', options.productId);
-    return `${base}?${params.toString()}`;
+  if (typeof window === 'undefined') {
+    return `https://${slug}.${TA_ROOT_DOMAIN}`;
   }
 
-  // Production: proper subdomain URL
-  const base = `https://${slug}.${TA_ROOT_DOMAIN}`;
-  if (options?.productId) return `${base}?product=${options.productId}`;
-  return base;
+  const host = window.location.hostname;
+  const origin = window.location.origin;
+
+  // If deployed on the official ta.shop domain
+  if (host.endsWith('ta.shop')) {
+    const base = `https://${slug}.${TA_ROOT_DOMAIN}`;
+    if (options?.productId) return `${base}?product=${options.productId}`;
+    return base;
+  }
+
+  // Deployed on Vercel, Netlify, Railway, Render, LAN IP, or localhost:
+  // Dynamically points to the exact active origin so phone cameras can scan and open it!
+  const params = new URLSearchParams({ store: slug });
+  if (options?.productId) params.set('product', options.productId);
+  return `${origin}/?${params.toString()}`;
 }
 
 /**
- * Returns a display-only branded label like "amaka-perfumes.ta.shop"
- * without a protocol – suitable for UI badges and nav bars.
+ * Returns a branded display label (e.g., "amaka-perfumes.ta.shop" or "my-app.vercel.app/?store=...")
  */
 export function getStoreDisplayUrl(slug: string): string {
+  if (typeof window === 'undefined') return `${slug}.${TA_ROOT_DOMAIN}`;
+  const host = window.location.hostname;
+  if (host.endsWith('ta.shop')) {
+    return `${slug}.${TA_ROOT_DOMAIN}`;
+  }
+  if (host.includes('vercel.app') || host.includes('netlify.app')) {
+    return `${host}/?store=${slug}`;
+  }
   return `${slug}.${TA_ROOT_DOMAIN}`;
 }
 

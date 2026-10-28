@@ -67,7 +67,17 @@ export interface Store {
   tier: 'free' | 'pro';
   verified: boolean;
   status?: 'active' | 'suspended';
+  aiBotConfig?: StoreAIBotConfig;
   createdAt: string;
+}
+
+export interface StoreAIBotConfig {
+  botName: string; // e.g. "Amaka Scents AI"
+  welcomeMessage: string;
+  storeKnowledge: string; // Custom FAQs, delivery timelines, payment terms
+  tone: 'luxury' | 'friendly' | 'fast' | 'professional';
+  suggestedQuestions: string[];
+  enabled: boolean;
 }
 
 export interface WhatsAppInquiryLog {

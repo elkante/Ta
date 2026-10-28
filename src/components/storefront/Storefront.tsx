@@ -24,6 +24,7 @@ import { CartItem, Product, ProductVariant, Store, StoreReview } from '../../typ
 import { ProductCard } from './ProductCard';
 import { ProductDetailModal } from './ProductDetailModal';
 import { WhatsAppCartDrawer } from './WhatsAppCartDrawer';
+import { StoreAIBotBubble } from './StoreAIBotBubble';
 import { WhatsAppPreviewModal } from '../modals/WhatsAppPreviewModal';
 import { SocialShareModal } from '../modals/SocialShareModal';
 import {
@@ -692,6 +693,16 @@ export const Storefront: React.FC<StorefrontProps> = ({
         }}
         store={store}
         product={shareTargetProduct}
+      />
+
+      {/* Floating AI Shopping Assistant Bubble (Strictly for this store) */}
+      <StoreAIBotBubble
+        store={store}
+        products={products}
+        onOpenProductDetail={(prod) => {
+          setSelectedProduct(prod);
+          setIsDetailOpen(true);
+        }}
       />
     </div>
   );

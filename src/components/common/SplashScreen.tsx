@@ -156,7 +156,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             <span className="text-3xl sm:text-4xl font-extrabold text-amber-500">.shop</span>
           </div>
           <p className="text-xs text-slate-400 font-medium tracking-wide">
-            <span className="text-amber-400 font-semibold italic">Tà</span> = Sell in Yoruba • Social WhatsApp Commerce
+            Social WhatsApp Commerce • Instant Catalog & Orders
           </p>
         </div>
 

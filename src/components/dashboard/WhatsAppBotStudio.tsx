@@ -14,15 +14,18 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  ToggleLeft,
+  ToggleRight,
   Zap,
 } from 'lucide-react';
-import { Product, Store } from '../../types';
+import { Product, Store, StoreAIBotConfig } from '../../types';
 import { formatPrice } from '../../utils/whatsapp';
-import { getStoreDisplayUrl, getStoreUrl } from '../../utils/storage';
+import { getStoreDisplayUrl, getStoreUrl, updateStore } from '../../utils/storage';
 
 interface WhatsAppBotStudioProps {
   store: Store;
   products: Product[];
+  onRefreshData?: () => void;
 }
 
 interface ChatMessage {
@@ -39,6 +42,7 @@ interface ChatMessage {
 export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   store,
   products,
+  onRefreshData,
 }) => {
   const displayUrl = getStoreDisplayUrl(store.slug);
   const webhookUrl = `https://api.ta.shop/v1/webhook/whatsapp/${store.slug}`;
@@ -46,6 +50,28 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
 
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
+
+  // Existing bot configuration or defaults
+  const existingConfig = store.aiBotConfig || {
+    botName: `${store.name.split(' ')[0]} AI Assistant`,
+    welcomeMessage: `Hello! 👋 Welcome to ${store.name}. Drop any Item UID (e.g. #${products[0]?.uid || 'TA-BR540'}) or ask about products, prices, and delivery!`,
+    storeKnowledge: `Dispatch: ${store.deliveryInfo || 'Fast same-day dispatch.'} Location: ${store.location}. ${store.announcement || ''}`,
+    tone: 'luxury',
+    suggestedQuestions: [
+      'What are your bestsellers?',
+      `Any items under ${store.currencySymbol}50,000?`,
+      'Delivery options and locations',
+    ],
+    enabled: true,
+  };
+
+  // Editable Bot State
+  const [botName, setBotName] = useState(existingConfig.botName);
+  const [welcomeMessage, setWelcomeMessage] = useState(existingConfig.welcomeMessage);
+  const [storeKnowledge, setStoreKnowledge] = useState(existingConfig.storeKnowledge);
+  const [botTone, setBotTone] = useState<'luxury' | 'friendly' | 'fast' | 'professional'>(existingConfig.tone);
+  const [bubbleEnabled, setBubbleEnabled] = useState(existingConfig.enabled);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Chat Simulator State
   const initialChat: ChatMessage[] = [
@@ -71,16 +97,6 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
 
   const [messages, setMessages] = useState<ChatMessage[]>(initialChat);
   const [inputMessage, setInputMessage] = useState('');
-  const [botEnabled, setBotEnabled] = useState(true);
-
-  // Custom Bot Templates State
-  const [greetingTemplate, setGreetingTemplate] = useState(
-    `Hello! 👋 Welcome to ${store.name}. Drop any Item UID (e.g. #TA-BR540) to see instant price, sizes, and order directly.`
-  );
-  const [fallbackTemplate, setFallbackTemplate] = useState(
-    `Sorry, we couldn't find an item with that code. Browse our full catalog here: https://${displayUrl}`
-  );
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleCopyWebhook = () => {
     navigator.clipboard.writeText(webhookUrl);
@@ -92,6 +108,30 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     navigator.clipboard.writeText(webhookSecret);
     setCopiedSecret(true);
     setTimeout(() => setCopiedSecret(false), 2000);
+  };
+
+  const handleSaveBotSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const updatedConfig: StoreAIBotConfig = {
+      botName: botName.trim() || `${store.name} AI`,
+      welcomeMessage: welcomeMessage.trim(),
+      storeKnowledge: storeKnowledge.trim(),
+      tone: botTone,
+      suggestedQuestions: existingConfig.suggestedQuestions,
+      enabled: bubbleEnabled,
+    };
+
+    const updatedStore: Store = {
+      ...store,
+      aiBotConfig: updatedConfig,
+    };
+
+    updateStore(updatedStore);
+    if (onRefreshData) onRefreshData();
+
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2500);
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -452,53 +492,119 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
             </div>
           </div>
 
-          {/* Bot Custom Message Templates */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
+          {/* Bot Custom Message Templates & Store AI Settings */}
+          <form
+            onSubmit={handleSaveBotSettings}
+            className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4"
+          >
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-slate-900 text-base">
-                Bot Reply Customization
-              </h3>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">
+                  Customize Store AI Assistant
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Strictly applies to {store.name}'s chat bubble & WhatsApp replies
+                </p>
+              </div>
               {saveSuccess && (
-                <span className="text-emerald-600 text-xs font-bold animate-in fade-in">
-                  ✓ Saved successfully
+                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full text-xs font-bold animate-in fade-in flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Saved!</span>
                 </span>
               )}
             </div>
 
+            {/* Enable/Disable Storefront Bubble */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200">
+              <div>
+                <span className="text-xs font-bold text-slate-900 block">
+                  Show AI Chat Bubble on Storefront
+                </span>
+                <span className="text-[11px] text-slate-500 block">
+                  Visitors on your store can tap the floating bubble to chat with your AI
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBubbleEnabled(!bubbleEnabled)}
+                className="text-slate-700 hover:text-slate-950 transition cursor-pointer"
+              >
+                {bubbleEnabled ? (
+                  <ToggleRight className="w-8 h-8 text-emerald-600" />
+                ) : (
+                  <ToggleLeft className="w-8 h-8 text-slate-400" />
+                )}
+              </button>
+            </div>
+
+            {/* Bot Name & Tone Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  AI Assistant Name
+                </label>
+                <input
+                  type="text"
+                  value={botName}
+                  onChange={(e) => setBotName(e.target.value)}
+                  placeholder="e.g. Amaka Scents AI"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-900 bg-slate-50 font-sans focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Conversation Tone
+                </label>
+                <select
+                  value={botTone}
+                  onChange={(e) => setBotTone(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-900 bg-slate-50 font-sans focus:outline-none focus:ring-2 focus:ring-slate-900"
+                >
+                  <option value="luxury">Luxury Concierge (Warm & Elegant)</option>
+                  <option value="friendly">Friendly & Energetic (Emoji Rich)</option>
+                  <option value="fast">Direct & Fast (Short & Punchy)</option>
+                  <option value="professional">Corporate & Professional</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Custom Welcome Message */}
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                Greeting Message (when customer says "Hi" or "Hello")
+                Welcome Greeting Message
               </label>
               <textarea
                 rows={2}
-                value={greetingTemplate}
-                onChange={(e) => setGreetingTemplate(e.target.value)}
+                value={welcomeMessage}
+                onChange={(e) => setWelcomeMessage(e.target.value)}
                 className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50 font-sans focus:outline-none focus:ring-2 focus:ring-slate-900"
               />
             </div>
 
+            {/* Store-Specific Knowledge & FAQs */}
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                Fallback Message (when UID is not found)
+              <label className="text-xs font-bold text-slate-700 block mb-1 flex items-center justify-between">
+                <span>Store-Specific Knowledge & Policies</span>
+                <span className="text-[10px] text-slate-400 font-normal">AI will reference this when answering</span>
               </label>
               <textarea
-                rows={2}
-                value={fallbackTemplate}
-                onChange={(e) => setFallbackTemplate(e.target.value)}
+                rows={3}
+                placeholder="e.g. Lagos Island delivery takes 2-4 hours. Nationwide orders via GIG Logistics take 24-48 hours. We accept bank transfer and pay on delivery for Lagos buyers."
+                value={storeKnowledge}
+                onChange={(e) => setStoreKnowledge(e.target.value)}
                 className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50 font-sans focus:outline-none focus:ring-2 focus:ring-slate-900"
               />
             </div>
 
             <button
-              onClick={() => {
-                setSaveSuccess(true);
-                setTimeout(() => setSaveSuccess(false), 2000);
-              }}
-              className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition cursor-pointer active:scale-95 shadow-xs"
+              type="submit"
+              className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition cursor-pointer active:scale-95 shadow-xs flex items-center justify-center gap-2"
             >
-              Save Bot Templates
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Save AI Assistant Settings for {store.name}</span>
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </div>

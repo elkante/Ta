@@ -1303,7 +1303,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
         {/* TAB: WHATSAPP DROP UID BOT */}
         {activeTab === 'uid-bot' && (
-          <WhatsAppBotStudio store={store} products={products} />
+          <WhatsAppBotStudio store={store} products={products} onRefreshData={onRefreshData} />
         )}
 
         {/* TAB 4: MARKETING & QR */}
