@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { AlertCircle, Check, Image as ImageIcon, Lock, Plus, Tag, Trash2, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { AlertCircle, Check, Image as ImageIcon, Link, Lock, Plus, Tag, Trash2, Upload, X } from 'lucide-react';
 import { Product, ProductVariant, Store } from '../../types';
 import { addStoreCategory, getStoreCategories } from '../../utils/storage';
 
@@ -42,6 +42,9 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [imageTab, setImageTab] = useState<'upload' | 'url' | 'preset'>('upload');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [inStock, setInStock] = useState(true);
   const [badge, setBadge] = useState('');
   const [variants, setVariants] = useState<ProductVariant[]>([]);
@@ -86,6 +89,37 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
   }, [productToEdit, isOpen, store.slug, store.id]);
 
   if (!isOpen) return null;
+
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file (JPG, PNG, WebP, etc.)');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be under 5MB. Please compress or resize it first.');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setError(null);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImageUrl(reader.result as string);
+      setIsUploadingImage(false);
+    };
+    reader.onerror = () => {
+      setError('Failed to read image file. Please try again.');
+      setIsUploadingImage(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleCreateCategory = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -358,40 +392,108 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
             />
           </div>
 
-          {/* Image URL & Quick Presets */}
+          {/* Image Section — Upload / URL / Preset tabs */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-700">Product Image URL</label>
-              <span className="text-[11px] text-amber-600 font-medium">Auto-fallback preset active</span>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-slate-700">Product Image</label>
+              {imageUrl && (
+                <button
+                  type="button"
+                  onClick={() => setImageUrl('')}
+                  className="text-[11px] text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> Remove
+                </button>
+              )}
             </div>
-            <div className="flex gap-2">
-              <input
-                type="url"
-                placeholder="Paste direct image link, or pick a preset below..."
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
+
+            {/* Image Preview */}
+            <div className="relative w-full h-36 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 mb-3">
+              <img
+                src={imageUrl || DEFAULT_FALLBACK_IMAGE}
+                alt="Product preview"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = DEFAULT_FALLBACK_IMAGE;
+                }}
               />
-              <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100">
-                <img
-                  src={imageUrl.trim() || DEFAULT_FALLBACK_IMAGE}
-                  alt="Preview"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = DEFAULT_FALLBACK_IMAGE;
-                  }}
+              {isUploadingImage && (
+                <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              {imageUrl && (
+                <div className="absolute bottom-2 right-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Image set
+                </div>
+              )}
+            </div>
+
+            {/* Tabs */}
+            <div className="flex rounded-xl bg-slate-100 p-1 mb-3 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setImageTab('upload')}
+                className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition ${imageTab === 'upload' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+              >
+                <Upload className="w-3.5 h-3.5" /> Upload
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageTab('url')}
+                className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition ${imageTab === 'url' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+              >
+                <Link className="w-3.5 h-3.5" /> URL
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageTab('preset')}
+                className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition ${imageTab === 'preset' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+              >
+                <ImageIcon className="w-3.5 h-3.5" /> Presets
+              </button>
+            </div>
+
+            {/* Upload Tab */}
+            {imageTab === 'upload' && (
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageFileUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingImage}
+                  className="w-full py-3 border-2 border-dashed border-slate-300 hover:border-slate-900 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Upload className="w-4 h-4" />
+                  {isUploadingImage ? 'Loading image...' : imageUrl && !imageUrl.startsWith('http') ? 'Change device image' : 'Tap to upload from device'}
+                </button>
+                <p className="text-[11px] text-slate-400 mt-1.5 text-center">
+                  Supports JPG, PNG, WebP · Max 5MB · Stored locally on this device
+                </p>
+              </div>
+            )}
+
+            {/* URL Tab */}
+            {imageTab === 'url' && (
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  placeholder="Paste direct image link (https://...)"
+                  value={imageUrl.startsWith('data:') ? '' : imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-mono font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
                 />
               </div>
-            </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              If left blank, a high-quality preset image will display automatically on your storefront until you update it.
-            </p>
+            )}
 
-            {/* Quick Preset Selector with Image Thumbnails */}
-            <div className="mt-2.5">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
-                Quick Preset Images:
-              </span>
+            {/* Preset Tab */}
+            {imageTab === 'preset' && (
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {PRESET_IMAGES.map((img) => {
                   const isSelected = imageUrl === img.url;
@@ -416,7 +518,11 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
                   );
                 })}
               </div>
-            </div>
+            )}
+
+            <p className="text-[11px] text-slate-400 mt-2">
+              If no image is set, a quality preset displays automatically on your storefront.
+            </p>
           </div>
 
           {/* Stock Toggle */}
