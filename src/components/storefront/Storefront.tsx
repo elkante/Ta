@@ -541,12 +541,12 @@ export const Storefront: React.FC<StorefrontProps> = ({
                   setSelectedProduct(p);
                   setIsDetailOpen(true);
                 }}
-                onQuickWhatsApp={(p) => {
-                  handleAddToCart(p);
+                onQuickWhatsApp={(p, v) => {
+                  handleAddToCart(p, v);
                   setIsCartOpen(true);
                 }}
-                onAddToCart={(p) => {
-                  handleAddToCart(p);
+                onAddToCart={(p, v) => {
+                  handleAddToCart(p, v);
                 }}
               />
             ))}

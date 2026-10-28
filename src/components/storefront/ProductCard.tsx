@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check, ShoppingBag, Sparkles } from 'lucide-react';
-import { Product, Store } from '../../types';
+import { Product, ProductVariant, Store } from '../../types';
 import { formatPrice } from '../../utils/whatsapp';
 
 interface ProductCardProps {
@@ -8,7 +8,7 @@ interface ProductCardProps {
   store: Store;
   onOpenDetails: (product: Product) => void;
   onQuickWhatsApp: (product: Product) => void;
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, variant?: ProductVariant) => void;
   /** Grid index — drives stagger animation delay */
   index?: number;
 }
@@ -35,12 +35,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!product.inStock) return;
-    // If product has variants, open details so buyer can select their variant
-    if (hasVariants && product.variants.length > 1) {
-      onOpenDetails(product);
-      return;
-    }
-    onAddToCart(product);
+    const defaultVariant = hasVariants && product.variants.length > 0 ? product.variants[0] : undefined;
+    onAddToCart(product, defaultVariant);
     setCartBounce(true);
     setTimeout(() => setCartBounce(false), 900);
   };
@@ -161,11 +157,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <>
                 <Check className="w-3.5 h-3.5 text-white" />
                 <span>Added to Cart!</span>
-              </>
-            ) : hasVariants && product.variants.length > 1 ? (
-              <>
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>Choose Option</span>
               </>
             ) : (
               <>

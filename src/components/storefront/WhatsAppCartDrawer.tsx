@@ -288,26 +288,34 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
               </div>
             </div>
 
-            {/* Replay Sound & WhatsApp CTA Button */}
-            <div className="space-y-3">
+            {/* Done & Continue Shopping + Optional Chat Link */}
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={handleCloseAndClear}
+                className="w-full py-4 px-5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2 transition active:scale-[0.99] cursor-pointer"
+              >
+                <span>Done & Continue Shopping</span>
+              </button>
+
               <a
                 href={placedOrder.whatsappUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="w-full py-4 px-5 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-sm shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2.5 transition active:scale-[0.99] cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
               >
-                <MessageCircle className="w-5 h-5 fill-white" />
-                <span>Chat with Store on WhatsApp (Optional)</span>
-                <ExternalLink className="w-4 h-4 ml-1 opacity-70" />
+                <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                <span>Need immediate support? Chat on WhatsApp</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-60" />
               </a>
 
               <button
                 type="button"
                 onClick={() => playOrderNotificationSound(1.0)}
-                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+                className="w-full py-2 px-3 rounded-lg text-slate-400 hover:text-slate-600 text-[11px] font-medium flex items-center justify-center gap-1.5 transition cursor-pointer"
               >
-                <Volume2 className="w-4 h-4 text-amber-500" />
-                <span>Replay Order Alert Sound 🔊</span>
+                <Volume2 className="w-3.5 h-3.5 text-amber-500" />
+                <span>Replay Cash Register Chime 🔊</span>
               </button>
             </div>
 
