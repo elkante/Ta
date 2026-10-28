@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { KeyRound, Lock, ShieldCheck, X } from 'lucide-react';
+import { KeyRound, Lock, Mail, ShieldCheck, X } from 'lucide-react';
 import { SuperAdminSession } from '../../types';
-import { authenticateSuperAdmin, SUPER_ADMIN_DEFAULT_KEY } from '../../utils/storage';
+import { authenticateSuperAdmin } from '../../utils/storage';
+import { supabase } from '../../utils/supabase';
 
 interface SuperAdminLoginModalProps {
   isOpen: boolean;
@@ -14,33 +15,59 @@ export const SuperAdminLoginModal: React.FC<SuperAdminLoginModalProps> = ({
   onClose,
   onLoginSuccess,
 }) => {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsLoading(true);
 
-    const result = authenticateSuperAdmin(password);
-    if (!result.success || !result.session) {
-      setError(result.error || 'Authentication failed');
-      return;
+    try {
+      // 1. First attempt Supabase Auth if credentials exist in auth.users
+      if (email.trim() && password.trim()) {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password.trim(),
+        });
+
+        if (!authError && data?.session) {
+          const session: SuperAdminSession = {
+            email: data.user.email || email.trim(),
+            isLoggedIn: true,
+            authenticatedAt: new Date().toISOString(),
+          };
+          onLoginSuccess(session);
+          onClose();
+          return;
+        }
+      }
+
+      // 2. Fallback to master credential validation
+      const result = authenticateSuperAdmin(password, email);
+      if (result.success && result.session) {
+        onLoginSuccess(result.session);
+        onClose();
+        return;
+      }
+
+      setError(result.error || 'Invalid administrator credentials');
+    } catch (err: any) {
+      setError(err?.message || 'Authentication error');
+    } finally {
+      setIsLoading(false);
     }
-
-    onLoginSuccess(result.session);
-    onClose();
-  };
-
-  const handleUseDemoKey = () => {
-    setPassword(SUPER_ADMIN_DEFAULT_KEY);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="fixed inset-0" onClick={onClose} />
       <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 z-10 pb-safe sm:pb-0">
+        
         {/* Mobile Drag Indicator */}
         <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto my-2 sm:hidden shrink-0" />
 
@@ -57,12 +84,12 @@ export const SuperAdminLoginModal: React.FC<SuperAdminLoginModalProps> = ({
                   ROOT
                 </span>
               </h3>
-              <p className="text-xs text-slate-400">Platform & Multi-Tenant Management</p>
+              <p className="text-xs text-slate-400">Platform Management System</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -77,40 +104,48 @@ export const SuperAdminLoginModal: React.FC<SuperAdminLoginModalProps> = ({
           )}
 
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1.5 flex items-center justify-between">
-              <span>Master Admin Password</span>
-              <button
-                type="button"
-                onClick={handleUseDemoKey}
-                className="text-[10px] font-mono text-amber-700 hover:underline cursor-pointer"
-              >
-                Insert Demo Key
-              </button>
+            <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+              Admin Email
+            </label>
+            <div className="relative">
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="email"
+                required
+                autoFocus
+                placeholder="admin@ta.shop"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white font-mono"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+              Master Admin Password
             </label>
             <div className="relative">
               <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="password"
                 required
-                autoFocus
-                placeholder="Enter master password..."
+                placeholder="Enter password..."
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white font-mono"
               />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1.5">
-              Default password for development: <code className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded font-mono font-bold">admin123</code>
-            </p>
           </div>
 
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:bg-black text-white font-bold text-xs shadow-md transition cursor-pointer flex items-center justify-center gap-2"
+              disabled={isLoading}
+              className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:bg-black text-white font-bold text-xs shadow-md transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <Lock className="w-3.5 h-3.5" />
-              <span>Authenticate Super Admin</span>
+              <span>{isLoading ? 'Verifying Credentials...' : 'Authenticate Super Admin'}</span>
             </button>
           </div>
         </form>

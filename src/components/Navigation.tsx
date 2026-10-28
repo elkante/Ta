@@ -52,8 +52,28 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // ─── Admin access via secret URL only: ?view=superadmin&key=ta_root ──────
-  // Logo tap removed — users could discover it. Access is now URL-only.
+  // ─── Silent 6-tap easter egg on logo → opens Super Admin ─────────────────
+  // Completely invisible: no counter tooltip, no visible count badge
+  const [logoTapCount, setLogoTapCount] = useState(0);
+  const logoTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleLogoTap = () => {
+    const next = logoTapCount + 1;
+    setLogoTapCount(next);
+
+    if (logoTapTimer.current) clearTimeout(logoTapTimer.current);
+
+    if (next >= 6) {
+      setLogoTapCount(0);
+      onOpenSuperAdmin();
+    } else {
+      // Reset if no subsequent tap within 2 seconds
+      logoTapTimer.current = setTimeout(() => {
+        setLogoTapCount(0);
+        onViewChange('storefront');
+      }, 700);
+    }
+  };
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
@@ -62,8 +82,8 @@ export const Navigation: React.FC<NavigationProps> = ({
         {/* Left: Brand & Tenant Switcher */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
-            onClick={() => onViewChange('storefront')}
-            className="flex items-center gap-2 cursor-pointer group text-left shrink-0"
+            onClick={handleLogoTap}
+            className="flex items-center gap-2 cursor-pointer group text-left shrink-0 select-none"
             title="Tá.shop"
           >
             <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs group-hover:scale-105 transition-transform">

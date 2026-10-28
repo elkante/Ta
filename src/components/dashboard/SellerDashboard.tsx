@@ -125,6 +125,8 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
   // Paystack & Share Modals
   const [isPaystackOpen, setIsPaystackOpen] = useState(false);
+  const [paystackInitialPlan, setPaystackInitialPlan] = useState<'starter' | 'pro' | 'business'>('pro');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Settings local state
@@ -1546,19 +1548,29 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
         {/* TAB 5: SUBSCRIPTION & BILLING */}
         {activeTab === 'billing' && (
-          <div className="max-w-3xl space-y-6">
+          <div className="max-w-4xl space-y-6">
             <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-2xs">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <span className="text-xs uppercase tracking-wider font-semibold text-slate-400">
                     Current Active Plan
                   </span>
                   <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2 mt-0.5">
-                    <span>{store.tier === 'pro' ? 'Tá.shop Pro Seller' : 'Tá.shop Starter Plan (₦500/mo)'}</span>
-                    {store.tier === 'pro' && <BadgeCheck className="w-5 h-5 text-blue-500" />}
+                    <span>
+                      {store.tier === 'business'
+                        ? 'Tá.shop Business AI Plan'
+                        : store.tier === 'pro'
+                        ? 'Tá.shop Pro Seller'
+                        : 'Tá.shop Starter Plan (₦500/mo)'}
+                    </span>
+                    {(store.tier === 'pro' || store.tier === 'business') && (
+                      <BadgeCheck className="w-5 h-5 text-blue-500" />
+                    )}
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
-                    {store.tier === 'pro'
+                    {store.tier === 'business'
+                      ? 'Active 24/7 AI WhatsApp Bot, unlimited catalogs, verified badge & priority infrastructure.'
+                      : store.tier === 'pro'
                       ? 'Active recurring subscription via Paystack. Unlimited products and verified badge enabled.'
                       : 'Starter tier at ₦500/month for up to 10 products with custom slug and WhatsApp orders.'}
                   </p>
@@ -1566,88 +1578,177 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
                 {store.tier === 'free' ? (
                   <button
-                    onClick={() => setIsPaystackOpen(true)}
-                    className="px-5 py-2.5 rounded-xl bg-[#0ba4db] hover:bg-[#0091c5] text-white font-bold text-xs shadow-md transition cursor-pointer"
+                    onClick={() => {
+                      setPaystackInitialPlan('pro');
+                      setIsPaystackOpen(true);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-[#0ba4db] hover:bg-[#0091c5] text-white font-bold text-xs shadow-md transition cursor-pointer self-start sm:self-auto"
                   >
-                    Upgrade for ₦4,900/mo
+                    Upgrade Plan
                   </button>
                 ) : (
-                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 self-start sm:self-auto">
                     Active & Renewed
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Plan Comparison Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className={`p-5 rounded-2xl border bg-white ${store.tier === 'free' ? 'ring-2 ring-slate-900' : 'border-slate-200'}`}>
-                <h4 className="font-bold text-slate-900 text-sm">Starter Plan</h4>
-                <div className="mt-2 text-2xl font-black font-mono">₦500 <span className="text-xs font-normal text-slate-400">/ month</span></div>
-                <ul className="mt-4 space-y-2 text-xs text-slate-600">
-                  <li className="flex items-center gap-2">✓ Up to 10 products</li>
-                  <li className="flex items-center gap-2">✓ Custom store slug (tá.shop/slug)</li>
-                  <li className="flex items-center gap-2">✓ Item UID search & WhatsApp checkout</li>
-                  <li className="flex items-center gap-2">✓ Loud audio order alerts on dashboard</li>
-                  <li className="flex items-center gap-2 text-slate-400">✕ Verified merchant badge</li>
-                  <li className="flex items-center gap-2 text-slate-400">✕ Remove Tá.shop branding</li>
-                </ul>
+            {/* Billing Cycle Switcher: Monthly vs Annual Discount */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Choose Billing Frequency</h4>
+                <p className="text-xs text-slate-500">Pay yearly to receive 20% discount on Pro & Business AI plans</p>
               </div>
 
-              <div className={`p-5 rounded-2xl border bg-gradient-to-br from-amber-50/50 to-white ${store.tier === 'pro' ? 'ring-2 ring-amber-500 border-amber-300' : 'border-slate-200'}`}>
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                    <span>Tá.shop Pro</span>
-                    <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                  </h4>
-                  <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
-                    Recommended
+              <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle('monthly')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    billingCycle === 'monthly'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle('yearly')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    billingCycle === 'yearly'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Yearly</span>
+                  <span className="bg-amber-400 text-slate-950 text-[10px] px-1.5 py-0.2 rounded-full font-black">
+                    SAVE 20%
                   </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Plan Comparison Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Starter Plan */}
+              <div className={`p-5 rounded-2xl border bg-white flex flex-col justify-between ${store.tier === 'free' ? 'ring-2 ring-slate-900' : 'border-slate-200'}`}>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">Starter Plan</h4>
+                  <div className="mt-2 text-2xl font-black font-mono">
+                    {billingCycle === 'monthly' ? '₦500' : '₦6,000'}
+                    <span className="text-xs font-normal text-slate-400">
+                      {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                    </span>
+                  </div>
+                  {billingCycle === 'yearly' && (
+                    <span className="text-[11px] text-slate-500 block mt-0.5">Standard annual rate (₦500/mo)</span>
+                  )}
+                  <ul className="mt-4 space-y-2 text-xs text-slate-600">
+                    <li className="flex items-center gap-2">✓ Up to 10 products</li>
+                    <li className="flex items-center gap-2">✓ Custom store slug (tá.shop/slug)</li>
+                    <li className="flex items-center gap-2">✓ Item UID search & WhatsApp checkout</li>
+                    <li className="flex items-center gap-2">✓ Loud audio order alerts on dashboard</li>
+                    <li className="flex items-center gap-2 text-slate-400">✕ Verified merchant badge</li>
+                    <li className="flex items-center gap-2 text-slate-400">✕ 24/7 AI WhatsApp Bot</li>
+                  </ul>
                 </div>
-                <div className="mt-2 text-2xl font-black font-mono">₦4,900 <span className="text-xs font-normal text-slate-400">/ month</span></div>
-                <ul className="mt-4 space-y-2 text-xs text-slate-700">
-                  <li className="flex items-center gap-2 font-medium">✓ <strong>Unlimited products & variants</strong></li>
-                  <li className="flex items-center gap-2 font-medium">✓ <strong>Verified Blue Tick</strong> for high trust</li>
-                  <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by Tá.shop"</strong></li>
-                  <li className="flex items-center gap-2 font-medium">✓ Priority WhatsApp click analytics</li>
-                  <li className="flex items-center gap-2 font-medium">✓ Custom domain support ready</li>
-                </ul>
-                {store.tier === 'free' && (
+              </div>
+
+              {/* Pro Plan */}
+              <div className={`p-5 rounded-2xl border bg-gradient-to-br from-amber-50/50 to-white flex flex-col justify-between ${store.tier === 'pro' ? 'ring-2 ring-amber-500 border-amber-300' : 'border-slate-200'}`}>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <span>Tá.shop Pro</span>
+                      <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    </h4>
+                    <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                      Popular
+                    </span>
+                  </div>
+
+                  <div className="mt-2 text-2xl font-black font-mono">
+                    {billingCycle === 'monthly' ? '₦4,900' : '₦39,000'}
+                    <span className="text-xs font-normal text-slate-400">
+                      {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                    </span>
+                  </div>
+
+                  {billingCycle === 'yearly' && (
+                    <div className="mt-1 flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md inline-flex">
+                      <span>Save ₦19,800/yr (2 Months Free)</span>
+                    </div>
+                  )}
+
+                  <ul className="mt-4 space-y-2 text-xs text-slate-700">
+                    <li className="flex items-center gap-2 font-medium">✓ <strong>Unlimited products & variants</strong></li>
+                    <li className="flex items-center gap-2 font-medium">✓ <strong>Verified Blue Tick</strong> badge</li>
+                    <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by Tá.shop"</strong></li>
+                    <li className="flex items-center gap-2 font-medium">✓ Priority WhatsApp click analytics</li>
+                    <li className="flex items-center gap-2 font-medium">✓ Custom domain support ready</li>
+                  </ul>
+                </div>
+
+                {store.tier !== 'pro' && (
                   <button
-                    onClick={() => setIsPaystackOpen(true)}
-                    className="mt-4 w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+                    onClick={() => {
+                      setPaystackInitialPlan('pro');
+                      setIsPaystackOpen(true);
+                    }}
+                    className="mt-5 w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
                   >
-                    Activate Pro with Paystack
+                    Activate Pro ({billingCycle === 'yearly' ? '₦39k/yr' : '₦4.9k/mo'})
                   </button>
                 )}
               </div>
 
               {/* Business AI Plan */}
-              <div className={`p-5 rounded-2xl border bg-gradient-to-br from-violet-50/80 to-white ${store.tier === 'business' ? 'ring-2 ring-violet-500 border-violet-300' : 'border-slate-200'}`}>
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                    <span>Business AI</span>
-                    <Bot className="w-3.5 h-3.5 text-violet-500" />
-                  </h4>
-                  <span className="bg-violet-100 text-violet-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
-                    🤖 AI Powered
-                  </span>
+              <div className={`p-5 rounded-2xl border bg-gradient-to-br from-violet-50/80 to-white flex flex-col justify-between ${store.tier === 'business' ? 'ring-2 ring-violet-500 border-violet-300' : 'border-slate-200'}`}>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <span>Business AI</span>
+                      <Bot className="w-3.5 h-3.5 text-violet-500" />
+                    </h4>
+                    <span className="bg-violet-100 text-violet-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                      🤖 AI Powered
+                    </span>
+                  </div>
+
+                  <div className="mt-2 text-2xl font-black font-mono">
+                    {billingCycle === 'monthly' ? '₦25,000' : '₦200,000'}
+                    <span className="text-xs font-normal text-slate-400">
+                      {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                    </span>
+                  </div>
+
+                  {billingCycle === 'yearly' && (
+                    <div className="mt-1 flex items-center gap-1 text-[11px] font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md inline-flex">
+                      <span>Save ₦100,000/yr (2 Months Free)</span>
+                    </div>
+                  )}
+
+                  <ul className="mt-4 space-y-2 text-xs text-slate-700">
+                    <li className="flex items-center gap-2 font-medium">✓ <strong>Everything in Pro included</strong></li>
+                    <li className="flex items-center gap-2 font-medium">✓ <strong>24/7 AI WhatsApp Bot</strong> auto-replies</li>
+                    <li className="flex items-center gap-2 font-medium">✓ Smart product recommendations</li>
+                    <li className="flex items-center gap-2 font-medium">✓ Auto order confirmations on WhatsApp</li>
+                    <li className="flex items-center gap-2 font-medium">✓ Unlimited bot conversations</li>
+                    <li className="flex items-center gap-2 font-medium">✓ VIP Priority support</li>
+                  </ul>
                 </div>
-                <div className="mt-2 text-2xl font-black font-mono">₦25,000 <span className="text-xs font-normal text-slate-400">/ month</span></div>
-                <ul className="mt-4 space-y-2 text-xs text-slate-700">
-                  <li className="flex items-center gap-2 font-medium">✓ <strong>Everything in Pro</strong></li>
-                  <li className="flex items-center gap-2 font-medium">✓ <strong>24/7 AI WhatsApp Bot</strong> — auto-replies</li>
-                  <li className="flex items-center gap-2 font-medium">✓ Smart product recommendations</li>
-                  <li className="flex items-center gap-2 font-medium">✓ Auto order-confirmation messages</li>
-                  <li className="flex items-center gap-2 font-medium">✓ Unlimited bot conversations</li>
-                  <li className="flex items-center gap-2 font-medium">✓ Priority support &amp; early access</li>
-                </ul>
+
                 {store.tier !== 'business' && (
                   <button
-                    onClick={() => setIsPaystackOpen(true)}
-                    className="mt-4 w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white text-xs font-semibold shadow transition cursor-pointer"
+                    onClick={() => {
+                      setPaystackInitialPlan('business');
+                      setIsPaystackOpen(true);
+                    }}
+                    className="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white text-xs font-semibold shadow transition cursor-pointer"
                   >
-                    Activate Business AI
+                    Activate Business AI ({billingCycle === 'yearly' ? '₦200k/yr' : '₦25k/mo'})
                   </button>
                 )}
               </div>
@@ -1731,13 +1832,14 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         isOpen={isPaystackOpen}
         onClose={() => setIsPaystackOpen(false)}
         store={store}
-        initialPlan="starter"
+        initialPlan={paystackInitialPlan}
+        initialCycle={billingCycle}
         onUpgradeSuccess={(plan) => {
           const allStores = getStoredStores();
           const updatedStore: Store = {
             ...store,
-            tier: plan === 'pro' ? 'pro' : 'free',
-            verified: plan === 'pro',
+            tier: plan,
+            verified: plan === 'pro' || plan === 'business',
           };
           saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
           onSelectStore(updatedStore);
