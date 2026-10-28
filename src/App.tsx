@@ -36,6 +36,7 @@ import {
   getSubdomainFromHostname,
   setCurrentTenantSlug,
 } from './utils/storage';
+import { dbFetchStores, dbFetchProducts } from './utils/supabase';
 
 export default function App() {
   const [allStores, setAllStores] = useState<Store[]>([]);
@@ -59,10 +60,20 @@ export default function App() {
   /** Product ID from ?product= URL param; passed to Storefront to auto-open detail modal */
   const [initialProductId, setInitialProductId] = useState<string | null>(null);
 
-  // Initialize and load store based on URL or local storage
-  const loadTenantData = (slug?: string) => {
-    const stores = getStoredStores();
+  // Initialize and load store based on URL, Supabase live data or local storage
+  const loadTenantData = async (slug?: string) => {
+    let stores = getStoredStores();
     setAllStores(stores);
+
+    try {
+      const liveStores = await dbFetchStores();
+      if (liveStores && liveStores.length > 0) {
+        stores = liveStores;
+        setAllStores(liveStores);
+      }
+    } catch (e) {
+      // offline / first load fallback
+    }
 
     // Read stored seller session if any
     const session = getSellerSession();
@@ -87,7 +98,7 @@ export default function App() {
     const subdomainSlug = getSubdomainFromHostname();
     const urlStoreSlug = slug || subdomainSlug || storeParam || getCurrentTenantSlug();
 
-    if (viewParam === 'landing') {
+    if (viewParam === 'landing' || stores.length === 0) {
       setActiveView('landing');
     } else if (viewParam === 'admin' || viewParam === 'superadmin') {
       if (adminSession) {
@@ -110,11 +121,20 @@ export default function App() {
       setCurrentTenantSlug(targetStore.slug);
 
       // Load isolated products, inquiries and reviews for this tenant
-      const prods = getProductsByStore(targetStore.id);
+      let prods = getProductsByStore(targetStore.id);
+      setStoreProducts(prods);
+
+      try {
+        const liveProds = await dbFetchProducts(targetStore.id);
+        if (liveProds && liveProds.length > 0) {
+          prods = liveProds;
+          setStoreProducts(liveProds);
+        }
+      } catch (e) {}
+
       const inqs = getInquiriesByStore(targetStore.id);
       const revs = getReviewsByStore(targetStore.id);
 
-      setStoreProducts(prods);
       setStoreInquiries(inqs);
       setStoreReviews(revs);
     }
@@ -213,11 +233,53 @@ export default function App() {
   };
 
   if (!currentStore) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+    return (
+      <div className="min-h-screen flex flex-col bg-slate-900 text-white font-sans">
+        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+        <LandingPage
+          stores={allStores}
+          onOpenStore={(slug) => {
+            const target = allStores.find((s) => s.slug === slug);
+            if (target) {
+              handleSelectStore(target);
+              setActiveView('storefront');
+            }
+          }}
+          onOpenLogin={() => {
+            setAuthModalMode('login');
+            setIsAuthModalOpen(true);
+          }}
+          onOpenCreateStore={() => {
+            setAuthModalMode('signup');
+            setIsAuthModalOpen(true);
+          }}
+        />
+        <CreateStoreModal
+          isOpen={isCreateStoreOpen || (isAuthModalOpen && authModalMode === 'signup')}
+          onClose={() => {
+            setIsCreateStoreOpen(false);
+            setIsAuthModalOpen(false);
+          }}
+          onStoreCreated={(newStore) => {
+            handleStoreCreated(newStore);
+          }}
+        />
+        <SellerAuthModal
+          isOpen={isAuthModalOpen && authModalMode === 'login'}
+          onClose={() => setIsAuthModalOpen(false)}
+          mode={authModalMode}
+          initialSlug={authModalSlug}
+          onSuccess={(session) => {
+            handleLoginSuccess(session);
+          }}
+          onSwitchMode={(mode) => setAuthModalMode(mode)}
+        />
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900 overflow-x-hidden w-full max-w-full">
+    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900 overflow-x-clip w-full max-w-full">
       {/* App Splash Screen on Initial Load */}
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
 

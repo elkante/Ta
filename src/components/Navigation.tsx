@@ -76,7 +76,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <header className="sticky top-0 z-[60] bg-white/95 backdrop-blur-md border-b border-slate-200">
+    <header className="sticky top-0 z-[100] bg-white/95 backdrop-blur-md border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2">
         {/* Left: Brand & Tenant Switcher */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -338,15 +338,38 @@ export const Navigation: React.FC<NavigationProps> = ({
         </div>
       </div>
 
-      {/* Mobile Navigation Drawer (Slides cleanly from top/overlay on mobile screens) */}
+      {/* Mobile Navigation Drawer (Slides cleanly over everything at highest z-index) */}
       {mobileMenuOpen && (
-        <div className="sm:hidden fixed inset-x-0 top-16 bottom-0 z-[70] bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150 flex flex-col justify-start">
+        <div className="sm:hidden fixed inset-0 z-[99999] bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 flex flex-col justify-start">
           <div
-            className="fixed inset-0"
+            className="absolute inset-0"
             onClick={() => setMobileMenuOpen(false)}
           />
 
-          <div className="relative bg-white border-b border-slate-200 shadow-2xl p-4 space-y-4 max-h-[85vh] overflow-y-auto z-10 pb-safe">
+          <div className="relative bg-white border-b border-slate-200 shadow-2xl p-4 space-y-4 max-h-[90vh] overflow-y-auto z-10 pb-safe">
+            {/* Top Bar with brand and Close X button */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm">
+                  Tá
+                </div>
+                <div>
+                  <div className="flex items-baseline">
+                    <span className="font-extrabold text-sm text-slate-900">Tá</span>
+                    <span className="font-extrabold text-sm text-amber-500">.shop</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 block -mt-1 font-mono">social catalog</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
             {/* View Switcher Segmented Pills */}
             <div className="space-y-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
