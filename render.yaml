@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: ta-shop-baileys-bot
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+    disk:
+      name: baileys-sessions
+      mountPath: /sessions
+      sizeGB: 1

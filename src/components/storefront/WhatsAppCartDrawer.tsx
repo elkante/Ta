@@ -167,7 +167,8 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
 
     // Trigger Instant Baileys System Notification (Arrives directly on seller's & buyer's WhatsApp without relying on buyer opening app)
     try {
-      fetch(`http://localhost:3001/api/orders/notify/${store.id}`, {
+      const serverBase = (import.meta as any).env?.VITE_BAILEYS_SERVER_URL || 'http://localhost:3001';
+      fetch(`${serverBase}/api/orders/notify/${store.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: savedOrder, store }),

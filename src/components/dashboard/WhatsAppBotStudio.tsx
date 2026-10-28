@@ -82,7 +82,9 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   const [baileysStatus, setBaileysStatus] = useState<'disconnected' | 'waiting_scan' | 'connected'>('disconnected');
   const [baileysQr, setBaileysQr] = useState<string | null>(null);
   const [isPairingLoading, setIsPairingLoading] = useState(false);
-  const [serverEndpoint, setServerEndpoint] = useState('http://localhost:3001');
+  const [serverEndpoint, setServerEndpoint] = useState(
+    (import.meta as any).env?.VITE_BAILEYS_SERVER_URL || 'http://localhost:3001'
+  );
 
   const handleStartBaileysPairing = async () => {
     setIsPairingLoading(true);
