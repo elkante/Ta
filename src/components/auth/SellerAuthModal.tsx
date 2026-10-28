@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   AlertCircle,
   BadgeCheck,
+  Camera,
   CheckCircle2,
   Globe,
   Instagram,
@@ -12,6 +13,7 @@ import {
   ShieldCheck,
   Sparkles,
   Store as StoreIcon,
+  Upload,
   UserPlus,
   X,
 } from 'lucide-react';
@@ -65,6 +67,11 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
   const [socialFacebook, setSocialFacebook] = useState('');
   const [socialTiktok, setSocialTiktok] = useState('');
 
+  // Optional logo upload from device
+  const [signupLogoUrl, setSignupLogoUrl] = useState('');
+  const [isUploadingSignupLogo, setIsUploadingSignupLogo] = useState(false);
+  const signupLogoInputRef = useRef<HTMLInputElement>(null);
+
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -93,6 +100,34 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
       .replace(/[^a-z0-9-]+/g, '')    // remove non-alphanumeric except hyphens
       .replace(/^-+|-+$/g, '');       // strip leading/trailing hyphens
     setSignupSlug(auto);
+  };
+
+  const handleSignupLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose a valid image file for your logo (JPG, PNG, WebP)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Logo must be under 5MB');
+      return;
+    }
+
+    setIsUploadingSignupLogo(true);
+    setError(null);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSignupLogoUrl(reader.result as string);
+      setIsUploadingSignupLogo(false);
+    };
+    reader.onerror = () => {
+      setError('Failed to read logo file. Please try again.');
+      setIsUploadingSignupLogo(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSignup = (e: React.FormEvent) => {
@@ -150,7 +185,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
       whatsappNumber: signupPhone.replace(/\D/g, ''),
       currency: signupCurrency,
       currencySymbol: curSymbol,
-      logoUrl: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=300&auto=format&fit=crop&q=80',
+      logoUrl: signupLogoUrl || 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=300&auto=format&fit=crop&q=80',
       bannerUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&auto=format&fit=crop&q=80',
       accentColor: '#b45309',
       themeStyle: 'luxury',
@@ -375,6 +410,39 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                   </span>
                 </div>
               ) : null}
+
+              {/* Optional Store Logo Upload from Device */}
+              <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                <input
+                  ref={signupLogoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleSignupLogoUpload}
+                />
+                <div className="w-11 h-11 rounded-xl border border-slate-200 bg-white overflow-hidden shrink-0 flex items-center justify-center">
+                  {signupLogoUrl ? (
+                    <img src={signupLogoUrl} alt="Store logo" className="w-full h-full object-cover" />
+                  ) : (
+                    <Camera className="w-5 h-5 text-slate-400" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-semibold text-slate-800 block">Store Logo (Optional)</span>
+                  <span className="text-[11px] text-slate-400 block truncate">
+                    {signupLogoUrl ? 'Logo uploaded from device' : 'Upload from device now or later'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => signupLogoInputRef.current?.click()}
+                  disabled={isUploadingSignupLogo}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-white text-xs font-semibold text-slate-700 bg-white shadow-2xs transition cursor-pointer shrink-0 disabled:opacity-50"
+                >
+                  <Upload className="w-3.5 h-3.5 inline mr-1 text-slate-500" />
+                  {isUploadingSignupLogo ? '...' : signupLogoUrl ? 'Change' : 'Upload'}
+                </button>
+              </div>
 
               {/* WhatsApp Phone */}
               <div className="grid grid-cols-3 gap-2">

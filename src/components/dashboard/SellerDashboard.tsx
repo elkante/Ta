@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   AlertCircle,
   BadgeCheck,
   Bot,
+  Camera,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -14,7 +15,9 @@ import {
   ExternalLink,
   Eye,
   Filter,
+  Image as ImageIcon,
   Layers,
+  Link,
   MapPin,
   Menu,
   MessageCircle,
@@ -33,6 +36,7 @@ import {
   Trash2,
   TrendingUp,
   Truck,
+  Upload,
   Users,
   Volume2,
   X,
@@ -63,6 +67,14 @@ import {
   updateOrderStatus,
   validateSlug,
 } from '../../utils/storage';
+
+const COVER_PRESETS = [
+  { name: 'Luxury Gold', url: 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?w=1600&auto=format&fit=crop&q=80' },
+  { name: 'Minimal Boutique', url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&auto=format&fit=crop&q=80' },
+  { name: 'Fashion Chic', url: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1600&auto=format&fit=crop&q=80' },
+  { name: 'Dark Velvet', url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1600&auto=format&fit=crop&q=80' },
+  { name: 'Modern Tech', url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1600&auto=format&fit=crop&q=80' },
+];
 
 interface SellerDashboardProps {
   store: Store;
@@ -142,8 +154,89 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [settingsDeliveryInfo, setSettingsDeliveryInfo] = useState(store.deliveryInfo || '');
   const [settingsInstagram, setSettingsInstagram] = useState(store.socialLinks?.instagram || '');
   const [settingsTikTok, setSettingsTikTok] = useState(store.socialLinks?.tiktok || '');
+  const [settingsFacebook, setSettingsFacebook] = useState(store.socialLinks?.facebook || '');
+  const [settingsLogoUrl, setSettingsLogoUrl] = useState(store.logoUrl || '');
+  const [settingsBannerUrl, setSettingsBannerUrl] = useState(store.bannerUrl || '');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const [settingsSavedToast, setSettingsSavedToast] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSettingsName(store.name);
+    setSettingsSlug(store.slug);
+    setSettingsTagline(store.tagline || '');
+    setSettingsDescription(store.description || '');
+    setSettingsCountryCode(store.whatsappCountryCode || '+234');
+    setSettingsNumber(store.whatsappNumber || '');
+    setSettingsCurrency(store.currency || 'NGN');
+    setSettingsAccentColor(store.accentColor || '#b45309');
+    setSettingsAnnouncement(store.announcement || '');
+    setSettingsDeliveryInfo(store.deliveryInfo || '');
+    setSettingsInstagram(store.socialLinks?.instagram || '');
+    setSettingsTikTok(store.socialLinks?.tiktok || '');
+    setSettingsFacebook(store.socialLinks?.facebook || '');
+    setSettingsLogoUrl(store.logoUrl || '');
+    setSettingsBannerUrl(store.bannerUrl || '');
+  }, [store]);
+
+  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setSettingsError('Please select a valid image file for logo (JPG, PNG, WebP)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setSettingsError('Logo image file must be under 5MB');
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    setSettingsError(null);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSettingsLogoUrl(reader.result as string);
+      setIsUploadingLogo(false);
+    };
+    reader.onerror = () => {
+      setSettingsError('Failed to read logo image file.');
+      setIsUploadingLogo(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setSettingsError('Please select a valid image file for cover banner (JPG, PNG, WebP)');
+      return;
+    }
+    if (file.size > 7 * 1024 * 1024) {
+      setSettingsError('Cover banner image file must be under 7MB');
+      return;
+    }
+
+    setIsUploadingBanner(true);
+    setSettingsError(null);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSettingsBannerUrl(reader.result as string);
+      setIsUploadingBanner(false);
+    };
+    reader.onerror = () => {
+      setSettingsError('Failed to read cover banner image file.');
+      setIsUploadingBanner(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Link copy toast
   const [copiedStoreLink, setCopiedStoreLink] = useState(false);
@@ -285,6 +378,8 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       slug: slugCheck.cleanSlug,
       tagline: settingsTagline.trim(),
       description: settingsDescription.trim(),
+      logoUrl: settingsLogoUrl.trim() || store.logoUrl,
+      bannerUrl: settingsBannerUrl.trim() || store.bannerUrl,
       whatsappCountryCode: settingsCountryCode,
       whatsappNumber: settingsNumber.replace(/\D/g, ''),
       currency: settingsCurrency,
@@ -295,6 +390,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       socialLinks: {
         instagram: settingsInstagram.trim(),
         tiktok: settingsTikTok.trim(),
+        facebook: settingsFacebook ? settingsFacebook.trim() : store.socialLinks?.facebook,
       },
     };
 
@@ -1238,7 +1334,135 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               </div>
             )}
 
-            <form onSubmit={handleSaveSettings} className="space-y-4">
+            <form onSubmit={handleSaveSettings} className="space-y-5">
+              {/* ── Brand Assets: Logo & Profile Cover ── */}
+              <div className="bg-slate-50/90 rounded-2xl border border-slate-200/90 p-4 sm:p-5 space-y-4">
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-amber-500" />
+                    <span>Store Branding & Profile Cover</span>
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Upload your official store logo and profile header cover directly from your device.
+                  </p>
+                </div>
+
+                {/* Hidden File Inputs */}
+                <input
+                  ref={logoFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLogoFileUpload}
+                />
+                <input
+                  ref={bannerFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleBannerFileUpload}
+                />
+
+                {/* Cover Banner Preview Card with in-place upload button */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Profile Cover Banner</label>
+                    <span className="text-[11px] text-slate-400">Recommended 16:9 or 3:1 ratio</span>
+                  </div>
+
+                  <div className="relative w-full h-36 sm:h-44 rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 group">
+                    <img
+                      src={settingsBannerUrl || store.bannerUrl}
+                      alt="Profile cover banner"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    {isUploadingBanner && (
+                      <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center">
+                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+                    {/* Upload button floating on banner */}
+                    <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => bannerFileInputRef.current?.click()}
+                        disabled={isUploadingBanner}
+                        className="px-3.5 py-2 rounded-xl bg-white/95 hover:bg-white text-slate-900 text-xs font-bold shadow-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-slate-700" />
+                        <span>{isUploadingBanner ? 'Uploading...' : 'Upload Cover from Device'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Presets for Cover */}
+                  <div className="mt-2.5">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                      Or pick a preset cover:
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {COVER_PRESETS.map((preset) => (
+                        <button
+                          type="button"
+                          key={preset.name}
+                          onClick={() => setSettingsBannerUrl(preset.url)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer flex items-center gap-1.5 ${
+                            settingsBannerUrl === preset.url
+                              ? 'border-amber-500 bg-amber-50 text-amber-900 font-bold ring-1 ring-amber-400'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundImage: `url(${preset.url})`, backgroundSize: 'cover' }} />
+                          <span>{preset.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Store Logo Row */}
+                <div className="pt-3 border-t border-slate-200/70 flex flex-col sm:flex-row sm:items-center gap-4">
+                  {/* Logo Avatar Preview */}
+                  <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-200 bg-white shadow-sm shrink-0">
+                    <img
+                      src={settingsLogoUrl || store.logoUrl}
+                      alt="Store Logo"
+                      className="w-full h-full object-cover"
+                    />
+                    {isUploadingLogo && (
+                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 block">Store Logo / Profile Picture</label>
+                    <p className="text-[11px] text-slate-500">
+                      Displayed on your storefront header, checkout receipts, and WhatsApp catalog link.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => logoFileInputRef.current?.click()}
+                        disabled={isUploadingLogo}
+                        className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{isUploadingLogo ? 'Uploading...' : 'Upload Logo from Device'}</span>
+                      </button>
+                      {settingsLogoUrl && settingsLogoUrl !== store.logoUrl && (
+                        <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> New logo selected
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Store Name & Slug */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -1374,15 +1598,30 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               </div>
 
               {/* Social links */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">Instagram Handle</label>
                   <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
                     <span className="pl-3 text-xs text-slate-400 select-none">@</span>
                     <input
                       type="text"
+                      placeholder="username"
                       value={settingsInstagram}
-                      onChange={(e) => setSettingsInstagram(e.target.value)}
+                      onChange={(e) => setSettingsInstagram(e.target.value.replace(/^@/, ''))}
+                      className="w-full px-1.5 py-2 text-xs bg-transparent focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Facebook Handle</label>
+                  <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                    <span className="pl-3 text-xs text-slate-400 select-none">@</span>
+                    <input
+                      type="text"
+                      placeholder="pagename"
+                      value={settingsFacebook}
+                      onChange={(e) => setSettingsFacebook(e.target.value.replace(/^@/, ''))}
                       className="w-full px-1.5 py-2 text-xs bg-transparent focus:outline-none"
                     />
                   </div>
@@ -1394,8 +1633,9 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     <span className="pl-3 text-xs text-slate-400 select-none">@</span>
                     <input
                       type="text"
+                      placeholder="username"
                       value={settingsTikTok}
-                      onChange={(e) => setSettingsTikTok(e.target.value)}
+                      onChange={(e) => setSettingsTikTok(e.target.value.replace(/^@/, ''))}
                       className="w-full px-1.5 py-2 text-xs bg-transparent focus:outline-none"
                     />
                   </div>
