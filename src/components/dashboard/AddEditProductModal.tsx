@@ -64,7 +64,18 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
       setPrice(productToEdit.price);
       setOriginalPrice(productToEdit.originalPrice);
       setCategory(productToEdit.category || cats[0] || 'General');
-      setImageUrl(productToEdit.images[0] || '');
+      const existingImg = productToEdit.images[0] || '';
+      setImageUrl(existingImg);
+      // If product has a device-uploaded image (base64), show upload tab; URL shows URL tab; preset shows preset tab
+      if (existingImg.startsWith('data:')) {
+        setImageTab('upload');
+      } else if (PRESET_IMAGES.some((p) => p.url === existingImg)) {
+        setImageTab('preset');
+      } else if (existingImg) {
+        setImageTab('url');
+      } else {
+        setImageTab('upload');
+      }
       setInStock(productToEdit.inStock);
       setBadge(productToEdit.badge || '');
       setVariants(productToEdit.variants || []);
@@ -78,7 +89,8 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
       setPrice(0);
       setOriginalPrice(undefined);
       setCategory(cats[0] || 'General');
-      setImageUrl(PRESET_IMAGES[0].url);
+      setImageUrl('');
+      setImageTab('upload');
       setInStock(true);
       setBadge('');
       setVariants([]);
@@ -177,7 +189,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
       price: Number(price),
       originalPrice: originalPrice ? Number(originalPrice) : undefined,
       category: finalCategory,
-      images: [imageUrl.trim() || PRESET_IMAGES[0].url],
+      images: [imageUrl || PRESET_IMAGES[0].url],
       inStock,
       badge: badge.trim() || undefined,
       variants,
