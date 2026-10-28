@@ -1,0 +1,6 @@
+{
+  "name": "Tá.shop - Multi-Tenant Social Catalog Platform",
+  "description": "Multi-tenant storefront platform for social sellers. Inspired by 'Tà' (Yoruba for 'sell'). Custom slugs, instant WhatsApp ordering with pre-filled messages, variant management, and seller analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,391 @@
+import React, { useState, useEffect } from 'react';
+import { AlertCircle, Image as ImageIcon, Plus, Trash2, X } from 'lucide-react';
+import { Product, ProductVariant, Store } from '../../types';
+
+interface AddEditProductModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  store: Store;
+  productToEdit?: Product | null;
+  onSave: (product: Partial<Product>) => void;
+}
+
+const PRESET_IMAGES = [
+  { name: 'Perfume Noir', url: 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80' },
+  { name: 'Perfume Amber', url: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=800&auto=format&fit=crop&q=80' },
+  { name: 'Perfume Gold', url: 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?w=800&auto=format&fit=crop&q=80' },
+  { name: 'Silk Abaya', url: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&auto=format&fit=crop&q=80' },
+  { name: 'iPhone Device', url: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80' },
+  { name: 'AirPods Audio', url: 'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&auto=format&fit=crop&q=80' },
+];
+
+export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
+  isOpen,
+  onClose,
+  store,
+  productToEdit,
+  onSave,
+}) => {
+  const [name, setName] = useState('');
+  const [uid, setUid] = useState('');
+  const [description, setDescription] = useState('');
+  const [price, setPrice] = useState<number>(0);
+  const [originalPrice, setOriginalPrice] = useState<number | undefined>(undefined);
+  const [category, setCategory] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [inStock, setInStock] = useState(true);
+  const [badge, setBadge] = useState('');
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (productToEdit) {
+      setName(productToEdit.name);
+      setUid(productToEdit.uid || '');
+      setDescription(productToEdit.description);
+      setPrice(productToEdit.price);
+      setOriginalPrice(productToEdit.originalPrice);
+      setCategory(productToEdit.category);
+      setImageUrl(productToEdit.images[0] || '');
+      setInStock(productToEdit.inStock);
+      setBadge(productToEdit.badge || '');
+      setVariants(productToEdit.variants || []);
+    } else {
+      setName('');
+      setUid(`TA-${store.slug.split('-')[0]?.toUpperCase().slice(0, 3) || 'ITM'}-${Math.floor(100 + Math.random() * 899)}`);
+      setDescription('');
+      setPrice(0);
+      setOriginalPrice(undefined);
+      setCategory('');
+      setImageUrl(PRESET_IMAGES[0].url);
+      setInStock(true);
+      setBadge('');
+      setVariants([]);
+    }
+    setError(null);
+  }, [productToEdit, isOpen, store.slug]);
+
+  if (!isOpen) return null;
+
+  const handleAddVariant = () => {
+    const newVariant: ProductVariant = {
+      id: `v_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+      name: 'Option (e.g. 100ml or Size L)',
+      price: price || 0,
+      inStock: true,
+    };
+    setVariants([...variants, newVariant]);
+  };
+
+  const handleUpdateVariant = (index: number, field: keyof ProductVariant, val: any) => {
+    const updated = [...variants];
+    updated[index] = { ...updated[index], [field]: val };
+    setVariants(updated);
+  };
+
+  const handleRemoveVariant = (index: number) => {
+    setVariants(variants.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!name.trim()) {
+      setError('Please enter a product name');
+      return;
+    }
+
+    if (!price || price <= 0) {
+      setError('Please set a valid price');
+      return;
+    }
+
+    const payload: Partial<Product> = {
+      name: name.trim(),
+      uid: uid.trim().toUpperCase() || `TA-${Math.floor(100 + Math.random() * 899)}`,
+      description: description.trim(),
+      price: Number(price),
+      originalPrice: originalPrice ? Number(originalPrice) : undefined,
+      category: category.trim() || 'General',
+      images: [imageUrl.trim() || PRESET_IMAGES[0].url],
+      inStock,
+      badge: badge.trim() || undefined,
+      variants,
+    };
+
+    onSave(payload);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0" onClick={onClose} />
+      <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden border border-slate-100 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[92vh] sm:max-h-[90vh] flex flex-col z-10 pb-safe sm:pb-0">
+        {/* Mobile Drag Indicator */}
+        <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white z-10">
+          <div>
+            <h3 className="font-bold text-slate-900 text-base leading-tight">
+              {productToEdit ? 'Edit Product' : 'Add New Product'}
+            </h3>
+            <p className="text-xs text-slate-500">
+              Update catalog details, Item UID, and WhatsApp ordering options
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Scrollable Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Product Title and Item UID */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold text-slate-700 block mb-1">Product Title *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Baccarat Rouge 540 Extrait"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center justify-between">
+                <span>Item UID *</span>
+                <span className="text-[10px] text-slate-400 font-mono">For Search</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="TA-BR540"
+                value={uid}
+                onChange={(e) => setUid(e.target.value.toUpperCase())}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-900 uppercase focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+          </div>
+
+          {/* Category & Badge */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-1">Category</label>
+              <input
+                type="text"
+                placeholder="e.g. Perfumes, Dresses, iPhones"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-1">Badge (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. Bestseller, New Arrival, Viral"
+                value={badge}
+                onChange={(e) => setBadge(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+          </div>
+
+          {/* Price & Discount Price */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-1">
+                Price ({store.currencySymbol}) *
+              </label>
+              <input
+                type="number"
+                required
+                min="0"
+                placeholder="0"
+                value={price || ''}
+                onChange={(e) => setPrice(Number(e.target.value))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-1">
+                Original Price (For discount badge)
+              </label>
+              <input
+                type="number"
+                min="0"
+                placeholder="e.g. 50000"
+                value={originalPrice || ''}
+                onChange={(e) => setOriginalPrice(e.target.value ? Number(e.target.value) : undefined)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">Description</label>
+            <textarea
+              rows={3}
+              placeholder="Provide fragrance notes, fabric type, condition, or size guide..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900 leading-relaxed"
+            />
+          </div>
+
+          {/* Image URL & Quick Presets */}
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1.5 flex items-center justify-between">
+              <span>Product Image URL</span>
+              <span className="text-[11px] text-slate-400">Direct image link</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                placeholder="https://..."
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+              {imageUrl && (
+                <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 border border-slate-200">
+                  <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+
+            {/* Quick Preset Selector */}
+            <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] text-slate-500">
+              <span className="shrink-0 font-medium text-slate-400">Presets:</span>
+              {PRESET_IMAGES.map((img) => (
+                <button
+                  type="button"
+                  key={img.name}
+                  onClick={() => setImageUrl(img.url)}
+                  className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 shrink-0 cursor-pointer"
+                >
+                  {img.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Stock Toggle */}
+          <div className="pt-2 flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <div>
+              <span className="text-xs font-semibold text-slate-800 block">Inventory Stock Status</span>
+              <span className="text-[11px] text-slate-500">
+                {inStock ? 'Available for WhatsApp orders' : 'Marked as Sold Out on storefront'}
+              </span>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={inStock}
+                onChange={(e) => setInStock(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+            </label>
+          </div>
+
+          {/* Variants & Options Section (The "Shopify-style" multi-option support) */}
+          <div className="pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <span className="text-xs font-semibold text-slate-800 block">
+                  Product Variants (Sizes / Colors)
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Add options with individual prices (e.g. 50ml, 100ml)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddVariant}
+                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Variant</span>
+              </button>
+            </div>
+
+            {variants.length > 0 && (
+              <div className="space-y-2 mt-2">
+                {variants.map((v, idx) => (
+                  <div
+                    key={v.id || idx}
+                    className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-2 text-xs"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Variant name (e.g. 100ml Extrait)"
+                      value={v.name}
+                      onChange={(e) => handleUpdateVariant(idx, 'name', e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white"
+                    />
+                    <div className="w-28 flex items-center gap-1">
+                      <span className="font-mono text-slate-400">{store.currencySymbol}</span>
+                      <input
+                        type="number"
+                        placeholder="Price"
+                        value={v.price}
+                        onChange={(e) => handleUpdateVariant(idx, 'price', Number(e.target.value))}
+                        className="w-full px-2 py-1.5 rounded-lg border border-slate-200 bg-white font-mono"
+                      />
+                    </div>
+                    <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={v.inStock}
+                        onChange={(e) => handleUpdateVariant(idx, 'inStock', e.target.checked)}
+                      />
+                      <span>In Stock</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveVariant(idx)}
+                      className="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="pt-4 border-t border-slate-100 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-md transition cursor-pointer"
+            >
+              {productToEdit ? 'Save Changes' : 'Publish Product'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
