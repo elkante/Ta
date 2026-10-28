@@ -68,6 +68,7 @@ interface SellerDashboardProps {
   onOpenStorefront: () => void;
   onRefreshData: () => void;
   onSelectStore: (store: Store) => void;
+  onOpenGuide?: () => void;
 }
 
 export const SellerDashboard: React.FC<SellerDashboardProps> = ({
@@ -77,6 +78,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   onOpenStorefront,
   onRefreshData,
   onSelectStore,
+  onOpenGuide,
 }) => {
   const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing'>('orders');
 
@@ -380,6 +382,16 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 <Eye className="w-3.5 h-3.5" />
                 <span>View Buyer Catalog</span>
               </button>
+
+              {onOpenGuide && (
+                <button
+                  onClick={onOpenGuide}
+                  className="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border border-indigo-200"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Platform Guide</span>
+                </button>
+              )}
 
               {store.tier === 'free' && (
                 <button

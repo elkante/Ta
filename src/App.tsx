@@ -14,6 +14,7 @@ import { SocialShareModal } from './components/modals/SocialShareModal';
 import { SuperAdminDashboard } from './components/admin/SuperAdminDashboard';
 import { SuperAdminLoginModal } from './components/admin/SuperAdminLoginModal';
 import { SplashScreen } from './components/common/SplashScreen';
+import { OnboardingGuide } from './components/onboarding/OnboardingGuide';
 import {
   Product,
   SellerSession,
@@ -57,6 +58,7 @@ export default function App() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSuperAdminModalOpen, setIsSuperAdminModalOpen] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   /** Product ID from ?product= URL param; passed to Storefront to auto-open detail modal */
   const [initialProductId, setInitialProductId] = useState<string | null>(null);
 
@@ -177,6 +179,7 @@ export default function App() {
     loadTenantData(newStore.slug);
     switchStore(newStore); // bypasses guard — creator is already authenticated
     setActiveView('dashboard'); // take seller directly to their new dashboard
+    setShowOnboarding(true); // show the platform guide for new store owners
   };
 
   const handleLoginSuccess = (session: SellerSession) => {
@@ -446,6 +449,7 @@ export default function App() {
             onOpenStorefront={() => setActiveView('storefront')}
             onRefreshData={handleRefreshData}
             onSelectStore={handleSelectStore}
+            onOpenGuide={() => setShowOnboarding(true)}
           />
         )}
       </div>
@@ -480,6 +484,15 @@ export default function App() {
         onClose={() => setIsSuperAdminModalOpen(false)}
         onLoginSuccess={handleSuperAdminLoginSuccess}
       />
+
+      {/* Onboarding Guide — shown automatically after store creation */}
+      {showOnboarding && currentStore && (
+        <OnboardingGuide
+          store={currentStore}
+          onComplete={() => setShowOnboarding(false)}
+          onSkip={() => setShowOnboarding(false)}
+        />
+      )}
     </div>
   );
 }

@@ -468,71 +468,20 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
           </div>
         </div>
 
-        {/* RIGHT: Webhook Credentials & Configuration (7 Cols) */}
+        {/* RIGHT: WhatsApp Connection & Configuration (7 Cols) */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Live Webhook Card */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-amber-400" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base leading-tight">
-                    Webhook Credentials (Live)
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Connect to Meta WhatsApp Business API, Twilio, or Baileys
-                  </p>
-                </div>
-              </div>
-              <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 font-mono text-[10px] font-bold px-2 py-0.5 rounded-full">
-                HTTP 200 Ready
-              </span>
+          {/* Info Card — webhook not needed with Baileys */}
+          <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-3xl flex items-start gap-4">
+            <div className="w-9 h-9 rounded-2xl bg-emerald-600 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5 text-white" />
             </div>
-
-            {/* Webhook URL field */}
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                Callback Webhook URL
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={webhookUrl}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-700 select-all"
-                />
-                <button
-                  onClick={handleCopyWebhook}
-                  className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shrink-0 transition flex items-center gap-1 cursor-pointer"
-                >
-                  {copiedWebhook ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedWebhook ? 'Copied' : 'Copy'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Webhook Secret Token */}
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                Webhook Verify Token
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  readOnly
-                  value={webhookSecret}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-700 select-all"
-                />
-                <button
-                  onClick={handleCopySecret}
-                  className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shrink-0 transition flex items-center gap-1 cursor-pointer"
-                >
-                  {copiedSecret ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedSecret ? 'Copied' : 'Copy'}</span>
-                </button>
-              </div>
+              <h3 className="font-bold text-emerald-900 text-sm">No Webhook Setup Required</h3>
+              <p className="text-emerald-700 text-xs mt-1 leading-relaxed">
+                Tá.shop uses <strong>Baileys</strong> — a free, open-source WhatsApp bridge. You connect via QR code
+                scan (just like WhatsApp Web) and order notifications go straight to your phone. No Meta Business
+                Manager, no webhook URL, no API approval needed.
+              </p>
             </div>
           </div>
 
