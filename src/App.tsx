@@ -262,30 +262,26 @@ export default function App() {
             setAuthModalMode('login');
             setIsAuthModalOpen(true);
           }}
-          onOpenCreateStore={() => {
+          onOpenSignup={(slug) => {
             setAuthModalMode('signup');
+            setAuthModalSlug(slug || '');
             setIsAuthModalOpen(true);
           }}
-        />
-        <CreateStoreModal
-          isOpen={isCreateStoreOpen || (isAuthModalOpen && authModalMode === 'signup')}
-          onClose={() => {
-            setIsCreateStoreOpen(false);
-            setIsAuthModalOpen(false);
-          }}
-          onStoreCreated={(newStore) => {
-            handleStoreCreated(newStore);
+          onOpenSuperAdmin={() => {
+            if (!superAdminSession) {
+              setIsSuperAdminModalOpen(true);
+            } else {
+              setActiveView('superadmin');
+            }
           }}
         />
         <SellerAuthModal
-          isOpen={isAuthModalOpen && authModalMode === 'login'}
+          isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
-          mode={authModalMode}
+          initialMode={authModalMode}
           initialSlug={authModalSlug}
-          onSuccess={(session) => {
-            handleLoginSuccess(session);
-          }}
-          onSwitchMode={(mode) => setAuthModalMode(mode)}
+          onLoginSuccess={handleLoginSuccess}
+          onStoreCreated={handleStoreCreated}
         />
       </div>
     );
