@@ -1,0 +1,444 @@
+import React, { useRef, useState } from 'react';
+import {
+  Check,
+  Copy,
+  Download,
+  ExternalLink,
+  Layers,
+  Palette,
+  QrCode,
+  Share2,
+  Sparkles,
+  X,
+} from 'lucide-react';
+import { Product, Store } from '../../types';
+import { formatPrice } from '../../utils/whatsapp';
+import { generateQRCodeSVG } from '../../utils/qrCode';
+import { getStoreDisplayUrl, getStoreUrl } from '../../utils/storage';
+
+interface StatusStudioModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  store: Store;
+  products: Product[];
+  initialProduct?: Product | null;
+}
+
+type CardTheme = 'luxury-dark' | 'emerald-gold' | 'royal-amber' | 'clean-minimal';
+
+export const StatusStudioModal: React.FC<StatusStudioModalProps> = ({
+  isOpen,
+  onClose,
+  store,
+  products,
+  initialProduct,
+}) => {
+  const [selectedProduct, setSelectedProduct] = useState<Product>(
+    initialProduct || products[0]
+  );
+  const [theme, setTheme] = useState<CardTheme>('luxury-dark');
+  const [copiedCaption, setCopiedCaption] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const previewCardRef = useRef<HTMLDivElement>(null);
+
+  if (!isOpen || !selectedProduct) return null;
+
+  const productUrl = getStoreUrl(store.slug, { productId: selectedProduct.id });
+  const displayUrl = `${getStoreDisplayUrl(store.slug)}`;
+  const qrSvg = generateQRCodeSVG(productUrl, 160, '#0f172a', '#ffffff');
+
+  // Pre-formatted viral status caption
+  const statusCaption = `🛍️ NEW DROP on ${store.name}!
+Item: ${selectedProduct.name}
+Code: #${selectedProduct.uid}
+Price: ${formatPrice(selectedProduct.price, store.currencySymbol)}
+
+👉 Reply with #${selectedProduct.uid} on WhatsApp to order or tap:
+${productUrl}`;
+
+  const handleCopyCaption = () => {
+    navigator.clipboard.writeText(statusCaption);
+    setCopiedCaption(true);
+    setTimeout(() => setCopiedCaption(false), 2000);
+  };
+
+  // High-Resolution 9:16 Canvas PNG Exporter
+  const handleDownloadPNG = () => {
+    setIsExporting(true);
+
+    try {
+      const canvas = document.createElement('canvas');
+      const width = 1080;
+      const height = 1920;
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Draw Theme Background
+      if (theme === 'luxury-dark') {
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+        bgGrad.addColorStop(0, '#020617');
+        bgGrad.addColorStop(0.5, '#0f172a');
+        bgGrad.addColorStop(1, '#020617');
+        ctx.fillStyle = bgGrad;
+      } else if (theme === 'emerald-gold') {
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+        bgGrad.addColorStop(0, '#022c22');
+        bgGrad.addColorStop(0.6, '#064e3b');
+        bgGrad.addColorStop(1, '#022c22');
+        ctx.fillStyle = bgGrad;
+      } else if (theme === 'royal-amber') {
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+        bgGrad.addColorStop(0, '#451a03');
+        bgGrad.addColorStop(0.6, '#78350f');
+        bgGrad.addColorStop(1, '#1c1917');
+        ctx.fillStyle = bgGrad;
+      } else {
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+        bgGrad.addColorStop(0, '#f8fafc');
+        bgGrad.addColorStop(1, '#e2e8f0');
+        ctx.fillStyle = bgGrad;
+      }
+      ctx.fillRect(0, 0, width, height);
+
+      // Store Top Header (Logo + Store Name)
+      ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
+      ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(store.name.toUpperCase(), width / 2, 160);
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = '600 28px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(`⚡ ${displayUrl}`, width / 2, 210);
+
+      // Product Image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        // Draw image in rounded container
+        const imgX = 90;
+        const imgY = 270;
+        const imgW = 900;
+        const imgH = 900;
+        const radius = 48;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(imgX, imgY, imgW, imgH, radius);
+        ctx.clip();
+        ctx.drawImage(img, imgX, imgY, imgW, imgH);
+        ctx.restore();
+
+        // Image border / shadow ring
+        ctx.strokeStyle = theme === 'clean-minimal' ? '#cbd5e1' : 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(imgX, imgY, imgW, imgH, radius);
+        ctx.stroke();
+
+        // Item UID Badge (Floating on image)
+        const uidBgX = 140;
+        const uidBgY = 320;
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.roundRect(uidBgX, uidBgY, 320, 70, 20);
+        ctx.fill();
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 32px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`#${selectedProduct.uid}`, uidBgX + 24, uidBgY + 48);
+
+        // Product Name
+        ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
+        ctx.font = 'bold 54px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'center';
+        const cleanName = selectedProduct.name.length > 36
+          ? `${selectedProduct.name.slice(0, 36)}...`
+          : selectedProduct.name;
+        ctx.fillText(cleanName, width / 2, 1260);
+
+        // Price Tag Banner
+        const priceBgW = 560;
+        const priceBgH = 110;
+        const priceBgX = (width - priceBgW) / 2;
+        const priceBgY = 1320;
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.roundRect(priceBgX, priceBgY, priceBgW, priceBgH, 30);
+        ctx.fill();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '900 58px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          formatPrice(selectedProduct.price, store.currencySymbol),
+          width / 2,
+          priceBgY + 76
+        );
+
+        // Call to action box at bottom
+        const ctaY = 1500;
+        ctx.fillStyle = theme === 'clean-minimal' ? '#ffffff' : 'rgba(255,255,255,0.06)';
+        ctx.beginPath();
+        ctx.roundRect(90, ctaY, 900, 280, 36);
+        ctx.fill();
+        ctx.strokeStyle = theme === 'clean-minimal' ? '#e2e8f0' : 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // CTA Text
+        ctx.textAlign = 'left';
+        ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
+        ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillText('Order Instantly on WhatsApp', 140, ctaY + 75);
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = '700 30px monospace';
+        ctx.fillText(`Reply with: #${selectedProduct.uid}`, 140, ctaY + 130);
+
+        ctx.fillStyle = theme === 'clean-minimal' ? '#64748b' : '#94a3b8';
+        ctx.font = '500 24px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillText(`Or scan QR code with phone camera`, 140, ctaY + 180);
+
+        // QR Code in bottom right of CTA box
+        const qrImg = new Image();
+        const svgBlob = new Blob([qrSvg], { type: 'image/svg+xml;charset=utf-8' });
+        const qrUrl = URL.createObjectURL(svgBlob);
+        qrImg.onload = () => {
+          ctx.drawImage(qrImg, 760, ctaY + 40, 200, 200);
+          URL.revokeObjectURL(qrUrl);
+
+          // Trigger download
+          const link = document.createElement('a');
+          link.download = `${selectedProduct.uid}-status-card.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          setIsExporting(false);
+        };
+        qrImg.src = qrUrl;
+      };
+
+      img.onerror = () => {
+        // Fallback without image
+        const link = document.createElement('a');
+        link.download = `${selectedProduct.uid}-status-card.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        setIsExporting(false);
+      };
+
+      img.src = selectedProduct.images[0] || store.logoUrl;
+    } catch (e) {
+      console.error('Error generating card', e);
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="fixed inset-0" onClick={onClose} />
+
+      <div className="relative bg-white rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden border border-slate-200 z-10 flex flex-col md:flex-row max-h-[92vh]">
+        {/* Left: 9:16 Story / Status Preview Canvas */}
+        <div className="flex-1 bg-slate-900 p-6 flex flex-col items-center justify-center relative overflow-hidden">
+          {/* Subtle Ambient Glow */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
+          </div>
+
+          <div className="w-full max-w-[280px] aspect-[9/16] rounded-3xl shadow-2xl overflow-hidden border-2 border-slate-700/80 flex flex-col justify-between p-4 relative text-white"
+            style={{
+              background:
+                theme === 'luxury-dark'
+                  ? 'linear-gradient(180deg, #020617 0%, #0f172a 50%, #020617 100%)'
+                  : theme === 'emerald-gold'
+                  ? 'linear-gradient(180deg, #022c22 0%, #064e3b 50%, #022c22 100%)'
+                  : theme === 'royal-amber'
+                  ? 'linear-gradient(180deg, #451a03 0%, #78350f 50%, #1c1917 100%)'
+                  : 'linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%)',
+              color: theme === 'clean-minimal' ? '#0f172a' : '#ffffff',
+            }}
+          >
+            {/* Top Store Header */}
+            <div className="text-center pt-1">
+              <span className="text-[11px] font-black tracking-wider uppercase block truncate">
+                {store.name}
+              </span>
+              <span className="text-[9px] font-bold text-amber-400 font-mono">
+                {displayUrl}
+              </span>
+            </div>
+
+            {/* Product Center Photo with UID Badge */}
+            <div className="relative my-auto">
+              <div className="aspect-square w-full rounded-2xl overflow-hidden bg-black/20 border border-white/10 shadow-lg relative">
+                <img
+                  src={selectedProduct.images[0] || store.logoUrl}
+                  alt={selectedProduct.name}
+                  className="w-full h-full object-cover"
+                />
+                {/* UID Sticker */}
+                <div className="absolute top-2.5 left-2.5 bg-slate-950/90 border border-amber-400 text-white font-mono text-[10px] font-black px-2 py-0.5 rounded-md shadow-md">
+                  #{selectedProduct.uid}
+                </div>
+              </div>
+
+              {/* Product Title & Price */}
+              <div className="mt-3 text-center space-y-1.5">
+                <h4 className="text-xs font-bold leading-tight line-clamp-1">
+                  {selectedProduct.name}
+                </h4>
+                <div className="inline-block bg-amber-500 text-slate-950 font-black text-sm px-3 py-1 rounded-xl shadow-xs">
+                  {formatPrice(selectedProduct.price, store.currencySymbol)}
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Call to Action + QR Box */}
+            <div
+              className={`p-2.5 rounded-2xl flex items-center justify-between gap-2 border ${
+                theme === 'clean-minimal'
+                  ? 'bg-white border-slate-200'
+                  : 'bg-white/10 border-white/10'
+              }`}
+            >
+              <div className="truncate">
+                <span className="text-[9px] font-bold uppercase tracking-wider block text-amber-400">
+                  Order on WhatsApp
+                </span>
+                <span className="text-[10px] font-black font-mono block truncate">
+                  Send #{selectedProduct.uid}
+                </span>
+                <span className="text-[8px] opacity-70 block">
+                  Or scan QR code
+                </span>
+              </div>
+              <div
+                className="w-12 h-12 bg-white rounded-lg p-1 shrink-0 flex items-center justify-center shadow-xs"
+                dangerouslySetInnerHTML={{ __html: qrSvg }}
+              />
+            </div>
+          </div>
+
+          <span className="mt-3 text-[11px] text-slate-400 font-medium">
+            📱 9:16 Vertical Card for WhatsApp Status & IG Stories
+          </span>
+        </div>
+
+        {/* Right: Controls & Actions */}
+        <div className="w-full md:w-96 p-6 flex flex-col justify-between bg-white overflow-y-auto space-y-5">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-500" />
+                <h3 className="font-extrabold text-slate-900 text-base">
+                  Status & Story Studio
+                </h3>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Select Product */}
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                Select Product to Feature
+              </label>
+              <select
+                value={selectedProduct.id}
+                onChange={(e) => {
+                  const found = products.find((p) => p.id === e.target.value);
+                  if (found) setSelectedProduct(found);
+                }}
+                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-medium bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              >
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    #{p.uid} - {p.name} ({formatPrice(p.price, store.currencySymbol)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Select Visual Theme */}
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1.5 flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-slate-400" />
+                <span>Card Theme</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'luxury-dark', name: 'Luxury Onyx', dot: 'bg-slate-900' },
+                  { id: 'emerald-gold', name: 'Dubai Emerald', dot: 'bg-emerald-900' },
+                  { id: 'royal-amber', name: 'Arabian Amber', dot: 'bg-amber-900' },
+                  { id: 'clean-minimal', name: 'Minimal White', dot: 'bg-slate-200' },
+                ].map((th) => (
+                  <button
+                    key={th.id}
+                    onClick={() => setTheme(th.id as CardTheme)}
+                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${
+                      theme === th.id
+                        ? 'border-slate-900 bg-slate-50 text-slate-900 shadow-2xs'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className={`w-3 h-3 rounded-full ${th.dot} shrink-0`} />
+                    <span className="truncate">{th.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Ready-to-Paste WhatsApp Caption */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  WhatsApp Status Pitch
+                </label>
+                <button
+                  onClick={handleCopyCaption}
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-bold inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedCaption ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedCaption ? 'Copied!' : 'Copy Text'}</span>
+                </button>
+              </div>
+              <textarea
+                readOnly
+                rows={3}
+                value={statusCaption}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 font-mono"
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="pt-4 border-t border-slate-100 space-y-2">
+            <button
+              onClick={handleDownloadPNG}
+              disabled={isExporting}
+              className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              <Download className="w-4 h-4 text-amber-400" />
+              <span>{isExporting ? 'Generating High-Res Card...' : 'Download 9:16 Image for Status / Story'}</span>
+            </button>
+            <p className="text-[10px] text-center text-slate-400">
+              Exports full-resolution 1080×1920 graphic ready for WhatsApp Status, Instagram & TikTok
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
