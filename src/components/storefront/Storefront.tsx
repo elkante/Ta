@@ -4,6 +4,7 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
+  Facebook,
   Filter,
   Heart,
   Instagram,
@@ -18,6 +19,7 @@ import {
   Sparkles,
   Star,
   Truck,
+  Twitter,
   Zap,
 } from 'lucide-react';
 import { CartItem, Product, ProductVariant, Store, StoreReview } from '../../types';
@@ -391,15 +393,58 @@ export const Storefront: React.FC<StorefrontProps> = ({
                   </span>
                 )}
 
+                {/* Social media links */}
                 {store.socialLinks?.instagram && (
                   <a
-                    href={`https://instagram.com/${store.socialLinks.instagram}`}
+                    href={`https://instagram.com/${store.socialLinks.instagram.replace(/^@/, '')}`}
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-1 hover:text-white transition"
+                    title={`Instagram: @${store.socialLinks.instagram.replace(/^@/, '')}`}
                   >
-                    <Instagram className="w-3.5 h-3.5 text-pink-400" />
-                    <span>@{store.socialLinks.instagram}</span>
+                    <Instagram className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                    <span>@{store.socialLinks.instagram.replace(/^@/, '')}</span>
+                  </a>
+                )}
+
+                {store.socialLinks?.tiktok && (
+                  <a
+                    href={`https://tiktok.com/@${store.socialLinks.tiktok.replace(/^@/, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 hover:text-white transition"
+                    title={`TikTok: @${store.socialLinks.tiktok.replace(/^@/, '')}`}
+                  >
+                    <svg className="w-3.5 h-3.5 text-cyan-400 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.86 4.43 6.3 6.3 0 0 0 1.93-4.52V8.58a8.28 8.28 0 0 0 4.8 1.54V6.69z"/>
+                    </svg>
+                    <span>@{store.socialLinks.tiktok.replace(/^@/, '')}</span>
+                  </a>
+                )}
+
+                {store.socialLinks?.facebook && (
+                  <a
+                    href={`https://facebook.com/${store.socialLinks.facebook.replace(/^@/, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 hover:text-white transition"
+                    title={`Facebook: ${store.socialLinks.facebook.replace(/^@/, '')}`}
+                  >
+                    <Facebook className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span>{store.socialLinks.facebook.replace(/^@/, '')}</span>
+                  </a>
+                )}
+
+                {store.socialLinks?.twitter && (
+                  <a
+                    href={`https://x.com/${store.socialLinks.twitter.replace(/^@/, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 hover:text-white transition"
+                    title={`X / Twitter: @${store.socialLinks.twitter.replace(/^@/, '')}`}
+                  >
+                    <Twitter className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span>@{store.socialLinks.twitter.replace(/^@/, '')}</span>
                   </a>
                 )}
               </div>

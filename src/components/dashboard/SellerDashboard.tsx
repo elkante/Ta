@@ -346,6 +346,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [settingsInstagram, setSettingsInstagram] = useState(store.socialLinks?.instagram || '');
   const [settingsTikTok, setSettingsTikTok] = useState(store.socialLinks?.tiktok || '');
   const [settingsFacebook, setSettingsFacebook] = useState(store.socialLinks?.facebook || '');
+  const [settingsTwitter, setSettingsTwitter] = useState(store.socialLinks?.twitter || '');
   const [settingsLogoUrl, setSettingsLogoUrl] = useState(store.logoUrl || '');
   const [settingsBannerUrl, setSettingsBannerUrl] = useState(store.bannerUrl || '');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -376,6 +377,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     setSettingsInstagram(store.socialLinks?.instagram || '');
     setSettingsTikTok(store.socialLinks?.tiktok || '');
     setSettingsFacebook(store.socialLinks?.facebook || '');
+    setSettingsTwitter(store.socialLinks?.twitter || '');
     setSettingsLogoUrl(store.logoUrl || '');
     setSettingsBannerUrl(store.bannerUrl || '');
     setSettingsOwnerName(store.ownerName || '');
@@ -612,7 +614,8 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       socialLinks: {
         instagram: settingsInstagram.trim(),
         tiktok: settingsTikTok.trim(),
-        facebook: settingsFacebook ? settingsFacebook.trim() : store.socialLinks?.facebook,
+        facebook: settingsFacebook.trim(),
+        twitter: settingsTwitter.trim(),
       },
     };
 
@@ -751,17 +754,38 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     },
   ];
 
+  // Side panel category state: Orders & Catalog is OPEN by default, the rest are CLOSED till opened by seller
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>(() => {
     try {
       const saved = sessionStorage.getItem(`ta_collapsed_cats_${store.id}`);
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return {};
+    return {
+      orders: false,
+      marketing: true,
+      finance: true,
+      settings: true,
+    };
   });
+
+  // Auto-expand category containing active tab so seller sees their active item
+  useEffect(() => {
+    const parentCategory = navCategories.find((cat) => cat.tabs.includes(activeTab));
+    if (parentCategory && collapsedCategories[parentCategory.id]) {
+      setCollapsedCategories((prev) => {
+        const next = { ...prev, [parentCategory.id]: false };
+        try {
+          sessionStorage.setItem(`ta_collapsed_cats_${store.id}`, JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+    }
+  }, [activeTab]);
 
   const toggleCategory = (catId: string) => {
     setCollapsedCategories((prev) => {
-      const next = { ...prev, [catId]: !prev[catId] };
+      const isCurrentlyCollapsed = prev[catId] !== undefined ? prev[catId] : catId !== 'orders';
+      const next = { ...prev, [catId]: !isCurrentlyCollapsed };
       try {
         sessionStorage.setItem(`ta_collapsed_cats_${store.id}`, JSON.stringify(next));
       } catch (e) {}
@@ -964,7 +988,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const renderCategorizedNav = () => (
     <div className="space-y-3">
       {navCategories.map((category) => {
-        const isCollapsed = Boolean(collapsedCategories[category.id]);
+        const isCollapsed =
+          collapsedCategories[category.id] !== undefined
+            ? Boolean(collapsedCategories[category.id])
+            : category.id !== 'orders';
         const hasActiveTab = category.tabs.includes(activeTab);
         const CategoryIcon = category.icon;
         const hasPendingAlert = category.tabs.some((t) => t === 'orders' && pendingOrdersCount > 0);
@@ -2351,7 +2378,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               </div>
 
               {/* Social links */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">Instagram Handle</label>
                   <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
@@ -2389,6 +2416,20 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                       placeholder="username"
                       value={settingsTikTok}
                       onChange={(e) => setSettingsTikTok(e.target.value.replace(/^@/, ''))}
+                      className="w-full px-1.5 py-2 text-xs bg-transparent focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Twitter / X Handle</label>
+                  <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                    <span className="pl-3 text-xs text-slate-400 select-none">@</span>
+                    <input
+                      type="text"
+                      placeholder="handle"
+                      value={settingsTwitter}
+                      onChange={(e) => setSettingsTwitter(e.target.value.replace(/^@/, ''))}
                       className="w-full px-1.5 py-2 text-xs bg-transparent focus:outline-none"
                     />
                   </div>
