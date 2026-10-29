@@ -67,10 +67,10 @@ export const Navigation: React.FC<NavigationProps> = ({
       setLogoTapCount(0);
       onOpenSuperAdmin();
     } else {
-      // Reset if no subsequent tap within 2 seconds
+      // Reset if no subsequent tap within 700ms -> go to landing page
       logoTapTimer.current = setTimeout(() => {
         setLogoTapCount(0);
-        onViewChange('storefront');
+        onViewChange('landing');
       }, 700);
     }
   };

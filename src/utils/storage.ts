@@ -538,13 +538,31 @@ export function getStoreDisplayUrl(slug: string): string {
  */
 export function getSubdomainFromHostname(): string | null {
   if (typeof window === 'undefined') return null;
-  const host = window.location.hostname;
-  const parts = host.split('.');
+  const host = window.location.hostname.toLowerCase();
 
-  // Must have at least 3 parts: subdomain.domain.tld
+  // Ignore local & IP development addresses
+  if (host === 'localhost' || host === '127.0.0.1' || /^(\d{1,3}\.){3}\d{1,3}$/.test(host)) {
+    return null;
+  }
+
+  // Common PaaS deployment domains where the 3rd-level domain is the app itself (e.g. ta-ruby-five.vercel.app)
+  const PAAS_ROOTS = ['vercel.app', 'netlify.app', 'pages.dev', 'github.io', 'render.com', 'railway.app', 'onrender.com'];
+  for (const root of PAAS_ROOTS) {
+    if (host.endsWith(root)) {
+      const parts = host.split('.');
+      // e.g. ["ta-ruby-five", "vercel", "app"] -> 3 parts, this is the main deployment root! Not a tenant store subdomain.
+      if (parts.length <= 3) return null;
+      // Only 4+ parts could be a sub-tenant (e.g. amaka.ta-ruby-five.vercel.app)
+      const sub = parts[0];
+      const EXCLUDED = ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp'];
+      return EXCLUDED.includes(sub) ? null : sub;
+    }
+  }
+
+  const parts = host.split('.');
+  // Standard custom domain: e.g. amaka.ta.shop (3 parts -> "amaka")
   if (parts.length >= 3) {
     const sub = parts[0];
-    // Exclude well-known system subdomains
     const EXCLUDED = ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp'];
     if (!EXCLUDED.includes(sub)) return sub;
   }

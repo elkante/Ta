@@ -113,6 +113,12 @@ export default function App() {
     const hasExplicitStore = !!(slug || subdomainSlug || storeParam);
     const urlStoreSlug = slug || subdomainSlug || storeParam || '';
 
+    // Resolve target store only if a slug was explicitly given in the URL or loadTenantData arg
+    let targetStore: Store | null = null;
+    if (urlStoreSlug) {
+      targetStore = stores.find((s) => s.slug.toLowerCase() === urlStoreSlug.toLowerCase()) || null;
+    }
+
     if (viewParam === 'landing') {
       // Explicit landing request → show landing page
       setActiveView('landing');
@@ -131,25 +137,24 @@ export default function App() {
       } else {
         setIsSuperAdminModalOpen(true);
       }
-    } else if (hasExplicitStore) {
-      // Explicit store in URL (QR scan or shared link) → always go straight to storefront
+    } else if (viewParam === 'dashboard' && session) {
+      setActiveView('dashboard');
+    } else if (targetStore && hasExplicitStore) {
+      // ONLY go to storefront if a specific store was explicitly requested AND found in registered stores
       setActiveView('storefront');
     } else {
-      // No explicit store in URL → always show landing page (main site link)
+      // Main site link (e.g. ta-ruby-five.vercel.app/ or root domain) → ALWAYS landing page!
       setActiveView('landing');
     }
 
-    // Only resolve the target store if a slug was explicitly provided
-    // Never fall back to stores[0] for anonymous visitors on the main link
-    let targetStore: Store | null = null;
-    if (urlStoreSlug) {
-      targetStore = stores.find((s) => s.slug.toLowerCase() === urlStoreSlug.toLowerCase()) || null;
-    }
-
     // If authenticated seller session exists and no explicit store in URL,
-    // restore their store context silently (but keep landing view)
+    // restore their store context silently for the seller portal without leaving landing
     if (!targetStore && session) {
       targetStore = stores.find((s) => s.id === session.storeId) || null;
+    }
+
+    if (!targetStore) {
+      targetStore = stores[0] || null;
     }
 
     if (targetStore) {
