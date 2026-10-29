@@ -339,63 +339,86 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {stores.map((s) => (
-              <div
-                key={s.id}
-                onClick={() => onOpenStore(s.slug)}
-                className="group relative bg-slate-50 rounded-3xl overflow-hidden border border-slate-200/80 hover:border-slate-300 hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col"
-              >
-                {/* Banner */}
-                <div className="relative h-32 w-full overflow-hidden bg-slate-200">
-                  <img
-                    src={s.bannerUrl}
-                    alt={s.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                  <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-xs text-slate-900 font-mono text-[10px] font-bold px-2.5 py-1 rounded-full shadow-xs">
-                    {s.slug}.ta.shop
-                  </span>
-                </div>
+          {/* Exclusively super-admin curated stores shown on landing */}
+          {(() => {
+            const liveFeaturedStores = stores.filter(
+              (s) => s.featuredOnLanding === true && s.status !== 'suspended' && s.status !== 'deleted'
+            );
 
-                {/* Content */}
-                <div className="p-5 flex-1 flex flex-col justify-between -mt-8 relative z-10">
-                  <div>
-                    <div className="flex items-end gap-3 mb-3">
+            if (liveFeaturedStores.length === 0) {
+              return (
+                <div className="text-center py-12 px-4 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3 shadow-2xs">
+                    <StoreIcon className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800">No Stores Added to Showcase Yet</h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    Live storefronts here are curated exclusively by Super Admin from the Master Admin Portal.
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {liveFeaturedStores.map((s) => (
+                  <div
+                    key={s.id}
+                    onClick={() => onOpenStore(s.slug)}
+                    className="group relative bg-slate-50 rounded-3xl overflow-hidden border border-slate-200/80 hover:border-slate-300 hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col"
+                  >
+                    {/* Banner */}
+                    <div className="relative h-32 w-full overflow-hidden bg-slate-200">
                       <img
-                        src={s.logoUrl}
+                        src={s.bannerUrl}
                         alt={s.name}
-                        className="w-14 h-14 rounded-2xl object-cover ring-4 ring-white shadow-md bg-white shrink-0"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
-                      <div>
-                        <div className="flex items-center gap-1.5 font-bold text-slate-900 text-sm">
-                          <span className="truncate">{s.name}</span>
-                          {s.verified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />}
-                        </div>
-                        <span className="text-[11px] text-slate-400 font-medium">{s.location}</span>
-                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                      <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-xs text-slate-900 font-mono text-[10px] font-bold px-2.5 py-1 rounded-full shadow-xs">
+                        {s.slug}.ta.shop
+                      </span>
                     </div>
 
-                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                      {s.tagline || s.description}
-                    </p>
-                  </div>
+                    {/* Content */}
+                    <div className="p-5 flex-1 flex flex-col justify-between -mt-8 relative z-10">
+                      <div>
+                        <div className="flex items-end gap-3 mb-3">
+                          <img
+                            src={s.logoUrl}
+                            alt={s.name}
+                            className="w-14 h-14 rounded-2xl object-cover ring-4 ring-white shadow-md bg-white shrink-0"
+                          />
+                          <div>
+                            <div className="flex items-center gap-1.5 font-bold text-slate-900 text-sm">
+                              <span className="truncate">{s.name}</span>
+                              {s.verified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />}
+                            </div>
+                            <span className="text-[11px] text-slate-400 font-medium">{s.location}</span>
+                          </div>
+                        </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
-                    <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      <span>Accepting WhatsApp Orders</span>
-                    </span>
-                    <span className="text-slate-900 font-bold group-hover:translate-x-1 transition-transform flex items-center gap-0.5">
-                      <span>Visit</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </span>
+                        <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                          {s.tagline || s.description}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                        <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>Accepting WhatsApp Orders</span>
+                        </span>
+                        <span className="text-slate-900 font-bold group-hover:translate-x-1 transition-transform flex items-center gap-0.5">
+                          <span>Visit</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
       </section>
 

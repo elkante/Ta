@@ -33,6 +33,73 @@ export function saveStoredAIKey(key: string): void {
 }
 
 /**
+ * Returns the daily generation cap for a store under the 1,000,000 token/day Google AI Studio key.
+ */
+export function getStoreAICap(store: Store): number {
+  if (store.aiDailyUsage?.customCap && store.aiDailyUsage.customCap > 0) {
+    return store.aiDailyUsage.customCap;
+  }
+  switch (store.tier) {
+    case 'business':
+      return 250;
+    case 'pro':
+      return 100;
+    case 'starter':
+      return 50;
+    case 'free':
+    default:
+      return 25;
+  }
+}
+
+/**
+ * Calculates current day's AI usage and remaining quota for a store.
+ */
+export function getStoreAIUsage(store: Store): {
+  used: number;
+  cap: number;
+  remaining: number;
+  isCapReached: boolean;
+  todayStr: string;
+} {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const used = store.aiDailyUsage?.date === todayStr ? (store.aiDailyUsage.count || 0) : 0;
+  const cap = getStoreAICap(store);
+  const remaining = Math.max(0, cap - used);
+  return {
+    used,
+    cap,
+    remaining,
+    isCapReached: remaining <= 0,
+    todayStr,
+  };
+}
+
+/**
+ * Increments today's AI generation usage for the store.
+ */
+export function incrementStoreAIUsage(store: Store): { updatedStore: Store; remaining: number } {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const currentCount = store.aiDailyUsage?.date === todayStr ? (store.aiDailyUsage.count || 0) : 0;
+  const newCount = currentCount + 1;
+  const cap = getStoreAICap(store);
+
+  const updatedStore: Store = {
+    ...store,
+    aiDailyUsage: {
+      date: todayStr,
+      count: newCount,
+      customCap: store.aiDailyUsage?.customCap,
+    },
+  };
+
+  return {
+    updatedStore,
+    remaining: Math.max(0, cap - newCount),
+  };
+}
+
+/**
  * Intelligent algorithmic generator that always produces high-converting African social commerce
  * captions, keywords, and hashtags even if network or API keys fail.
  */

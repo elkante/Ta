@@ -4110,6 +4110,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         store={store}
         products={products}
         initialProduct={selectedAiProduct}
+        onStoreUpdated={(updated) => onSelectStore(updated)}
       />
 
       {/* Commercial Dispatch Waybill Modal */}

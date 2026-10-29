@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
+  AlertCircle,
   Check,
   Copy,
+  Eye,
+  EyeOff,
   Hash,
   Key,
   MessageCircle,
@@ -15,11 +18,15 @@ import {
 import { Product, Store } from '../../types';
 import {
   AIMarketingResult,
+  generateLocalMarketingContent,
   generateMarketingContentWithAI,
   getStoredAIKey,
+  getStoreAIUsage,
+  incrementStoreAIUsage,
   MarketingTone,
   saveStoredAIKey,
 } from '../../utils/aiMarketing';
+import { updateStore } from '../../utils/storage';
 
 interface AIMarketingModalProps {
   isOpen: boolean;
@@ -27,6 +34,7 @@ interface AIMarketingModalProps {
   store: Store;
   products: Product[];
   initialProduct?: Product | null;
+  onStoreUpdated?: (updated: Store) => void;
 }
 
 export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
@@ -35,7 +43,9 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
   store,
   products,
   initialProduct,
+  onStoreUpdated,
 }) => {
+  const [currentStore, setCurrentStore] = useState<Store>(store);
   const [selectedProductId, setSelectedProductId] = useState<string>(
     initialProduct?.id || products[0]?.id || ''
   );
@@ -46,9 +56,16 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
 
   const [aiKey, setAiKey] = useState(getStoredAIKey());
   const [showKeyInput, setShowKeyInput] = useState(false);
+  const [showKeyPassword, setShowKeyPassword] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [copiedType, setCopiedType] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCurrentStore(store);
+  }, [store]);
+
+  const quota = getStoreAIUsage(currentStore);
 
   const selectedProduct = products.find((p) => p.id === selectedProductId) || {
     name: customName || 'Special Item',
@@ -64,13 +81,32 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
   const handleGenerate = async () => {
     setIsLoading(true);
     try {
+      const trimmedKey = aiKey.trim();
+      const isPersonalKey = Boolean(trimmedKey && trimmedKey.startsWith('AIzaSy') && trimmedKey !== getStoredAIKey());
+
+      // If relying on shared Google AI Studio 1M quota and daily cap is reached:
+      if (!isPersonalKey && quota.isCapReached) {
+        // Generate immediately using local engine
+        const offlineResult = generateLocalMarketingContent(selectedProduct, currentStore, tone);
+        setResult(offlineResult);
+        return;
+      }
+
       const generated = await generateMarketingContentWithAI(
         selectedProduct,
-        store,
+        currentStore,
         tone,
-        aiKey.trim() || undefined
+        trimmedKey || undefined
       );
       setResult(generated);
+
+      // Increment quota usage if using shared quota
+      if (!isPersonalKey) {
+        const { updatedStore } = incrementStoreAIUsage(currentStore);
+        updateStore(updatedStore);
+        setCurrentStore(updatedStore);
+        onStoreUpdated?.(updatedStore);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -121,8 +157,48 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
           </button>
         </div>
 
+        {/* Daily Store AI Quota Counter Strip */}
+        <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <Zap className={`w-3.5 h-3.5 ${quota.isCapReached ? 'text-rose-500' : 'text-amber-500'}`} />
+            <span className="font-semibold text-slate-700">
+              Daily AI Quota: <strong className="text-slate-900">{quota.used} / {quota.cap}</strong> used today
+            </span>
+            <span className="text-[11px] text-slate-400 font-medium">({quota.remaining} left • 1M pool)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-20 sm:w-28 bg-slate-200 h-2 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  quota.isCapReached
+                    ? 'bg-rose-500'
+                    : quota.used / quota.cap > 0.8
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500'
+                }`}
+                style={{ width: `${Math.min(100, Math.round((quota.used / Math.max(1, quota.cap)) * 100))}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-mono text-slate-500 font-bold">
+              {Math.min(100, Math.round((quota.used / Math.max(1, quota.cap)) * 100))}%
+            </span>
+          </div>
+        </div>
+
         {/* Body */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1">
+          {quota.isCapReached && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Daily Store AI Quota Reached ({quota.cap}/{quota.cap})</p>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  Your store has used its daily quota from our shared 1M token Google AI Studio pool.
+                  Resets tonight at midnight. You can still generate instant viral captions with our offline marketing engine, or use your private key below.
+                </p>
+              </div>
+            </div>
+          )}
           {/* Product & Tone Selection Controls */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
             <div>
@@ -223,17 +299,28 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
                 </a>
               </div>
               <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={aiKey}
-                  onChange={(e) => setAiKey(e.target.value)}
-                  placeholder="Paste your AI Studio key (starts with AIzaSy...)"
-                  className="flex-1 px-3 py-2 text-xs rounded-xl border border-amber-300 bg-white font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
+                <div className="relative flex-1">
+                  <input
+                    type={showKeyPassword ? 'text' : 'password'}
+                    value={aiKey}
+                    onChange={(e) => setAiKey(e.target.value)}
+                    placeholder="Paste your AI Studio key (starts with AIzaSy...)"
+                    className="w-full pl-3 pr-10 py-2 text-xs rounded-xl border border-amber-300 bg-white font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKeyPassword(!showKeyPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer p-0.5"
+                    tabIndex={-1}
+                    title={showKeyPassword ? 'Hide key' : 'Show key'}
+                  >
+                    {showKeyPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={handleSaveKey}
-                  className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-xl cursor-pointer"
+                  className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-xl cursor-pointer shrink-0"
                 >
                   Save
                 </button>

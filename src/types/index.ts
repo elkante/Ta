@@ -84,6 +84,12 @@ export interface Store {
   verified: boolean;
   hasVerifiedBadgeAddon?: boolean; // Standalone ₦2,000/mo verification add-on
   verifiedBadgeExpiresAt?: string;
+  featuredOnLanding?: boolean; // Exclusively controlled by Super Admin for landing page Live Storefronts
+  aiDailyUsage?: {
+    date: string; // YYYY-MM-DD
+    count: number; // Generations used today
+    customCap?: number; // Optional custom daily cap set by Super Admin
+  };
   status?: 'active' | 'suspended' | 'deleted';
   planExpiresAt?: string;
   adminNotes?: string[];

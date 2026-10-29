@@ -35,6 +35,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Sparkles,
+  Star,
   Timer,
   ToggleLeft,
   ToggleRight,
@@ -73,6 +74,7 @@ import {
   updateStore,
 } from '../../utils/storage';
 import { formatPrice } from '../../utils/whatsapp';
+import { getStoreAIUsage } from '../../utils/aiMarketing';
 
 interface SuperAdminDashboardProps {
   session: SuperAdminSession;
@@ -113,7 +115,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   // Search & Filter state for Stores
   const [storeSearch, setStoreSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<'all' | 'free' | 'starter' | 'pro' | 'business'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspended'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'featured' | 'suspended'>('all');
 
   // KYC ID Verification Queue state
   const [idVerificationFilter, setIdVerificationFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
@@ -177,6 +179,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       const matchStatus =
         statusFilter === 'all' ||
         (statusFilter === 'verified' && store.verified) ||
+        (statusFilter === 'featured' && store.featuredOnLanding) ||
         (statusFilter === 'suspended' && store.status === 'suspended');
 
       return matchSearch && matchTier && matchStatus;
@@ -216,6 +219,33 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     updateStore(updated);
     onRefreshData();
     triggerToast(`Store "${store.name}" verification toggled.`);
+  };
+
+  const handleToggleFeaturedOnLanding = (store: Store) => {
+    const nextVal = !store.featuredOnLanding;
+    const updated: Store = { ...store, featuredOnLanding: nextVal };
+    updateStore(updated);
+    onRefreshData();
+    triggerToast(
+      nextVal
+        ? `🌟 "${store.name}" added to Landing Page Live Storefronts!`
+        : `"${store.name}" removed from Landing Page showcase.`
+    );
+  };
+
+  const handleResetStoreAIUsage = (store: Store) => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const updated: Store = {
+      ...store,
+      aiDailyUsage: {
+        date: todayStr,
+        count: 0,
+        customCap: store.aiDailyUsage?.customCap,
+      },
+    };
+    updateStore(updated);
+    onRefreshData();
+    triggerToast(`AI Studio quota for "${store.name}" reset to 0 used today.`);
   };
 
   const handleToggleSuspended = (store: Store) => {
@@ -688,6 +718,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none"
                   >
                     <option value="all">All Statuses</option>
+                    <option value="featured">🌟 Featured on Landing</option>
                     <option value="verified">Verified Only</option>
                     <option value="suspended">Banned / Suspended Only</option>
                   </select>
@@ -727,6 +758,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                   <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                                     <BadgeCheck className="w-3 h-3 text-blue-500" />
                                     Verified
+                                  </span>
+                                )}
+                                {store.featuredOnLanding && (
+                                  <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                                    <Star className="w-3 h-3 text-amber-600 fill-amber-500" />
+                                    Landing Showcase
                                   </span>
                                 )}
                                 <span
@@ -807,12 +844,58 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                     📝 {store.adminNotes.length} Note{store.adminNotes.length > 1 ? 's' : ''}
                                   </span>
                                 )}
+                                {(() => {
+                                  const quota = getStoreAIUsage(store);
+                                  return (
+                                    <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-medium text-[10px]">
+                                      <Sparkles className="w-2.5 h-2.5 text-amber-600" />
+                                      <span>AI: <strong>{quota.used}/{quota.cap}</strong></span>
+                                      {quota.used > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleResetStoreAIUsage(store);
+                                          }}
+                                          className="ml-1 text-[9px] text-indigo-700 underline font-bold cursor-pointer hover:text-indigo-900"
+                                          title="Reset today's AI usage for this store"
+                                        >
+                                          Reset
+                                        </button>
+                                      )}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
 
                           {/* Super Admin Control Actions */}
                           <div className="flex flex-wrap items-center gap-1.5 self-end lg:self-center shrink-0">
+                            {/* Feature on Landing (Live Storefronts) Toggle - Super Admin Only */}
+                            <button
+                              onClick={() => handleToggleFeaturedOnLanding(store)}
+                              className={`p-2 px-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
+                                store.featuredOnLanding
+                                  ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold shadow-2xs'
+                                  : 'border-slate-200 hover:bg-slate-100 text-slate-600'
+                              }`}
+                              title={
+                                store.featuredOnLanding
+                                  ? 'Remove store from Landing Page Live Storefronts'
+                                  : 'Feature store on Landing Page Live Storefronts'
+                              }
+                            >
+                              <Star
+                                className={`w-3.5 h-3.5 ${
+                                  store.featuredOnLanding ? 'text-amber-600 fill-amber-500' : 'text-slate-400'
+                                }`}
+                              />
+                              <span className="text-[11px] hidden sm:inline">
+                                {store.featuredOnLanding ? 'On Landing' : '+ Landing'}
+                              </span>
+                            </button>
+
                             {/* Send Private Note */}
                             <button
                               onClick={() => {
