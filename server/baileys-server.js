@@ -60,10 +60,14 @@ async function safeSendMessage(sock, jid, content, options) {
 /**
  * Initializes or retrieves an isolated WhatsApp socket for a specific store.
  */
-async function initStoreSession(storeId, storeCatalog = []) {
+async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
   if (activeSessions.has(storeId)) {
     const existing = activeSessions.get(storeId);
-    if (existing.status === 'connected') return existing;
+    if (existing.status === 'connected') {
+      existing.catalog = storeCatalog;
+      if (storeInfo && Object.keys(storeInfo).length > 0) existing.storeInfo = storeInfo;
+      return existing;
+    }
   }
 
   const storeSessionDir = path.join(SESSIONS_DIR, storeId);
@@ -75,6 +79,7 @@ async function initStoreSession(storeId, storeCatalog = []) {
     qrDataUrl: null,
     phone: null,
     catalog: storeCatalog,
+    storeInfo: storeInfo || {},
   };
   activeSessions.set(storeId, sessionData);
 
@@ -177,6 +182,11 @@ async function initStoreSession(storeId, storeCatalog = []) {
       const queryUid = uidMatch ? uidMatch[1].toUpperCase() : null;
 
       const currentCatalog = sessionData.catalog || [];
+      const info = sessionData.storeInfo || {};
+      const storeName = info.name || 'our store';
+      const storeSlug = info.slug || storeId;
+      const storeBaseUrl = `https://${storeSlug}.ta.shop`;
+
       const matchedProduct = currentCatalog.find(
         (p) =>
           (p.uid && p.uid.toUpperCase() === queryUid) ||
@@ -186,30 +196,92 @@ async function initStoreSession(storeId, storeCatalog = []) {
       if (matchedProduct) {
         // Send automated product card & instant checkout link
         const reply =
-          `👋 Hello! Here is the item you requested:\n\n` +
-          `🏷️ *${matchedProduct.name}*\n` +
-          `💰 *Price:* ₦${Number(matchedProduct.price).toLocaleString()}\n` +
-          `📦 *Status:* ${matchedProduct.inStock ? '✅ In Stock (Ready to dispatch)' : '❌ Sold Out'}\n` +
-          `🔑 *Item Code:* #${matchedProduct.uid}\n\n` +
-          `👉 *Tap here to view photos & complete order:*\n` +
-          `https://${storeId}.ta.shop/?product=${matchedProduct.id}`;
+          `👋 Hello! Here is the item you requested from *${storeName}*:\\n\\n` +
+          `🏷️ *${matchedProduct.name}*\\n` +
+          `💰 *Price:* ₦${Number(matchedProduct.price).toLocaleString()}\\n` +
+          `📦 *Status:* ${matchedProduct.inStock ? '✅ In Stock (Ready to dispatch)' : '❌ Sold Out'}\\n` +
+          `🔑 *Item Code:* #${matchedProduct.uid}\\n\\n` +
+          `👉 *Tap here to view photos & complete order:*\\n` +
+          `${storeBaseUrl}/?product=${matchedProduct.id}`;
 
         await safeSendMessage(sock, remoteJid, { text: reply });
         continue;
       }
 
+      // Category search (e.g. "show me bags", "do you have shoes")
+      const categoryKeywords = ['show me', 'do you have', 'looking for', 'i need', 'any'];
+      const isCategoryQuery = categoryKeywords.some((kw) => cleanText.toLowerCase().startsWith(kw));
+      if (isCategoryQuery || /\b(bags?|shoes?|dress(es)?|tops?|jewel|watches?|accessories|phones?|electronics?|cloth(es|ing)?)\b/i.test(cleanText)) {
+        const searchTerm = cleanText
+          .toLowerCase()
+          .replace(/^(show me|do you have|looking for|i need|any)\s*/i, '')
+          .trim();
+        const matches = currentCatalog.filter(
+          (p) =>
+            p.name.toLowerCase().includes(searchTerm) ||
+            (p.category && p.category.toLowerCase().includes(searchTerm)) ||
+            (p.description && p.description.toLowerCase().includes(searchTerm))
+        );
+        if (matches.length > 0) {
+          const listText = matches
+            .slice(0, 5)
+            .map((p) => `• *#${p.uid}* - ${p.name} (₦${Number(p.price).toLocaleString()}) ${p.inStock ? '✅' : '❌'}`)
+            .join('\n');
+          const reply =
+            `🔍 Here's what we found at *${storeName}* for "*${searchTerm}*":\\n\\n` +
+            `${listText}\\n\\n` +
+            `Reply with any *#Item Code* for full details, or visit:\\n${storeBaseUrl}`;
+          await safeSendMessage(sock, remoteJid, { text: reply });
+          continue;
+        }
+      }
+
+      // Delivery / location / shipping inquiry
+      if (/\b(deliver|delivery|shipping|ship|location|address|where|pickup|how long|dispatch|lagos|abuja)\b/i.test(cleanText)) {
+        const deliveryText = info.deliveryInfo
+          ? `🚚 *Delivery Info:*\n${info.deliveryInfo}`
+          : `🚚 We offer delivery! Please contact us to confirm your location and arrange delivery.`;
+        const locationText = info.location ? `\n\n📍 *We're located at:* ${info.location}` : '';
+        const hoursText = info.openHours ? `\n\n🕐 *Opening Hours:* ${info.openHours}` : '';
+        const reply =
+          `👋 Hi! Thanks for reaching out to *${storeName}*.\\n\\n` +
+          `${deliveryText}${locationText}${hoursText}\\n\\n` +
+          `Shop our full catalog: ${storeBaseUrl}`;
+        await safeSendMessage(sock, remoteJid, { text: reply });
+        continue;
+      }
+
+      // Price inquiry
+      if (/\b(price|cost|how much|charge|rate|fee)\b/i.test(cleanText)) {
+        const topProducts = currentCatalog.filter((p) => p.inStock).slice(0, 5);
+        if (topProducts.length > 0) {
+          const listText = topProducts
+            .map((p) => `• *#${p.uid}* - ${p.name}: ₦${Number(p.price).toLocaleString()}`)
+            .join('\n');
+          const reply =
+            `💰 *Price List — ${storeName}*\\n\\n` +
+            `${listText}\\n\\n` +
+            `Reply with an *#Item Code* for full details, or view all: ${storeBaseUrl}`;
+          await safeSendMessage(sock, remoteJid, { text: reply });
+          continue;
+        }
+      }
+
       // Greetings or Catalog request
-      if (/^(hi|hello|hey|catalog|products|price list)/i.test(cleanText)) {
+      if (/^(hi|hello|hey|catalog|products|price list|start|menu)/i.test(cleanText)) {
         const topProducts = currentCatalog.slice(0, 5);
         const listText = topProducts
           .map((p) => `• *#${p.uid}* - ${p.name} (₦${Number(p.price).toLocaleString()})`)
           .join('\n');
+        const openHoursLine = info.openHours ? `\n🕐 *Hours:* ${info.openHours}` : '';
+        const locationLine = info.location ? `\n📍 *Location:* ${info.location}` : '';
 
         const reply =
-          `👋 Welcome to our WhatsApp catalog!\n\n` +
-          `Here are some of our popular items:\n${listText}\n\n` +
-          `👉 *Browse our full online catalog:* https://${storeId}.ta.shop\n` +
-          `Reply with any *#Item UID* (e.g. #${topProducts[0]?.uid || 'TA-ITEM'}) to get details!`;
+          `👋 Welcome to *${storeName}*! 🛍️${openHoursLine}${locationLine}\\n\\n` +
+          `Here are some popular items:\\n${listText}\\n\\n` +
+          `👉 *Browse our full catalog:* ${storeBaseUrl}\\n` +
+          `Reply with any *#Item Code* (e.g. #${topProducts[0]?.uid || 'TA-ITEM'}) for details!\\n\\n` +
+          `You can also ask me:\\n• "Do you have bags?" — category search\\n• "Delivery info" — shipping & location\\n• "Price list" — current prices`;
 
         await safeSendMessage(sock, remoteJid, { text: reply });
       }
@@ -277,10 +349,10 @@ app.get('/api/whatsapp/status/:storeId', (req, res) => {
  */
 app.post('/api/whatsapp/connect/:storeId', async (req, res) => {
   const { storeId } = req.params;
-  const { catalog = [] } = req.body;
+  const { catalog = [], storeInfo = {} } = req.body;
 
   try {
-    const session = await initStoreSession(storeId, catalog);
+    const session = await initStoreSession(storeId, catalog, storeInfo);
     res.json({
       success: true,
       status: session.status,

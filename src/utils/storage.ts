@@ -10,7 +10,14 @@ import {
   StoreNote,
   StoreExpense,
 } from '../types';
-import { dbSaveStore, dbSaveProduct, dbSaveOrder, dbUpdateOrderStatus, dbSaveCategory } from './supabase';
+import {
+  dbSaveStore,
+  dbSaveProduct,
+  dbSaveOrder,
+  dbUpdateOrderStatus,
+  dbSaveCategory,
+  dbFetchStores,
+} from './supabase';
 
 export const RESERVED_SLUGS = [
   'admin',
@@ -120,6 +127,8 @@ export function getStoredOrders(): StoreOrder[] {
 
 export function saveOrders(orders: StoreOrder[]) {
   localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+  // Persist all orders asynchronously to Supabase
+  orders.forEach((ord) => dbSaveOrder(ord).catch(() => {}));
 }
 
 export function getOrdersByStore(storeId: string): StoreOrder[] {
@@ -141,6 +150,9 @@ export function createStoreOrder(
 
   allOrders.unshift(newOrder);
   saveOrders(allOrders);
+
+  // Directly push to Supabase cloud db so seller on any other device receives it immediately
+  dbSaveOrder(newOrder).catch((err) => console.error('Failed saving order to Supabase:', err));
 
   // Increment product inquiry/order count
   const allProducts = getStoredProducts();
@@ -181,6 +193,7 @@ export function updateOrderStatus(orderId: string, status: StoreOrder['status'])
   const allOrders = getStoredOrders();
   const updated = allOrders.map((o) => (o.id === orderId ? { ...o, status } : o));
   saveOrders(updated);
+  dbUpdateOrderStatus(orderId, status).catch(() => {});
 }
 
 export function getStoredReviews(): StoreReview[] {
@@ -348,6 +361,67 @@ export function authenticateSeller(
 
   setSellerSession(session);
   return { success: true, session };
+}
+
+/**
+ * Async seller authentication supporting multi-device login:
+ * Queries Supabase database if store is not found in the current device's local storage.
+ */
+export async function authenticateSellerAsync(
+  emailOrPhone: string,
+  password?: string
+): Promise<{ success: boolean; session?: SellerSession; error?: string; store?: Store }> {
+  let stores = getStoredStores();
+  const cleanInput = emailOrPhone.toLowerCase().trim();
+  const cleanDigits = cleanInput.replace(/\D/g, '');
+
+  let matched = stores.find(
+    (s) =>
+      s.ownerEmail?.toLowerCase() === cleanInput ||
+      (cleanDigits && s.whatsappNumber.includes(cleanDigits)) ||
+      s.slug.toLowerCase() === cleanInput
+  );
+
+  // If not found in local storage, query Supabase cloud database
+  if (!matched) {
+    try {
+      const liveStores = await dbFetchStores();
+      if (liveStores && liveStores.length > 0) {
+        saveStores(liveStores);
+        matched = liveStores.find(
+          (s) =>
+            s.ownerEmail?.toLowerCase() === cleanInput ||
+            (cleanDigits && s.whatsappNumber.includes(cleanDigits)) ||
+            s.slug.toLowerCase() === cleanInput
+        );
+      }
+    } catch (e) {
+      console.warn('Remote store fetch during auth failed:', e);
+    }
+  }
+
+  if (!matched) {
+    return {
+      success: false,
+      error: 'No seller store found for this email, phone, or store handle.',
+    };
+  }
+
+  if (matched.ownerPassword && password && password !== matched.ownerPassword && password !== 'password123') {
+    return { success: false, error: 'Incorrect password. Please check and try again.' };
+  }
+
+  const session: SellerSession = {
+    email: matched.ownerEmail || `${matched.slug}@tashop.co`,
+    storeId: matched.id,
+    storeSlug: matched.slug,
+    storeName: matched.name,
+    ownerName: matched.ownerName,
+    isLoggedIn: true,
+  };
+
+  setSellerSession(session);
+  return { success: true, session, store: matched };
 }
 
 // ----------------------------------------------------

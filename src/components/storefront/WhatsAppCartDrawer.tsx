@@ -28,6 +28,7 @@ import {
   generateWhatsAppLink,
 } from '../../utils/whatsapp';
 import { createStoreOrder } from '../../utils/storage';
+import { dbSaveOrder } from '../../utils/supabase';
 
 interface WhatsAppCartDrawerProps {
   isOpen: boolean;
@@ -161,6 +162,9 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
 
     const waLink = generateWhatsAppLink(store.whatsappCountryCode, store.whatsappNumber, waText);
     savedOrder.whatsappUrl = waLink;
+
+    // Immediately push to Supabase cloud db so seller receives it across all devices
+    dbSaveOrder(savedOrder).catch((err) => console.error('Cloud order save error:', err));
 
     setPlacedOrder(savedOrder);
     setIsSubmitting(false);

@@ -66,15 +66,18 @@ import { WhatsAppBotStudio } from './WhatsAppBotStudio';
 import { formatPrice, generateWhatsAppLink } from '../../utils/whatsapp';
 import { generateQRCodeSVG } from '../../utils/qrCode';
 import { playOrderNotificationSound } from '../../utils/audio';
+import { dbFetchOrders } from '../../utils/supabase';
 import {
   generateItemUid,
   getOrdersByStore,
   getStoredInquiries,
+  getStoredOrders,
   getStoredProducts,
   getStoredStores,
   getStoreUrl,
   getStoreDisplayUrl,
   saveInquiries,
+  saveOrders,
   saveProducts,
   saveStores,
   updateOrderStatus,
@@ -173,15 +176,52 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const historyOrders = storeOrders.filter((o) => o.status === 'completed' || o.status === 'cancelled');
   const pendingOrdersCount = storeOrders.filter((o) => o.status === 'pending').length;
 
-  // New Order Real-Time Listener + Polling Effect
+  // New Order Real-Time Listener + Cloud Supabase Polling Effect
   useEffect(() => {
-    const checkOrders = () => {
-      const currentOrders = getOrdersByStore(store.id);
-      const count = currentOrders.length;
+    const checkOrders = async () => {
+      // 1. Check local storage
+      const localStoreOrders = getOrdersByStore(store.id);
+      let count = localStoreOrders.length;
+
+      // 2. Poll Supabase cloud db so orders sent from buyer devices arrive in real-time
+      try {
+        const cloudOrders = await dbFetchOrders(store.id);
+        if (cloudOrders && cloudOrders.length > 0) {
+          const allLocal = getStoredOrders();
+          let hasNew = false;
+          const merged = [...allLocal];
+
+          cloudOrders.forEach((co) => {
+            const exists = merged.some((lo) => lo.id === co.id);
+            if (!exists) {
+              merged.unshift(co);
+              hasNew = true;
+            }
+          });
+
+          if (hasNew) {
+            saveOrders(merged);
+            const updatedCurrentStore = merged.filter((o) => o.storeId === store.id);
+            count = updatedCurrentStore.length;
+            const newest = updatedCurrentStore[0];
+            if (newest) {
+              setLatestOrderInfo({ id: newest.id, name: newest.buyerName, amount: newest.totalAmount });
+            }
+            playOrderNotificationSound(1.0);
+            setNewOrderToast(true);
+            onRefreshData();
+            setTimeout(() => setNewOrderToast(false), 8000);
+          }
+        }
+      } catch (e) {
+        // network fallback
+      }
+
       if (lastOrderCountRef.current === -1) {
         lastOrderCountRef.current = count;
       } else if (count > lastOrderCountRef.current) {
         lastOrderCountRef.current = count;
+        const currentOrders = getOrdersByStore(store.id);
         const newest = currentOrders[0];
         if (newest) {
           setLatestOrderInfo({ id: newest.id, name: newest.buyerName, amount: newest.totalAmount });
@@ -194,6 +234,9 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         lastOrderCountRef.current = count;
       }
     };
+
+    // Run immediately on dashboard mount
+    checkOrders();
 
     const handleCustomOrderEvent = (e: any) => {
       const ord = e.detail;
@@ -208,7 +251,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
     window.addEventListener('tashop:order_placed', handleCustomOrderEvent);
     window.addEventListener('storage', checkOrders);
-    const interval = setInterval(checkOrders, 6000);
+    const interval = setInterval(checkOrders, 4000);
 
     return () => {
       window.removeEventListener('tashop:order_placed', handleCustomOrderEvent);
@@ -1342,13 +1385,32 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                                   <span>🎉 Order Completed & Archived</span>
                                 </div>
                               )}
-                              {!isCancelled && ord.status !== 'completed' && (
+                              {!isCancelled && (
                                 <button
                                   type="button"
-                                  onClick={() => { updateOrderStatus(ord.id, 'cancelled'); onRefreshData(); }}
-                                  className="text-[11px] font-semibold text-rose-600 hover:text-rose-800 cursor-pointer underline decoration-rose-300"
+                                  onClick={() => {
+                                    if (window.confirm(`Are you sure you want to mark order #${ord.id} as Cancelled?`)) {
+                                      updateOrderStatus(ord.id, 'cancelled');
+                                      onRefreshData();
+                                    }
+                                  }}
+                                  className="text-xs font-bold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1"
+                                  title="Mark order as cancelled by customer"
                                 >
-                                  Cancel Order
+                                  <span>✕ Cancel Order</span>
+                                </button>
+                              )}
+                              {isCancelled && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateOrderStatus(ord.id, 'pending');
+                                    onRefreshData();
+                                  }}
+                                  className="text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition cursor-pointer"
+                                  title="Restore order to Pending"
+                                >
+                                  ↩ Re-open Order
                                 </button>
                               )}
                             </div>

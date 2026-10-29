@@ -36,6 +36,7 @@ import {
   getStoredStores,
   getSuperAdminSession,
   getSubdomainFromHostname,
+  saveStores,
   setCurrentTenantSlug,
 } from './utils/storage';
 import { dbFetchStores, dbFetchProducts } from './utils/supabase';
@@ -75,6 +76,7 @@ export default function App() {
       if (liveStores && liveStores.length > 0) {
         stores = liveStores;
         setAllStores(liveStores);
+        saveStores(liveStores); // Cache locally for multi-device instant sync
       }
     } catch (e) {
       // offline / first load fallback
@@ -148,12 +150,12 @@ export default function App() {
     }
 
     // If authenticated seller session exists and no explicit store in URL,
-    // restore their store context silently for the seller portal without leaving landing
+    // restore their store context strictly for the seller portal without mixing stores
     if (!targetStore && session) {
-      targetStore = stores.find((s) => s.id === session.storeId) || null;
+      targetStore = stores.find((s) => s.id === session.storeId || s.slug === session.storeSlug) || null;
     }
 
-    if (!targetStore) {
+    if (!targetStore && !session) {
       targetStore = stores[0] || null;
     }
 
@@ -254,12 +256,24 @@ export default function App() {
     setShowOnboarding(true); // show the platform guide for new store owners
   };
 
-  const handleLoginSuccess = (session: SellerSession) => {
+  const handleLoginSuccess = async (session: SellerSession) => {
     setSellerSession(session);
-    const stores = getStoredStores();
-    const matchedStore = stores.find((s) => s.id === session.storeId) || stores[0];
+    let stores = getStoredStores();
+    let matchedStore = stores.find((s) => s.id === session.storeId || s.slug === session.storeSlug);
+
+    if (!matchedStore) {
+      try {
+        const liveStores = await dbFetchStores();
+        if (liveStores && liveStores.length > 0) {
+          saveStores(liveStores);
+          setAllStores(liveStores);
+          matchedStore = liveStores.find((s) => s.id === session.storeId || s.slug === session.storeSlug);
+        }
+      } catch (e) {}
+    }
+
     if (matchedStore) {
-      switchStore(matchedStore); // bypasses guard — session just set above
+      switchStore(matchedStore); // strictly switches to the merchant's authenticated store
     }
     setActiveView('dashboard');
   };

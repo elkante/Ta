@@ -52,10 +52,11 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
       `Show products under ${store.currencySymbol || '₦'}60,000`,
       'How does delivery work?',
     ],
-    enabled: true,
+    enabled: false,
   };
 
-  if (botConfig.enabled === false) return null;
+  // Chat bubble is OFF by default. Only renders if merchant explicitly toggles it ON in settings
+  if (store.aiBotConfig?.enabled !== true) return null;
 
   const initialMessages: Message[] = [
     {

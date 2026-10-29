@@ -100,12 +100,13 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           <div className="h-5 w-px bg-slate-200 hidden sm:block shrink-0" />
 
-          {/* ─── Tenant Switcher: ONLY for logged-in sellers or super admin ─── */}
-          {(sellerSession || superAdminSession) ? (
+          {/* ─── Tenant Switcher: ONLY for Root Super Admin (strictly role-isolated) ─── */}
+          {superAdminSession ? (
             <div className="relative min-w-0">
               <button
                 onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
-                className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 transition text-left cursor-pointer group max-w-[140px] xs:max-w-[170px] sm:max-w-[200px]"
+                className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 transition text-left cursor-pointer group max-w-[140px] xs:max-w-[170px] sm:max-w-[200px]"
+                title="Super Admin: Switch Active Store"
               >
                 <img
                   src={currentStore.logoUrl}
@@ -115,18 +116,16 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <div className="truncate">
                   <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1">
                     <span className="truncate">{currentStore.name}</span>
-                    {currentStore.verified && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" title="Verified Store" />
-                    )}
+                    <span className="text-[9px] bg-amber-200 text-amber-900 px-1 rounded font-mono font-bold">ADMIN</span>
                   </div>
-                  <div className="text-[10px] text-slate-400 font-mono truncate hidden xs:block">
+                  <div className="text-[10px] text-slate-500 font-mono truncate hidden xs:block">
                     {currentStore.slug}.ta.shop
                   </div>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition shrink-0 ml-auto" />
               </button>
 
-              {/* Dropdown Menu */}
+              {/* Dropdown Menu - Super Admin Only */}
               {storeDropdownOpen && (
                 <>
                   <div
@@ -135,7 +134,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   />
                   <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl bg-white shadow-xl border border-slate-100 z-40 p-2 animate-in fade-in zoom-in-95 duration-150">
                     <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Select Active Storefront
+                      Select Active Storefront (Super Admin)
                     </div>
                     <div className="max-h-60 overflow-y-auto space-y-1">
                       {allStores.map((s) => (
@@ -195,27 +194,25 @@ export const Navigation: React.FC<NavigationProps> = ({
               )}
             </div>
           ) : (
-            /* Buyers: static store identity — no switcher, no navigation away */
-            activeView === 'storefront' && (
-              <div className="flex items-center gap-2 px-2 py-1.5">
-                <img
-                  src={currentStore.logoUrl}
-                  alt={currentStore.name}
-                  className="w-5 h-5 rounded-full object-cover border border-slate-200 shrink-0"
-                />
-                <div className="truncate hidden xs:block">
-                  <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1">
-                    <span className="truncate">{currentStore.name}</span>
-                    {currentStore.verified && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" title="Verified Store" />
-                    )}
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-mono truncate">
-                    {currentStore.slug}.ta.shop
-                  </div>
+            /* Sellers & Buyers: Static store identity — zero switcher, strict role isolation */
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-left max-w-[140px] xs:max-w-[170px] sm:max-w-[200px]">
+              <img
+                src={currentStore.logoUrl}
+                alt={currentStore.name}
+                className="w-5 h-5 rounded-full object-cover border border-slate-200 shrink-0"
+              />
+              <div className="truncate">
+                <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1">
+                  <span className="truncate">{currentStore.name}</span>
+                  {currentStore.verified && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" title="Verified Store" />
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono truncate hidden xs:block">
+                  {currentStore.slug}.ta.shop
                 </div>
               </div>
-            )
+            </div>
           )}
         </div>
 

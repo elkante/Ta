@@ -25,6 +25,7 @@ import confetti from 'canvas-confetti';
 import { CurrencyCode, Product, SellerSession, Store } from '../../types';
 import {
   authenticateSeller,
+  authenticateSellerAsync,
   generateItemUid,
   getStoredProducts,
   getStoredStores,
@@ -33,6 +34,7 @@ import {
   setSellerSession,
   validateSlug,
 } from '../../utils/storage';
+import { dbSaveStore, dbSaveProduct } from '../../utils/supabase';
 
 interface SellerAuthModalProps {
   isOpen: boolean;
@@ -57,6 +59,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
   const [loginEmailOrPhone, setLoginEmailOrPhone] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Signup form state
   const [signupStoreName, setSignupStoreName] = useState('');
@@ -92,18 +95,26 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsLoggingIn(true);
 
-    const res = authenticateSeller(loginEmailOrPhone, loginPassword);
-    if (!res.success || !res.session) {
-      setError(res.error || 'Login failed. Please check credentials.');
-      return;
+    try {
+      // Authenticates with local cache AND fallback to live Supabase cloud database
+      const res = await authenticateSellerAsync(loginEmailOrPhone, loginPassword);
+      if (!res.success || !res.session) {
+        setError(res.error || 'Login failed. Please check credentials.');
+        return;
+      }
+
+      onLoginSuccess(res.session);
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || 'Login failed. Please check internet connection.');
+    } finally {
+      setIsLoggingIn(false);
     }
-
-    onLoginSuccess(res.session);
-    onClose();
   };
 
   const handleStoreNameChange = (val: string) => {
@@ -298,6 +309,12 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     allStores.push(newStore);
     saveStores(allStores);
 
+    // Save directly to Supabase cloud db so multi-device login works immediately
+    dbSaveStore(newStore).catch((e) => console.error('Cloud store save error:', e));
+    if (starterProducts[0]) {
+      dbSaveProduct(starterProducts[0]).catch(() => {});
+    }
+
     const allProducts = getStoredProducts();
     saveProducts([...starterProducts, ...allProducts]);
 
@@ -317,7 +334,6 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     });
 
     onStoreCreated(newStore);
-    onLoginSuccess(session);
     onClose();
   };
 

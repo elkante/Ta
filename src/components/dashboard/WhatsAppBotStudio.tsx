@@ -67,7 +67,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       `Any items under ${store.currencySymbol}50,000?`,
       'Delivery options and locations',
     ],
-    enabled: true,
+    enabled: false,
   };
 
   // Editable Bot State
@@ -128,7 +128,16 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       const res = await fetch(`${serverEndpoint}/api/whatsapp/connect/${store.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ catalog: products }),
+        body: JSON.stringify({
+          catalog: products,
+          storeInfo: {
+            name: store.name,
+            slug: store.slug,
+            deliveryInfo: store.deliveryInfo,
+            location: store.location,
+            openHours: store.openHours,
+          },
+        }),
       });
       const data = await res.json();
       if (data.connected) {
