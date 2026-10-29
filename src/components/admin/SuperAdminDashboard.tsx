@@ -529,7 +529,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-white text-base tracking-tight">Táaaa.shop</span>
+                <span className="font-extrabold text-white text-base tracking-tight">Taaa.shop</span>
                 <span className="bg-amber-400/20 text-amber-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-amber-400/30">
                   ROOT
                 </span>
@@ -606,7 +606,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="font-extrabold text-white text-sm">Táaaa.shop Admin</span>
+                  <span className="font-extrabold text-white text-sm">Taaa.shop Admin</span>
                   <span className="text-[10px] text-amber-300 font-mono block">ROOT</span>
                 </div>
               </div>

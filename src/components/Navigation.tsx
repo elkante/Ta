@@ -53,8 +53,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // ─── PC-ONLY 6-click easter egg on logo → opens /sys-hq ─────────────────
-  // Disabled completely on mobile phones; only triggers on desktop/PC
+  // ─── 6-tap easter egg on logo (Mobile & PC) → opens /sys-hq ─────────────────
+  // Uses synchronous ref counter and touch-action:manipulation to guarantee every mobile tap registers
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -63,23 +63,17 @@ export const Navigation: React.FC<NavigationProps> = ({
       e.stopPropagation();
     }
 
-    const isMobile =
-      typeof window !== 'undefined' &&
-      (window.innerWidth < 768 ||
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
-
-    // On Mobile: Never count taps for Super Admin. Normal single-tap navigation only.
-    if (isMobile) {
-      setMobileMenuOpen(false);
-      onViewChange('landing');
-      return;
-    }
-
-    // On PC: 6 clicks trigger Super Admin (/sys-hq)
     if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
 
     tapCountRef.current += 1;
     const currentTaps = tapCountRef.current;
+
+    // Haptic vibration feedback on mobile touch devices
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(currentTaps >= 6 ? [50, 70, 50] : 25);
+      } catch (err) {}
+    }
 
     if (currentTaps >= 6) {
       tapCountRef.current = 0;
@@ -89,13 +83,14 @@ export const Navigation: React.FC<NavigationProps> = ({
       return;
     }
 
+    // Rolling 3.2s window so mobile users can tap at a natural pace
     tapTimerRef.current = setTimeout(() => {
       if (tapCountRef.current === 1) {
         setMobileMenuOpen(false);
         onViewChange('landing');
       }
       tapCountRef.current = 0;
-    }, 2500);
+    }, 3200);
   }, [onOpenSuperAdmin, onViewChange]);
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -106,7 +101,12 @@ export const Navigation: React.FC<NavigationProps> = ({
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={handleLogoTap}
-            style={{ touchAction: 'manipulation' }}
+            style={{
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+            }}
             className="flex items-center gap-2 cursor-pointer group text-left shrink-0 select-none active:scale-95 transition-transform"
             title={getPlatformBrandName()}
           >
@@ -370,11 +370,11 @@ export const Navigation: React.FC<NavigationProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="min-w-8 h-8 px-1.5 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xs tracking-tighter">
-                  Táaaa
+                  Taaa
                 </div>
                 <div>
                   <div className="flex items-baseline">
-                    <span className="font-extrabold text-sm text-slate-900">Táaaa</span>
+                    <span className="font-extrabold text-sm text-slate-900">Taaa</span>
                     <span className="font-extrabold text-sm text-amber-500">.shop</span>
                   </div>
                   <span className="text-[10px] text-slate-400 block -mt-1 font-mono">social catalog</span>

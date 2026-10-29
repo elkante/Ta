@@ -84,7 +84,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             <line x1="112" y1="54" x2="113" y2="98" stroke="#475569" strokeWidth="1.5" strokeOpacity="0.4" />
             <line x1="47" y1="74" x2="133" y2="74" stroke="#475569" strokeWidth="1.5" strokeOpacity="0.4" />
 
-            {/* "Táaaa" Badge / Monogram on the Cart Basket */}
+            {/* "Taaa" Badge / Monogram on the Cart Basket */}
             <g transform="translate(56, 57)">
               {/* Badge backdrop */}
               <rect
@@ -98,7 +98,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                 strokeWidth="1.5"
                 filter="url(#badgeShadow)"
               />
-              {/* "Táaaa" Text */}
+              {/* "Taaa" Text */}
               <text
                 x="30"
                 y="22"
@@ -109,7 +109,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                 fontWeight="900"
                 letterSpacing="-0.5px"
               >
-                T<tspan fill="#f59e0b">áaaa</tspan>
+                T<tspan fill="#f59e0b">aaa</tspan>
               </text>
             </g>
 

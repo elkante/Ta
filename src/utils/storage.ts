@@ -592,7 +592,7 @@ export function getRootDomain(): string {
 }
 
 /**
- * Dynamically resolves the brand platform name (e.g. 'Táaaa.shop' or 'Táaaa').
+ * Dynamically resolves the brand platform name (e.g. 'Taaa.shop' or 'Taaa').
  */
 export function getPlatformBrandName(): string {
   try {

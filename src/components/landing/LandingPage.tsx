@@ -48,35 +48,40 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [handleInput, setHandleInput] = useState('');
   const [handleError, setHandleError] = useState<string | null>(null);
 
-  // ─── PC-ONLY 6-click easter egg on logo → opens /sys-hq ─────────────────
-  // Disabled completely on mobile phones; only triggers on desktop/PC
-  const [logoTapCount, setLogoTapCount] = useState(0);
-  const logoTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ─── 6-tap easter egg on logo (Mobile & PC) → opens /sys-hq ─────────────────
+  // Uses synchronous ref counter and touch-action:manipulation to guarantee every tap registers
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleLogoTap = () => {
-    const isMobile =
-      typeof window !== 'undefined' &&
-      (window.innerWidth < 768 ||
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+  const handleLogoTap = (e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
 
-    // On Mobile: Never count taps for Super Admin. Normal scroll to top only.
-    if (isMobile) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+
+    tapCountRef.current += 1;
+    const currentTaps = tapCountRef.current;
+
+    // Haptic vibration feedback on mobile touch devices
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(currentTaps >= 6 ? [50, 70, 50] : 25);
+      } catch (err) {}
+    }
+
+    if (currentTaps >= 6) {
+      tapCountRef.current = 0;
+      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+      onOpenSuperAdmin?.();
       return;
     }
 
-    // On PC: 6 clicks trigger Super Admin (/sys-hq)
-    const next = logoTapCount + 1;
-    setLogoTapCount(next);
-
-    if (logoTapTimer.current) clearTimeout(logoTapTimer.current);
-
-    if (next >= 6) {
-      setLogoTapCount(0);
-      onOpenSuperAdmin?.();
-    } else {
-      logoTapTimer.current = setTimeout(() => setLogoTapCount(0), 2500);
-    }
+    // Rolling 3.2s window so mobile users can tap at a natural pace
+    tapTimerRef.current = setTimeout(() => {
+      if (tapCountRef.current === 1) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      tapCountRef.current = 0;
+    }, 3200);
   };
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -138,13 +143,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <button
             onClick={handleLogoTap}
-            className="flex items-center gap-2 cursor-pointer text-left relative"
+            style={{
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+            }}
+            className="flex items-center gap-2 cursor-pointer text-left relative active:scale-95 transition-transform"
           >
             <div className="min-w-8 h-8 px-1.5 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xs tracking-tighter shadow-xs">
-              Táaaa
+              Taaa
             </div>
             <div className="flex items-baseline">
-              <span className="font-extrabold text-base tracking-tight text-slate-900">Táaaa</span>
+              <span className="font-extrabold text-base tracking-tight text-slate-900">Taaa</span>
               <span className="font-extrabold text-base tracking-tight text-amber-500">.shop</span>
             </div>
             <span className="hidden sm:inline-block ml-2 text-[10px] font-semibold text-slate-400 border border-slate-200 rounded-md px-1.5 py-0.5">
@@ -562,11 +573,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <footer className="border-t border-slate-200 py-10 px-4 sm:px-6 text-center text-xs text-slate-400 space-y-3 bg-slate-50">
         <div className="flex items-center justify-center gap-2">
           <div className="min-w-6 h-6 px-1 rounded-lg bg-slate-900 text-white flex items-center justify-center font-black text-[10px]">
-            Táaaa
+            Taaa
           </div>
-          <span className="font-extrabold text-slate-900">Táaaa.shop</span>
+          <span className="font-extrabold text-slate-900">Taaa.shop</span>
         </div>
-        <p>© {new Date().getFullYear()} Táaaa.shop. The multi-tenant social commerce catalog platform.</p>
+        <p>© {new Date().getFullYear()} Taaa.shop. The multi-tenant social commerce catalog platform.</p>
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-1 text-[11px] text-slate-500">
           <a href="#featured" className="hover:text-slate-800 transition cursor-pointer font-medium">
             Explore Stores

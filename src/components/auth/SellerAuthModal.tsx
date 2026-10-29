@@ -381,7 +381,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white">
           <div className="flex items-center gap-3">
             <div className="min-w-10 h-10 px-2 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-xs tracking-tighter">
-              Táaaa
+              Taaa
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-base leading-tight">
