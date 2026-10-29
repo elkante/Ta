@@ -20,6 +20,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ─── DB MAPPERS ─────────────────────────────────────────────────────────────
 
 export function mapStoreFromDB(row: any): Store {
+  // idVerification and aiDailyUsage are stored inside ai_bot_config JSONB as _prefixed keys
+  const botCfg = row.ai_bot_config || {};
+  const { _id_verification, _ai_daily_usage, ...cleanBotCfg } = botCfg;
   return {
     id: row.id,
     name: row.name,
@@ -48,16 +51,25 @@ export function mapStoreFromDB(row: any): Store {
     status: row.status || 'active',
     planExpiresAt: row.plan_expires_at || undefined,
     adminNotes: Array.isArray(row.admin_notes) ? row.admin_notes : undefined,
-    aiBotConfig: row.ai_bot_config || undefined,
-    whatsappBotConnected: Boolean(row.ai_bot_config?.whatsappConnected),
-    whatsappBotPhone: row.ai_bot_config?.whatsappPhone || undefined,
+    aiBotConfig: Object.keys(cleanBotCfg).length > 0 ? cleanBotCfg : undefined,
+    whatsappBotConnected: Boolean(cleanBotCfg?.whatsappConnected),
+    whatsappBotPhone: cleanBotCfg?.whatsappPhone || undefined,
     openHours: row.open_hours || undefined,
     restockCountdown: row.restock_countdown || undefined,
+    idVerification: _id_verification || undefined,
+    aiDailyUsage: _ai_daily_usage || undefined,
     createdAt: row.created_at || new Date().toISOString(),
   };
 }
 
 export function mapStoreToDB(store: Store): any {
+  // Merge idVerification and aiDailyUsage into ai_bot_config JSONB as hidden _prefixed keys
+  const botCfg: Record<string, any> = {
+    ...(store.aiBotConfig || {}),
+  };
+  if (store.idVerification) botCfg._id_verification = store.idVerification;
+  if (store.aiDailyUsage) botCfg._ai_daily_usage = store.aiDailyUsage;
+
   return {
     id: store.id,
     name: store.name,
@@ -86,7 +98,7 @@ export function mapStoreToDB(store: Store): any {
     status: store.status || 'active',
     plan_expires_at: store.planExpiresAt,
     admin_notes: store.adminNotes || [],
-    ai_bot_config: store.aiBotConfig,
+    ai_bot_config: botCfg,
     open_hours: store.openHours,
     restock_countdown: store.restockCountdown,
     created_at: store.createdAt,
@@ -94,6 +106,10 @@ export function mapStoreToDB(store: Store): any {
 }
 
 export function mapProductFromDB(row: any): Product {
+  // Approval status is stored inside the `attributes` JSONB column using _prefixed keys
+  // (zero-migration approach — no extra DB columns needed)
+  const attrs = row.attributes || {};
+  const { _approval_status, _approval_rejection_reason, ...cleanAttrs } = attrs;
   return {
     id: row.id,
     uid: row.uid || row.id.slice(-6).toUpperCase(),
@@ -113,15 +129,23 @@ export function mapProductFromDB(row: any): Product {
     badge: row.badge || undefined,
     options: row.options || [],
     variants: row.variants || [],
-    attributes: row.attributes || {},
+    attributes: cleanAttrs,
     inquiryCount: row.inquiry_count || 0,
-    approvalStatus: row.approval_status || 'pending',
-    approvalRejectionReason: row.approval_rejection_reason || undefined,
+    approvalStatus: (_approval_status as 'pending' | 'approved' | 'rejected') || 'pending',
+    approvalRejectionReason: _approval_rejection_reason || undefined,
     createdAt: row.created_at || new Date().toISOString(),
   };
 }
 
 export function mapProductToDB(product: Product): any {
+  // Merge approval state into attributes JSONB as hidden _prefixed keys
+  const attrs: Record<string, any> = {
+    ...(product.attributes || {}),
+    _approval_status: product.approvalStatus || 'pending',
+  };
+  if (product.approvalRejectionReason) {
+    attrs._approval_rejection_reason = product.approvalRejectionReason;
+  }
   return {
     id: product.id,
     uid: product.uid,
@@ -141,10 +165,8 @@ export function mapProductToDB(product: Product): any {
     badge: product.badge,
     options: product.options,
     variants: product.variants,
-    attributes: product.attributes,
+    attributes: attrs,
     inquiry_count: product.inquiryCount,
-    approval_status: product.approvalStatus || 'pending',
-    approval_rejection_reason: product.approvalRejectionReason || null,
     created_at: product.createdAt,
   };
 }
@@ -315,6 +337,17 @@ export async function dbSaveProduct(product: Product): Promise<boolean> {
 export async function dbDeleteProduct(productId: string): Promise<boolean> {
   try {
     const { error } = await supabase.from('products').delete().eq('id', productId);
+    return !error;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function dbDeleteStore(storeId: string): Promise<boolean> {
+  try {
+    await supabase.from('products').delete().eq('store_id', storeId);
+    await supabase.from('store_orders').delete().eq('store_id', storeId);
+    const { error } = await supabase.from('stores').delete().eq('id', storeId);
     return !error;
   } catch (e) {
     return false;

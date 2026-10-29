@@ -78,7 +78,7 @@ import {
 } from '../../utils/storage';
 import { formatPrice } from '../../utils/whatsapp';
 import { getStoreAIUsage } from '../../utils/aiMarketing';
-import { dbSaveStore, dbSaveProduct, dbFetchAllProducts, dbFetchAllOrders } from '../../utils/supabase';
+import { dbSaveStore, dbDeleteStore, dbSaveProduct, dbFetchAllProducts, dbFetchAllOrders } from '../../utils/supabase';
 
 interface SuperAdminDashboardProps {
   session: SuperAdminSession;
@@ -251,19 +251,33 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setTimeout(() => setActionSuccessMessage(null), 3500);
   };
 
-  // Action handlers
-  const handleToggleVerified = (store: Store) => {
-    const updated: Store = { ...store, verified: !store.verified };
+  // ── Unified store save: localStorage + Supabase + local allStores state ──────
+  const saveStoreEverywhere = async (updated: Store) => {
+    // 1. Update local allStores state immediately so UI reflects without reload
+    // (Note: allStores comes from props so we signal parent to refresh)
+    // 2. Persist to localStorage
     updateStore(updated);
+    // 3. Persist to Supabase
+    try {
+      await dbSaveStore(updated);
+    } catch (e) {
+      console.warn('Supabase store save error:', e);
+    }
+    // 4. Tell parent to refresh allStores from Supabase
     onRefreshData();
+  };
+
+  // Action handlers
+  const handleToggleVerified = async (store: Store) => {
+    const updated: Store = { ...store, verified: !store.verified };
+    await saveStoreEverywhere(updated);
     triggerToast(`Store "${store.name}" verification toggled.`);
   };
 
-  const handleToggleFeaturedOnLanding = (store: Store) => {
+  const handleToggleFeaturedOnLanding = async (store: Store) => {
     const nextVal = !store.featuredOnLanding;
     const updated: Store = { ...store, featuredOnLanding: nextVal };
-    updateStore(updated);
-    onRefreshData();
+    await saveStoreEverywhere(updated);
     triggerToast(
       nextVal
         ? `🌟 "${store.name}" added to Landing Page Live Storefronts!`
@@ -271,7 +285,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     );
   };
 
-  const handleResetStoreAIUsage = (store: Store) => {
+  const handleResetStoreAIUsage = async (store: Store) => {
     const todayStr = new Date().toISOString().slice(0, 10);
     const updated: Store = {
       ...store,
@@ -281,8 +295,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         customCap: store.aiDailyUsage?.customCap,
       },
     };
-    updateStore(updated);
-    onRefreshData();
+    await saveStoreEverywhere(updated);
     triggerToast(`AI Studio quota for "${store.name}" reset to 0 used today.`);
   };
 
@@ -295,23 +308,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setIsSavingDomain(true);
     const clean = domainValue.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     const updated: Store = { ...store, customDomain: clean || undefined };
-    updateStore(updated);
-    try {
-      await dbSaveStore(updated);
-    } catch (e) {
-      console.warn('Live save custom domain error:', e);
-    }
+    await saveStoreEverywhere(updated);
     setIsSavingDomain(false);
     setDomainModalStore(null);
-    onRefreshData();
     triggerToast(clean ? `🌐 Custom domain "${clean}" linked to "${store.name}"!` : `Custom domain removed from "${store.name}".`);
   };
 
-  const handleToggleSuspended = (store: Store) => {
+  const handleToggleSuspended = async (store: Store) => {
     const nextStatus = store.status === 'suspended' ? 'active' : 'suspended';
     const updated: Store = { ...store, status: nextStatus };
-    updateStore(updated);
-    onRefreshData();
+    await saveStoreEverywhere(updated);
     triggerToast(
       nextStatus === 'suspended'
         ? `Store "${store.name}" has been BANNED/SUSPENDED.`
@@ -319,7 +325,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     );
   };
 
-  const handleSetPlan = (store: Store, tier: 'free' | 'starter' | 'pro' | 'business', daysOverride?: number) => {
+  const handleSetPlan = async (store: Store, tier: 'free' | 'starter' | 'pro' | 'business', daysOverride?: number) => {
     const now = new Date();
     const expiry = new Date(now);
     expiry.setDate(expiry.getDate() + (daysOverride ?? 30));
@@ -330,8 +336,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       verified: tier === 'pro' || tier === 'business' ? true : store.verified,
       planExpiresAt: tier === 'free' ? undefined : expiry.toISOString(),
     };
-    updateStore(updated);
-    onRefreshData();
+    await saveStoreEverywhere(updated);
     triggerToast(`"${store.name}" → ${tier.toUpperCase()} plan for ${daysOverride ?? 30} day(s).`);
     setPlanOverrideStore(null);
     setPlanOverrideNote('');
@@ -345,12 +350,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     // Persist to localStorage
     const allProds = getStoredProducts();
     saveProducts(allProds.map((p) => (p.id === product.id ? updated : p)));
-    // Persist to Supabase
+    // Persist to Supabase (approval stored in attributes JSONB via mapProductToDB)
     try {
-      await dbSaveProduct(updated);
+      const ok = await dbSaveProduct(updated);
+      if (!ok) console.warn('dbSaveProduct returned false for approval');
     } catch (err) {
       console.warn('Failed to save product approval to Supabase:', err);
     }
+    onRefreshData();
     triggerToast(`✓ "${product.name}" approved — live on storefront.`);
   };
 
@@ -363,16 +370,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     saveProducts(allProds.map((p) => (p.id === product.id ? updated : p)));
     // Persist to Supabase
     try {
-      await dbSaveProduct(updated);
+      const ok = await dbSaveProduct(updated);
+      if (!ok) console.warn('dbSaveProduct returned false for rejection');
     } catch (err) {
       console.warn('Failed to save product rejection to Supabase:', err);
     }
+    onRefreshData();
     triggerToast(`"${product.name}" rejected.`);
     setRejectProductModal(null);
     setRejectProductReason('');
   };
 
-  const handleSendNote = (store: Store) => {
+  const handleSendNote = async (store: Store) => {
     if (!noteText.trim()) return;
     const existingNotes = store.adminNotes || [];
     const newNoteEntry = `[${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Admin]: ${noteText.trim()}`;
@@ -380,14 +389,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       ...store,
       adminNotes: [newNoteEntry, ...existingNotes],
     };
-    updateStore(updated);
-    onRefreshData();
+    await saveStoreEverywhere(updated);
     setNoteText('');
     setNoteTarget(null);
     triggerToast(`Private note sent to ${store.name}.`);
   };
 
-  const handleApproveId = (store: Store) => {
+  const handleApproveId = async (store: Store) => {
     if (!store.idVerification) return;
     const updatedStore: Store = {
       ...store,
@@ -399,15 +407,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         rejectionReason: undefined,
       },
     };
-    updateStore(updatedStore);
-    onRefreshData();
+    await saveStoreEverywhere(updatedStore);
     triggerToast(`Store "${store.name}" ID approved! Verified Blue Tick activated.`);
     try {
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.5 } });
     } catch (e) {}
   };
 
-  const handleRejectId = (store: Store, reason: string) => {
+  const handleRejectId = async (store: Store, reason: string) => {
     if (!store.idVerification) return;
     const updatedStore: Store = {
       ...store,
@@ -418,14 +425,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         rejectionReason: reason,
       },
     };
-    updateStore(updatedStore);
-    onRefreshData();
+    await saveStoreEverywhere(updatedStore);
     triggerToast(`Store "${store.name}" ID rejected.`);
     setRejectModalStore(null);
   };
 
-  const handleDeleteStore = (store: Store) => {
+  const handleDeleteStore = async (store: Store) => {
     deleteStoreAndData(store.id);
+    try {
+      await dbDeleteStore(store.id);
+    } catch (e) {
+      console.warn('Supabase delete store error:', e);
+    }
     setStoreToDelete(null);
     onRefreshData();
     triggerToast(`Store "${store.name}" and associated catalog deleted.`);

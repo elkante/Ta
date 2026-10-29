@@ -67,7 +67,7 @@ import { WhatsAppBotStudio } from './WhatsAppBotStudio';
 import { formatPrice, generateWhatsAppLink } from '../../utils/whatsapp';
 import { generateQRCodeSVG } from '../../utils/qrCode';
 import { playOrderNotificationSound } from '../../utils/audio';
-import { dbFetchOrders } from '../../utils/supabase';
+import { dbFetchOrders, dbDeleteProduct } from '../../utils/supabase';
 import {
   generateItemUid,
   getOrdersByStore,
@@ -443,6 +443,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       const allProducts = getStoredProducts();
       const updated = allProducts.filter((p) => p.id !== productId);
       saveProducts(updated);
+      dbDeleteProduct(productId).catch((err) => console.warn('Failed deleting product from Supabase:', err));
       onRefreshData();
     }
   };

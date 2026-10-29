@@ -13,6 +13,7 @@ import {
 import {
   dbSaveStore,
   dbSaveProduct,
+  dbDeleteStore,
   dbSaveOrder,
   dbUpdateOrderStatus,
   dbSaveCategory,
@@ -481,7 +482,7 @@ export function authenticateSuperAdmin(password: string, email?: string): {
   error?: string;
 } {
   const cleanPass = password.trim();
-  const cleanEmail = email?.trim() || 'admin@ta.shop';
+  const cleanEmail = email?.trim() || `admin@${getRootDomain()}`;
   if (cleanPass === SUPER_ADMIN_DEFAULT_KEY || cleanPass === 'tashop2026' || cleanPass === 'superadmin' || cleanPass === 'admin123' || cleanPass.length >= 6) {
     const session: SuperAdminSession = {
       email: cleanEmail,
@@ -530,6 +531,9 @@ export function deleteStoreAndData(storeId: string): void {
   // Remove orders belonging to this store
   const ords = getStoredOrders().filter((o) => o.storeId !== storeId);
   saveOrders(ords);
+
+  // Remove from Supabase cloud
+  dbDeleteStore(storeId).catch((err) => console.warn('Failed deleting store from Supabase:', err));
 }
 
 export function impersonateStoreAsSeller(storeId: string): SellerSession | null {

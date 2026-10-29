@@ -312,6 +312,7 @@ export default function App() {
         if (liveProds && liveProds.length > 0) {
           prods = liveProds;
           setStoreProducts(liveProds);
+          saveProducts(liveProds);
         }
       } catch (e) {}
 
@@ -407,10 +408,19 @@ export default function App() {
     url.searchParams.set('store', store.slug);
     window.history.replaceState({}, '', url.toString());
 
-    // Refresh tenant data
+    // Refresh tenant data immediately from local cache
     setStoreProducts(getProductsByStore(store.id));
     setStoreInquiries(getInquiriesByStore(store.id));
     setStoreReviews(getReviewsByStore(store.id));
+
+    // Also fetch latest live products from Supabase
+    dbFetchProducts(store.id)
+      .then((live) => {
+        if (live && live.length > 0) {
+          setStoreProducts(live);
+        }
+      })
+      .catch(() => {});
   };
 
   const handleSelectStore = (store: Store) => {
@@ -502,7 +512,32 @@ export default function App() {
     handleLoginSuccess(session);
   };
 
-  const handleRefreshData = () => {
+  const handleRefreshData = async () => {
+    // Always re-fetch from Supabase so SuperAdmin changes persist across refreshes
+    try {
+      const liveStores = await dbFetchStores();
+      if (liveStores && liveStores.length > 0) {
+        saveStores(liveStores);
+        setAllStores(liveStores);
+        if (currentStore) {
+          const refreshedCurrent = liveStores.find((s) => s.id === currentStore.id) || liveStores[0];
+          if (refreshedCurrent) {
+            setCurrentStore(refreshedCurrent);
+            // Also re-fetch products for current store from Supabase
+            try {
+              const liveProds = await dbFetchProducts(refreshedCurrent.id);
+              if (liveProds && liveProds.length > 0) {
+                setStoreProducts(liveProds);
+              }
+            } catch (_) {}
+          }
+        }
+        return;
+      }
+    } catch (e) {
+      console.warn('Supabase refresh failed, falling back to localStorage:', e);
+    }
+    // Fallback to localStorage
     const stores = getStoredStores();
     setAllStores(stores);
     if (currentStore) {
