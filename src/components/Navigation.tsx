@@ -134,7 +134,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   />
                   <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl bg-white shadow-xl border border-slate-100 z-40 p-2 animate-in fade-in zoom-in-95 duration-150">
                     <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Select Active Storefront (Super Admin)
+                      All Storefronts
                     </div>
                     <div className="max-h-60 overflow-y-auto space-y-1">
                       {allStores.map((s) => (
@@ -195,6 +195,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             </div>
           ) : (
             /* Sellers & Buyers: Static store identity — zero switcher, strict role isolation */
+            currentStore?.name ? (
             <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-left max-w-[140px] xs:max-w-[170px] sm:max-w-[200px]">
               <img
                 src={currentStore.logoUrl}
@@ -208,11 +209,12 @@ export const Navigation: React.FC<NavigationProps> = ({
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" title="Verified Store" />
                   )}
                 </div>
-                <div className="text-[10px] text-slate-400 font-mono truncate hidden xs:block">
+                <div className="text-[10px] text-slate-400 font-mono truncate">
                   {currentStore.slug}.ta.shop
                 </div>
               </div>
             </div>
+            ) : null
           )}
         </div>
 

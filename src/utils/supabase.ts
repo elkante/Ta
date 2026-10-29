@@ -197,6 +197,42 @@ export async function dbFetchStoreBySlug(slug: string): Promise<Store | null> {
   }
 }
 
+/**
+ * Fetch a single seller's store by their owner email.
+ * Used for login auth so we NEVER load other sellers' store data.
+ */
+export async function dbFetchStoreByOwnerEmail(email: string): Promise<Store | null> {
+  try {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('*')
+      .eq('owner_email', email.toLowerCase().trim())
+      .maybeSingle();
+    if (error || !data) return null;
+    return mapStoreFromDB(data);
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Fetch a single seller's store by owner WhatsApp number (digits only).
+ * Used as fallback auth identifier.
+ */
+export async function dbFetchStoreByPhone(phoneDigits: string): Promise<Store | null> {
+  try {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('*')
+      .ilike('whatsapp_number', `%${phoneDigits.slice(-9)}%`)
+      .limit(1);
+    if (error || !data || data.length === 0) return null;
+    return mapStoreFromDB(data[0]);
+  } catch (e) {
+    return null;
+  }
+}
+
 export async function dbSaveStore(store: Store): Promise<boolean> {
   try {
     const payload = mapStoreToDB(store);

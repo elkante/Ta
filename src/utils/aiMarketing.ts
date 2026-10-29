@@ -6,6 +6,8 @@
 import { Product, Store } from '../types';
 import { formatPrice } from './whatsapp';
 
+// API key is stored by the seller in localStorage via the AI Studio settings panel.
+// Never hardcode API keys in source — sellers paste their own free Google AI Studio key.
 const DEFAULT_AI_KEY = '';
 
 export interface AIMarketingResult {

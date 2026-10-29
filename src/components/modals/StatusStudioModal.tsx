@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Check,
   Copy,
@@ -43,6 +43,15 @@ export const StatusStudioModal: React.FC<StatusStudioModalProps> = ({
   const [isExporting, setIsExporting] = useState(false);
 
   if (!isOpen || !selectedProduct) return null;
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const productUrl = getStoreUrl(store.slug, { productId: selectedProduct.id });
   const qrSvg = generateQRCodeSVG(productUrl, 160, '#0f172a', '#ffffff');
@@ -303,9 +312,17 @@ ${productUrl}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="fixed inset-0" onClick={onClose} />
+      <div className="fixed inset-0" onClick={onClose} onTouchEnd={onClose} />
 
       <div className="relative bg-white rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden border border-slate-200 z-10 flex flex-col md:flex-row max-h-[92vh]">
+        {/* Fixed pill close button — always tappable on mobile, even outside scrollable area */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 z-20 sm:hidden p-2 rounded-full bg-slate-900/80 text-white shadow-lg active:scale-95 transition"
+          aria-label="Close"
+        >
+          <X className="w-4 h-4" />
+        </button>
         {/* Left: 9:16 Story / Status Preview Canvas */}
         <div className="flex-1 bg-slate-900 p-6 flex flex-col items-center justify-center relative overflow-hidden">
           {/* Subtle Ambient Glow */}
@@ -536,6 +553,16 @@ ${productUrl}`;
               Includes store logo & scannable QR code. No URL clutter.
             </p>
           </div>
+        </div>
+        {/* Mobile close strip — always visible at bottom */}
+        <div className="sm:hidden flex-shrink-0 p-3 border-t border-slate-200 bg-white">
+          <button
+            onClick={onClose}
+            className="w-full py-3 rounded-2xl bg-slate-900 text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition"
+          >
+            <X className="w-4 h-4" />
+            Close Studio
+          </button>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -39,7 +39,7 @@ import {
   saveStores,
   setCurrentTenantSlug,
 } from './utils/storage';
-import { dbFetchStores, dbFetchProducts } from './utils/supabase';
+import { dbFetchStores, dbFetchProducts, dbFetchStoreBySlug } from './utils/supabase';
 
 export default function App() {
   const [allStores, setAllStores] = useState<Store[]>([]);
@@ -71,24 +71,45 @@ export default function App() {
     let stores = getStoredStores();
     setAllStores(stores);
 
-    try {
-      const liveStores = await dbFetchStores();
-      if (liveStores && liveStores.length > 0) {
-        stores = liveStores;
-        setAllStores(liveStores);
-        saveStores(liveStores); // Cache locally for multi-device instant sync
-      }
-    } catch (e) {
-      // offline / first load fallback
-    }
+    // Read sessionStorage for last known view/store (used for refresh restoration)
+    const savedView = sessionStorage.getItem('ta_last_view') as typeof activeView | null;
+    const savedStoreSlug = sessionStorage.getItem('ta_last_store_slug') || '';
 
-    // Read stored seller session if any
+    // Read stored sessions first so we know roles before fetching
     const session = getSellerSession();
     setSellerSession(session);
-
-    // Read stored super admin session if any
     const adminSession = getSuperAdminSession();
     setSuperAdminSessionState(adminSession);
+
+    // ðŸ”’ Role-based Supabase fetch â€” strict data isolation:
+    // Super Admin: fetch ALL stores (needs switcher)
+    // Seller/Guest: fetch ONLY the target store by slug
+    const subdomainSlugForFetch = getSubdomainFromHostname();
+    const urlParamsForFetch = new URLSearchParams(window.location.search);
+    const storeParamForFetch = urlParamsForFetch.get('store');
+    const targetFetchSlug = slug || subdomainSlugForFetch || storeParamForFetch || session?.storeSlug || '';
+
+    try {
+      if (adminSession) {
+        const liveStores = await dbFetchStores();
+        if (liveStores && liveStores.length > 0) {
+          stores = liveStores;
+          setAllStores(liveStores);
+          saveStores(liveStores);
+        }
+      } else if (targetFetchSlug) {
+        const liveStore = await dbFetchStoreBySlug(targetFetchSlug);
+        if (liveStore) {
+          const merged = [...stores.filter(s => s.id !== liveStore.id), liveStore];
+          stores = merged;
+          setAllStores(merged);
+          saveStores(merged);
+        }
+      }
+    } catch (e) {
+      // offline / first load fallback â€” use local cache
+    }
+
 
     // Read URL params
     const urlParams = new URLSearchParams(window.location.search);
@@ -107,7 +128,7 @@ export default function App() {
     // Resolve store slug priority:
     // 1. Explicit arg passed to loadTenantData (e.g. after creating a store)
     // 2. Subdomain in hostname (e.g. amaka-perfumes.ta.shop)
-    // 3. ?store= URL param — QR code scans / shared links (MUST beat localStorage)
+    // 3. ?store= URL param â€” QR code scans / shared links (MUST beat localStorage)
     // 4. localStorage last-visited store (lowest priority, only for authenticated sellers)
     const subdomainSlug = getSubdomainFromHostname();
 
@@ -122,7 +143,7 @@ export default function App() {
     }
 
     if (viewParam === 'landing') {
-      // Explicit landing request → show landing page
+      // Explicit landing request â†’ show landing page
       setActiveView('landing');
     } else if (viewParam === 'admin' || viewParam === 'superadmin') {
       // Secret key check: ?view=superadmin&key=ta_root_9921 (set your own in storage.ts)
@@ -141,11 +162,30 @@ export default function App() {
       }
     } else if (viewParam === 'dashboard' && session) {
       setActiveView('dashboard');
+      sessionStorage.setItem('ta_last_view', 'dashboard');
     } else if (targetStore && hasExplicitStore) {
       // ONLY go to storefront if a specific store was explicitly requested AND found in registered stores
       setActiveView('storefront');
+      sessionStorage.setItem('ta_last_view', 'storefront');
+      sessionStorage.setItem('ta_last_store_slug', targetStore.slug);
+    } else if (!viewParam && !hasExplicitStore) {
+      // No URL param and no explicit store â€” try to restore last session view on refresh
+      if (savedView === 'dashboard' && session) {
+        setActiveView('dashboard');
+      } else if (savedView === 'storefront' && savedStoreSlug) {
+        // Restore storefront for last known store slug
+        const restoredStore = stores.find((s) => s.slug.toLowerCase() === savedStoreSlug.toLowerCase()) || null;
+        if (restoredStore) {
+          targetStore = restoredStore;
+          setActiveView('storefront');
+        } else {
+          setActiveView('landing');
+        }
+      } else {
+        // Main site link (e.g. ta-ruby-five.vercel.app/ or root domain) â†’ ALWAYS landing page!
+        setActiveView('landing');
+      }
     } else {
-      // Main site link (e.g. ta-ruby-five.vercel.app/ or root domain) → ALWAYS landing page!
       setActiveView('landing');
     }
 
@@ -187,7 +227,14 @@ export default function App() {
     loadTenantData();
   }, []);
 
-  // ─── PWA ONLY on Landing Page ──────────────────────────────────────────
+  // Persist last active view to sessionStorage so refresh restores it
+  useEffect(() => {
+    if (activeView !== 'landing') {
+      sessionStorage.setItem('ta_last_view', activeView);
+    }
+  }, [activeView]);
+
+  // â”€â”€â”€ PWA ONLY on Landing Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     const isLanding = !currentStore || activeView === 'landing';
     const existing = document.querySelector('link[data-pwa="landing"]');
@@ -220,10 +267,11 @@ export default function App() {
     };
   }, [currentStore, activeView]);
 
-  // Internal helper — bypasses the buyer guard (used by login/signup flows)
+  // Internal helper â€” bypasses the buyer guard (used by login/signup flows)
   const switchStore = (store: Store) => {
     setCurrentStore(store);
     setCurrentTenantSlug(store.slug);
+    sessionStorage.setItem('ta_last_store_slug', store.slug);
 
     // Update URL query param smoothly
     const url = new URL(window.location.href);
@@ -237,12 +285,12 @@ export default function App() {
   };
 
   const handleSelectStore = (store: Store) => {
-    // 🔒 Role-based guard: buyers cannot switch stores.
+    // ðŸ”’ Role-based guard: buyers cannot switch stores.
     // Only logged-in sellers or super admin are allowed to switch.
     const isSeller = sellerSession !== null;
     const isAdmin = superAdminSession !== null;
     if (!isSeller && !isAdmin) {
-      // Silently ignore — buyer cannot navigate away to another store
+      // Silently ignore â€” buyer cannot navigate away to another store
       return;
     }
     switchStore(store);
@@ -251,7 +299,7 @@ export default function App() {
   const handleStoreCreated = (newStore: Store) => {
     setIsCreateStoreOpen(false);
     loadTenantData(newStore.slug);
-    switchStore(newStore); // bypasses guard — creator is already authenticated
+    switchStore(newStore); // bypasses guard â€” creator is already authenticated
     setActiveView('dashboard'); // take seller directly to their new dashboard
     setShowOnboarding(true); // show the platform guide for new store owners
   };
@@ -263,18 +311,25 @@ export default function App() {
 
     if (!matchedStore) {
       try {
-        const liveStores = await dbFetchStores();
-        if (liveStores && liveStores.length > 0) {
-          saveStores(liveStores);
-          setAllStores(liveStores);
-          matchedStore = liveStores.find((s) => s.id === session.storeId || s.slug === session.storeSlug);
+        // Fetch ONLY the seller's specific store â€” not all stores
+        const liveStore = await dbFetchStoreBySlug(session.storeSlug);
+        if (liveStore) {
+          matchedStore = liveStore;
+          const merged = [...stores.filter((s) => s.id !== liveStore.id), liveStore];
+          saveStores(merged);
+          setAllStores(merged);
         }
       } catch (e) {}
     }
 
-    if (matchedStore) {
-      switchStore(matchedStore); // strictly switches to the merchant's authenticated store
+    if (!matchedStore) {
+      alert('Store data could not be found. Please contact support.');
+      return;
     }
+
+    switchStore(matchedStore); // strictly switches to the merchant's authenticated store
+    sessionStorage.setItem('ta_last_view', 'dashboard');
+    sessionStorage.setItem('ta_last_store_slug', matchedStore.slug);
     setActiveView('dashboard');
   };
 
@@ -379,7 +434,7 @@ export default function App() {
       {/* App Splash Screen on Initial Load */}
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
 
-      {/* Top Multi-Tenant Navigation Header — shown on storefront, dashboard & admin; Landing page has its own dedicated navbar */}
+      {/* Top Multi-Tenant Navigation Header â€” shown on storefront, dashboard & admin; Landing page has its own dedicated navbar */}
       {activeView !== 'landing' && (
         <Navigation
           currentStore={currentStore}
@@ -483,7 +538,7 @@ export default function App() {
             <div className="py-8 px-4 flex flex-col items-center justify-center bg-slate-800 min-h-[calc(100vh-64px)]">
               <div className="mb-3 text-center">
                 <span className="text-xs font-semibold text-slate-300 bg-white/10 px-3 py-1 rounded-full">
-                  📱 Mobile Web Simulator (How buyers see your catalog on WhatsApp/Instagram)
+                  ðŸ“± Mobile Web Simulator (How buyers see your catalog on WhatsApp/Instagram)
                 </span>
               </div>
               <div className="relative w-full max-w-[400px] h-[820px] bg-black rounded-[48px] p-3 shadow-2xl border-4 border-slate-700 overflow-hidden ring-1 ring-white/10 flex flex-col">
@@ -495,7 +550,7 @@ export default function App() {
 
                 {/* In-app Browser URL bar */}
                 <div className="bg-slate-900 text-slate-300 text-[11px] font-mono py-1.5 px-3 rounded-full mt-3 mb-2 mx-2 text-center truncate flex items-center justify-center gap-1.5 border border-slate-800 z-20">
-                  <span className="text-emerald-400">🔒</span>
+                  <span className="text-emerald-400">ðŸ”’</span>
                   <span>{currentStore.slug}.ta.shop</span>
                 </div>
 
@@ -585,7 +640,7 @@ export default function App() {
         onLoginSuccess={handleSuperAdminLoginSuccess}
       />
 
-      {/* Onboarding Guide — shown automatically after store creation */}
+      {/* Onboarding Guide â€” shown automatically after store creation */}
       {showOnboarding && currentStore && (
         <OnboardingGuide
           store={currentStore}

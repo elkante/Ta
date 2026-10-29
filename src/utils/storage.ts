@@ -17,6 +17,9 @@ import {
   dbUpdateOrderStatus,
   dbSaveCategory,
   dbFetchStores,
+  dbFetchStoreBySlug,
+  dbFetchStoreByOwnerEmail,
+  dbFetchStoreByPhone,
 } from './supabase';
 
 export const RESERVED_SLUGS = [
@@ -382,18 +385,35 @@ export async function authenticateSellerAsync(
       s.slug.toLowerCase() === cleanInput
   );
 
-  // If not found in local storage, query Supabase cloud database
+  // If not found locally, fetch ONLY the matching seller's store from Supabase.
+  // Never load all stores — strict isolation so sellers cannot see other stores' data.
   if (!matched) {
     try {
-      const liveStores = await dbFetchStores();
-      if (liveStores && liveStores.length > 0) {
-        saveStores(liveStores);
-        matched = liveStores.find(
-          (s) =>
-            s.ownerEmail?.toLowerCase() === cleanInput ||
-            (cleanDigits && s.whatsappNumber.includes(cleanDigits)) ||
-            s.slug.toLowerCase() === cleanInput
-        );
+      let liveStore: Store | null = null;
+
+      // 1. Try by owner email
+      if (cleanInput.includes('@')) {
+        liveStore = await dbFetchStoreByOwnerEmail(cleanInput);
+      }
+      // 2. Try by slug (store handle)
+      if (!liveStore && !cleanInput.includes('@') && !cleanDigits) {
+        liveStore = await dbFetchStoreBySlug(cleanInput);
+      }
+      // 3. Try by phone digits
+      if (!liveStore && cleanDigits.length >= 7) {
+        liveStore = await dbFetchStoreByPhone(cleanDigits);
+      }
+      // 4. Final fallback — try slug in case input is a slug
+      if (!liveStore) {
+        liveStore = await dbFetchStoreBySlug(cleanInput);
+      }
+
+      if (liveStore) {
+        // Cache ONLY this seller's store locally, never the full store list
+        const existingLocal = getStoredStores();
+        const merged = [...existingLocal.filter(s => s.id !== liveStore!.id), liveStore];
+        saveStores(merged);
+        matched = liveStore;
       }
     } catch (e) {
       console.warn('Remote store fetch during auth failed:', e);
