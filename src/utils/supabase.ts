@@ -115,6 +115,8 @@ export function mapProductFromDB(row: any): Product {
     variants: row.variants || [],
     attributes: row.attributes || {},
     inquiryCount: row.inquiry_count || 0,
+    approvalStatus: row.approval_status || 'pending',
+    approvalRejectionReason: row.approval_rejection_reason || undefined,
     createdAt: row.created_at || new Date().toISOString(),
   };
 }
@@ -141,6 +143,8 @@ export function mapProductToDB(product: Product): any {
     variants: product.variants,
     attributes: product.attributes,
     inquiry_count: product.inquiryCount,
+    approval_status: product.approvalStatus || 'pending',
+    approval_rejection_reason: product.approvalRejectionReason || null,
     created_at: product.createdAt,
   };
 }

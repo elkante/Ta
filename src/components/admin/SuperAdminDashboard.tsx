@@ -78,7 +78,7 @@ import {
 } from '../../utils/storage';
 import { formatPrice } from '../../utils/whatsapp';
 import { getStoreAIUsage } from '../../utils/aiMarketing';
-import { dbSaveStore, dbFetchAllProducts, dbFetchAllOrders } from '../../utils/supabase';
+import { dbSaveStore, dbSaveProduct, dbFetchAllProducts, dbFetchAllOrders } from '../../utils/supabase';
 
 interface SuperAdminDashboardProps {
   session: SuperAdminSession;
@@ -338,19 +338,35 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   };
 
   // Product approval handlers
-  const handleApproveProduct = (product: Product) => {
+  const handleApproveProduct = async (product: Product) => {
     const updated: Product = { ...product, approvalStatus: 'approved', approvalRejectionReason: undefined };
+    // Update local state immediately so UI reflects change without waiting
+    setLiveProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
+    // Persist to localStorage
     const allProds = getStoredProducts();
     saveProducts(allProds.map((p) => (p.id === product.id ? updated : p)));
-    onRefreshData();
+    // Persist to Supabase
+    try {
+      await dbSaveProduct(updated);
+    } catch (err) {
+      console.warn('Failed to save product approval to Supabase:', err);
+    }
     triggerToast(`✓ "${product.name}" approved — live on storefront.`);
   };
 
-  const handleRejectProduct = (product: Product, reason: string) => {
+  const handleRejectProduct = async (product: Product, reason: string) => {
     const updated: Product = { ...product, approvalStatus: 'rejected', approvalRejectionReason: reason };
+    // Update local state immediately so UI reflects change without waiting
+    setLiveProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
+    // Persist to localStorage
     const allProds = getStoredProducts();
     saveProducts(allProds.map((p) => (p.id === product.id ? updated : p)));
-    onRefreshData();
+    // Persist to Supabase
+    try {
+      await dbSaveProduct(updated);
+    } catch (err) {
+      console.warn('Failed to save product rejection to Supabase:', err);
+    }
     triggerToast(`"${product.name}" rejected.`);
     setRejectProductModal(null);
     setRejectProductReason('');
