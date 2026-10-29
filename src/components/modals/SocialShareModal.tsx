@@ -23,15 +23,15 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Use subdomain URL format: slug.ta.shop (or localhost fallback in dev)
+  // Store-first subdomain format: storename.taaa.com.ng (or customDomain)
   const targetUrl = product
-    ? getStoreUrl(store.slug, { productId: product.id })
-    : getStoreUrl(store.slug);
+    ? getStoreUrl(store.slug, { productId: product.id, customDomain: store.customDomain, forceSubdomain: true })
+    : getStoreUrl(store.slug, { customDomain: store.customDomain, forceSubdomain: true });
 
-  // Display label always shows the branded subdomain format
+  // Display label always shows the store name first
   const displayUrl = product
-    ? `${getStoreDisplayUrl(store.slug)}?product=${product.id}`
-    : getStoreDisplayUrl(store.slug);
+    ? `${getStoreDisplayUrl(store.slug, store.customDomain)}?product=${product.id}`
+    : getStoreDisplayUrl(store.slug, store.customDomain);
 
   const qrSvg = generateQRCodeSVG(targetUrl, 220, store.accentColor || '#111827', '#ffffff');
 
@@ -137,7 +137,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
                 <div className="relative aspect-video w-full bg-slate-100 overflow-hidden">
                   <img src={image} alt={title} className="w-full h-full object-cover" />
                   <span className="absolute bottom-2 left-2 bg-black/70 backdrop-blur-xs text-white text-[10px] font-medium px-2 py-0.5 rounded-sm">
-                    {getStoreDisplayUrl(store.slug)}
+                    {getStoreDisplayUrl(store.slug, store.customDomain)}
                   </span>
                 </div>
                 <div className="p-3">

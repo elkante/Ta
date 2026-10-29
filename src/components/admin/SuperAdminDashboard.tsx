@@ -77,7 +77,7 @@ import {
 } from '../../utils/storage';
 import { formatPrice } from '../../utils/whatsapp';
 import { getStoreAIUsage } from '../../utils/aiMarketing';
-import { dbSaveStore } from '../../utils/supabase';
+import { dbSaveStore, dbFetchAllProducts, dbFetchAllOrders } from '../../utils/supabase';
 
 interface SuperAdminDashboardProps {
   session: SuperAdminSession;
@@ -129,7 +129,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   // Search state for Products
   const [productSearch, setProductSearch] = useState('');
   const [productStoreFilter, setProductStoreFilter] = useState<string>('all');
-  const [productApprovalFilter, setProductApprovalFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [productApprovalFilter, setProductApprovalFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [rejectProductModal, setRejectProductModal] = useState<Product | null>(null);
   const [rejectProductReason, setRejectProductReason] = useState('');
 
@@ -156,9 +156,38 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [storeToDelete, setStoreToDelete] = useState<Store | null>(null);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
 
-  // All products & orders across entire system
-  const allProducts = useMemo(() => getStoredProducts(), [allStores]);
-  const allOrders = useMemo(() => getStoredOrders(), [allStores]);
+  // Live products & orders across entire system from Supabase cloud database
+  const [liveProducts, setLiveProducts] = useState<Product[]>(() => getStoredProducts());
+  const [liveOrders, setLiveOrders] = useState<StoreOrder[]>(() => getStoredOrders());
+
+  useEffect(() => {
+    let mounted = true;
+    async function syncCloudCatalog() {
+      try {
+        const [cloudProducts, cloudOrders] = await Promise.all([
+          dbFetchAllProducts(),
+          dbFetchAllOrders(),
+        ]);
+        if (mounted) {
+          if (cloudProducts && cloudProducts.length > 0) {
+            setLiveProducts(cloudProducts);
+            saveProducts(cloudProducts);
+          }
+          if (cloudOrders && cloudOrders.length > 0) {
+            setLiveOrders(cloudOrders);
+            saveOrders(cloudOrders);
+          }
+        }
+      } catch (err) {
+        console.warn('SuperAdmin live catalog sync error:', err);
+      }
+    }
+    syncCloudCatalog();
+    return () => { mounted = false; };
+  }, [allStores]);
+
+  const allProducts = liveProducts;
+  const allOrders = liveOrders;
 
   // Platform Metrics
   const totalStoresCount = allStores.length;

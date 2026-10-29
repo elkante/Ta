@@ -71,10 +71,16 @@ export const Storefront: React.FC<StorefrontProps> = ({
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareTargetProduct, setShareTargetProduct] = useState<Product | undefined>(undefined);
 
-  // Auto-open a product from ?product= URL param (e.g. scanned product QR code)
+  // Auto-open a product from ?product= URL param (e.g. scanned product QR code or WhatsApp bot link)
   useEffect(() => {
     if (initialProductId && products.length > 0) {
-      const match = products.find((p) => p.id === initialProductId || p.uid === initialProductId);
+      const cleanId = initialProductId.trim().toLowerCase().replace(/^#/, '');
+      const match = products.find(
+        (p) =>
+          p.id.toLowerCase() === cleanId ||
+          p.uid?.toLowerCase() === cleanId ||
+          p.slug?.toLowerCase() === cleanId
+      );
       if (match) {
         setSelectedProduct(match);
         setIsDetailOpen(true);

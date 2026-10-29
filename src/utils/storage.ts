@@ -442,16 +442,16 @@ export const PLATFORM_SETTINGS_KEY = 'tashop_platform_settings';
 export const SUPER_ADMIN_DEFAULT_KEY = 'admin123';
 
 export const DEFAULT_ROOT_DOMAIN = 'taaa.com.ng';
-export const DEFAULT_PLATFORM_BRAND = 'Táaaa.shop';
+export const DEFAULT_PLATFORM_BRAND = 'Taaa.shop';
 
 const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
-  platformName: 'Táaaa.shop',
+  platformName: 'Taaa.shop',
   rootDomain: 'taaa.com.ng',
   supportWhatsApp: '+2348039874521',
   defaultCurrency: 'NGN',
   starterPriceMonthly: 500,
   proPriceMonthly: 3500,
-  globalAnnouncement: '⚡ Welcome to Táaaa.shop - The multi-tenant social commerce platform for WhatsApp & Instagram sellers.',
+  globalAnnouncement: '⚡ Welcome to Taaa.shop - The multi-tenant social commerce platform for WhatsApp & Instagram sellers.',
   allowRegistrations: true,
   maintenanceMode: false,
   featuredStoreSlugs: ['amaka-perfumes', 'zainab-couture', 'gadget-plug-ng'],
@@ -630,42 +630,33 @@ export function getStoreUrl(
   const root = getRootDomain();
 
   if (typeof window === 'undefined') {
-    return `https://${slug}.${root}`;
+    const base = `https://${slug}.${root}`;
+    if (options?.productId) return `${base}/?product=${options.productId}`;
+    return base;
   }
 
   const host = window.location.hostname.toLowerCase();
   const origin = window.location.origin;
 
-  // If deployed on the configured root domain or legacy ta.shop
-  if (host.endsWith(root) || host.endsWith('ta.shop')) {
-    const activeDomain = host.endsWith(root) ? root : 'ta.shop';
-    const base = `https://${slug}.${activeDomain}`;
-    if (options?.productId) return `${base}?product=${options.productId}`;
-    return base;
+  // Local development fallback (unless forceSubdomain is explicitly requested)
+  if ((host === 'localhost' || host === '127.0.0.1' || /^(\d{1,3}\.){3}\d{1,3}$/.test(host)) && !options?.forceSubdomain) {
+    const params = new URLSearchParams({ store: slug });
+    if (options?.productId) params.set('product', options.productId);
+    return `${origin}/?${params.toString()}`;
   }
 
-  // Deployed on Vercel, Netlify, Railway, Render, LAN IP, or localhost:
-  // Dynamically points to the exact active origin so phone cameras can scan and open it!
-  const params = new URLSearchParams({ store: slug });
-  if (options?.productId) params.set('product', options.productId);
-  return `${origin}/?${params.toString()}`;
+  // In all production environments & sharing links: STORE NAME FIRST (https://{slug}.{rootDomain})
+  const base = `https://${slug}.${root}`;
+  if (options?.productId) return `${base}/?product=${options.productId}`;
+  return base;
 }
 
 /**
- * Returns a branded display label (e.g., "amaka-perfumes.taaa.com.ng" or "my-app.vercel.app/?store=...")
+ * Returns a branded display label with store name FIRST (e.g. "jewelry-lord.taaa.com.ng")
  */
 export function getStoreDisplayUrl(slug: string, customDomain?: string): string {
   if (customDomain) return customDomain.replace(/^https?:\/\//, '');
   const root = getRootDomain();
-  if (typeof window === 'undefined') return `${slug}.${root}`;
-  const host = window.location.hostname.toLowerCase();
-  if (host.endsWith(root) || host.endsWith('ta.shop')) {
-    const activeDomain = host.endsWith(root) ? root : 'ta.shop';
-    return `${slug}.${activeDomain}`;
-  }
-  if (host.includes('vercel.app') || host.includes('netlify.app')) {
-    return `${host}/?store=${slug}`;
-  }
   return `${slug}.${root}`;
 }
 

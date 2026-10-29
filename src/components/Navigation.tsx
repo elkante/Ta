@@ -54,27 +54,50 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // ─── Silent 6-tap easter egg on logo → opens Super Admin ─────────────────
-  // Completely invisible: no counter tooltip, no visible count badge
-  const [logoTapCount, setLogoTapCount] = useState(0);
-  const logoTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Instant touch response on mobile (no zoom delay), rolling 3s window & haptic feedback
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleLogoTap = () => {
-    const next = logoTapCount + 1;
-    setLogoTapCount(next);
-
-    if (logoTapTimer.current) clearTimeout(logoTapTimer.current);
-
-    if (next >= 6) {
-      setLogoTapCount(0);
-      onOpenSuperAdmin();
-    } else {
-      // Reset if no subsequent tap within 700ms -> go to landing page
-      logoTapTimer.current = setTimeout(() => {
-        setLogoTapCount(0);
-        onViewChange('landing');
-      }, 700);
+  const handleLogoTap = useCallback((e?: React.SyntheticEvent) => {
+    if (e) {
+      e.stopPropagation();
     }
-  };
+
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+
+    tapCountRef.current += 1;
+    const currentTaps = tapCountRef.current;
+
+    // Mobile haptic vibration feedback
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(25);
+      } catch (err) {}
+    }
+
+    if (currentTaps >= 6) {
+      tapCountRef.current = 0;
+      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+      setMobileMenuOpen(false);
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate([40, 80, 40]);
+        } catch (err) {}
+      }
+      onOpenSuperAdmin();
+      return;
+    }
+
+    // Keep window open for 3 seconds so user doesn't have to tap frantically
+    tapTimerRef.current = setTimeout(() => {
+      // If exactly 1 single tap and stopped, go to landing page
+      if (tapCountRef.current === 1) {
+        setMobileMenuOpen(false);
+        onViewChange('landing');
+      }
+      tapCountRef.current = 0;
+    }, 2800);
+  }, [onOpenSuperAdmin, onViewChange]);
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
@@ -84,15 +107,16 @@ export const Navigation: React.FC<NavigationProps> = ({
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={handleLogoTap}
-            className="flex items-center gap-2 cursor-pointer group text-left shrink-0 select-none"
+            style={{ touchAction: 'manipulation' }}
+            className="flex items-center gap-2 cursor-pointer group text-left shrink-0 select-none active:scale-95 transition-transform"
             title={getPlatformBrandName()}
           >
             <div className="min-w-8 h-8 px-1.5 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xs tracking-tighter shadow-xs group-hover:scale-105 transition-transform">
-              Táaaa
+              Taaa
             </div>
             <div className="hidden sm:block">
               <div className="flex items-baseline">
-                <span className="font-extrabold text-sm tracking-tight text-slate-900">Táaaa</span>
+                <span className="font-extrabold text-sm tracking-tight text-slate-900">Taaa</span>
                 <span className="font-extrabold text-sm tracking-tight text-amber-500">.shop</span>
               </div>
               <span className="text-[10px] text-slate-400 block -mt-1 font-mono">social catalog</span>

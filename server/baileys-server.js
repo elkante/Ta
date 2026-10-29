@@ -29,9 +29,32 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 const SESSIONS_DIR = path.resolve('./sessions');
+const REGISTRY_FILE = path.join(SESSIONS_DIR, 'sessions-registry.json');
 
 if (!fs.existsSync(SESSIONS_DIR)) {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+}
+
+function loadRegistry() {
+  try {
+    if (fs.existsSync(REGISTRY_FILE)) {
+      return JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.warn('Could not read sessions-registry.json:', e.message);
+  }
+  return {};
+}
+
+function saveRegistry(registry) {
+  try {
+    if (!fs.existsSync(SESSIONS_DIR)) {
+      fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+    }
+    fs.writeFileSync(REGISTRY_FILE, JSON.stringify(registry, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Failed to save sessions registry:', e.message);
+  }
 }
 
 // In-memory registry of active store WhatsApp sessions
@@ -137,8 +160,8 @@ async function sendProductCard(sock, remoteJid, product, storeName, storeBaseUrl
 async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
   if (activeSessions.has(storeId)) {
     const existing = activeSessions.get(storeId);
-    if (existing.status === 'connected') {
-      existing.catalog = storeCatalog;
+    if (existing.status === 'connected' || existing.status === 'connecting') {
+      if (storeCatalog && storeCatalog.length > 0) existing.catalog = storeCatalog;
       if (storeInfo && Object.keys(storeInfo).length > 0) existing.storeInfo = storeInfo;
       return existing;
     }
@@ -196,6 +219,16 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
       const userJid = sock.user?.id || '';
       sessionData.phone = userJid.split(':')[0] || userJid.split('@')[0];
       console.log(`[Store: ${storeId}] WhatsApp connected successfully! Phone: ${sessionData.phone}`);
+
+      const registry = loadRegistry();
+      registry[storeId] = {
+        status: 'connected',
+        phone: sessionData.phone,
+        catalog: sessionData.catalog || [],
+        storeInfo: sessionData.storeInfo || {},
+        updatedAt: new Date().toISOString(),
+      };
+      saveRegistry(registry);
     }
 
     if (connection === 'close') {
@@ -204,18 +237,24 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
         : null;
 
       const isLoggedOut = statusCode === DisconnectReason.loggedOut;
-      sessionData.status = 'disconnected';
       sessionData.qrDataUrl = null;
 
       if (!isLoggedOut) {
-        console.log(`[Store: ${storeId}] Connection dropped, reconnecting...`);
-        initStoreSession(storeId, sessionData.catalog);
+        sessionData.status = 'connecting';
+        console.log(`[Store: ${storeId}] Connection dropped (code: ${statusCode}), reconnecting in 3s...`);
+        setTimeout(() => {
+          initStoreSession(storeId, sessionData.catalog, sessionData.storeInfo);
+        }, 3000);
       } else {
+        sessionData.status = 'disconnected';
         console.log(`[Store: ${storeId}] Logged out. Cleaned session credentials.`);
         try {
           fs.rmSync(storeSessionDir, { recursive: true, force: true });
         } catch (e) {}
         activeSessions.delete(storeId);
+        const registry = loadRegistry();
+        delete registry[storeId];
+        saveRegistry(registry);
       }
     }
   });
@@ -370,7 +409,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
-    service: 'Táaaa.shop Multi-Tenant Baileys WhatsApp Engine',
+    service: 'Taaa.shop Multi-Tenant Baileys WhatsApp Engine',
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     activeSessions: activeSessions.size,
@@ -394,9 +433,24 @@ app.get('/health', (req, res) => {
 /**
  * Check connection status or retrieve current pairing QR code
  */
-app.get('/api/whatsapp/status/:storeId', (req, res) => {
+app.get('/api/whatsapp/status/:storeId', async (req, res) => {
   const { storeId } = req.params;
-  const session = activeSessions.get(storeId);
+  let session = activeSessions.get(storeId);
+
+  // If no in-memory active session, check if saved credentials exist on disk
+  if (!session) {
+    const credsPath = path.join(SESSIONS_DIR, storeId, 'creds.json');
+    if (fs.existsSync(credsPath)) {
+      const registry = loadRegistry();
+      const meta = registry[storeId] || {};
+      console.log(`[Store: ${storeId}] Stored session detected on disk. Auto-restoring socket...`);
+      try {
+        session = await initStoreSession(storeId, meta.catalog || [], meta.storeInfo || {});
+      } catch (err) {
+        console.error(`[Store: ${storeId}] Auto-restore error:`, err?.message);
+      }
+    }
+  }
 
   if (!session) {
     return res.json({
@@ -456,6 +510,10 @@ app.post('/api/whatsapp/disconnect/:storeId', async (req, res) => {
     fs.rmSync(storeSessionDir, { recursive: true, force: true });
   } catch (e) {}
 
+  const registry = loadRegistry();
+  delete registry[storeId];
+  saveRegistry(registry);
+
   res.json({ success: true, message: 'Disconnected' });
 });
 
@@ -500,8 +558,9 @@ app.post('/api/orders/notify/:storeId', async (req, res) => {
       merchantJid = sock.user?.id ? jidNormalizedUser(sock.user.id) : merchantJid;
     }
 
+    const rootDomain = process.env.ROOT_DOMAIN || 'taaa.com.ng';
     const merchantAlert =
-      `🚨 *NEW ORDER RECEIVED VIA TÁ.SHOP!* 🚨\n\n` +
+      `🚨 *NEW ORDER RECEIVED VIA TAAA.SHOP!* 🚨\n\n` +
       `🧾 *Order ID:* #${order.id}\n` +
       `👤 *Customer:* ${order.buyerName}\n` +
       `📞 *Phone:* ${order.buyerPhone}\n` +
@@ -510,7 +569,7 @@ app.post('/api/orders/notify/:storeId', async (req, res) => {
       (order.buyerNotes ? `💬 *Note:* "${order.buyerNotes}"\n` : '') +
       `\n📦 *PACKING LIST:*\n${itemsText}\n\n` +
       `💰 *Total Amount:* ₦${Number(order.totalAmount).toLocaleString()}\n\n` +
-      `⚡ *View Dispatch Waybill in your Dashboard:* https://${store.slug || storeId}.ta.shop/admin`;
+      `⚡ *View Dispatch Waybill in your Dashboard:* https://${store.slug || storeId}.${rootDomain}/admin`;
 
     await safeSendMessage(sock, merchantJid, { text: merchantAlert });
     console.log(`[Store: ${storeId}] Instant merchant WhatsApp notification sent to ${merchantJid}`);
@@ -549,7 +608,44 @@ app.post('/api/orders/notify/:storeId', async (req, res) => {
   res.json({ success: true, message: 'Instant WhatsApp notifications dispatched!' });
 });
 
+/**
+ * Auto-restore all existing store sessions on server boot
+ */
+async function restoreAllSessions() {
+  if (!fs.existsSync(SESSIONS_DIR)) return;
+  try {
+    const registry = loadRegistry();
+    const knownStores = new Set(Object.keys(registry));
+    const entries = fs.readdirSync(SESSIONS_DIR, { withFileTypes: true });
 
-app.listen(PORT, () => {
-  console.log(`⚡ Tá.shop Baileys Multi-Tenant WhatsApp Server running on port ${PORT}`);
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const sid = entry.name;
+        const credPath = path.join(SESSIONS_DIR, sid, 'creds.json');
+        if (fs.existsSync(credPath)) {
+          knownStores.add(sid);
+        }
+      }
+    }
+
+    if (knownStores.size > 0) {
+      console.log(`[Boot] Found ${knownStores.size} saved WhatsApp store session(s) to restore.`);
+      for (const storeId of knownStores) {
+        const meta = registry[storeId] || {};
+        console.log(`[Boot] Restoring WhatsApp session for store: ${storeId}`);
+        try {
+          await initStoreSession(storeId, meta.catalog || [], meta.storeInfo || {});
+        } catch (e) {
+          console.warn(`[Boot] Session restore skipped for ${storeId}:`, e.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Boot] Error restoring sessions:', err.message);
+  }
+}
+
+app.listen(PORT, async () => {
+  console.log(`⚡ Taaa.shop Baileys Multi-Tenant WhatsApp Server running on port ${PORT}`);
+  await restoreAllSessions();
 });

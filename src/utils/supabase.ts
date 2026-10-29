@@ -49,6 +49,8 @@ export function mapStoreFromDB(row: any): Store {
     planExpiresAt: row.plan_expires_at || undefined,
     adminNotes: Array.isArray(row.admin_notes) ? row.admin_notes : undefined,
     aiBotConfig: row.ai_bot_config || undefined,
+    whatsappBotConnected: Boolean(row.ai_bot_config?.whatsappConnected),
+    whatsappBotPhone: row.ai_bot_config?.whatsappPhone || undefined,
     openHours: row.open_hours || undefined,
     restockCountdown: row.restock_countdown || undefined,
     createdAt: row.created_at || new Date().toISOString(),
@@ -286,6 +288,16 @@ export async function dbFetchProducts(storeId: string): Promise<Product[]> {
   }
 }
 
+export async function dbFetchAllProducts(): Promise<Product[]> {
+  try {
+    const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+    if (error || !data) return [];
+    return data.map(mapProductFromDB);
+  } catch (e) {
+    return [];
+  }
+}
+
 export async function dbSaveProduct(product: Product): Promise<boolean> {
   try {
     const payload = mapProductToDB(product);
@@ -308,6 +320,16 @@ export async function dbDeleteProduct(productId: string): Promise<boolean> {
 export async function dbFetchOrders(storeId: string): Promise<StoreOrder[]> {
   try {
     const { data, error } = await supabase.from('store_orders').select('*').eq('store_id', storeId).order('created_at', { ascending: false });
+    if (error || !data) return [];
+    return data.map(mapOrderFromDB);
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function dbFetchAllOrders(): Promise<StoreOrder[]> {
+  try {
+    const { data, error } = await supabase.from('store_orders').select('*').order('created_at', { ascending: false });
     if (error || !data) return [];
     return data.map(mapOrderFromDB);
   } catch (e) {

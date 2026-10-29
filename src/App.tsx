@@ -37,10 +37,19 @@ import {
   getSuperAdminSession,
   getSubdomainFromHostname,
   saveStores,
+  saveProducts,
+  saveOrders,
   setCurrentTenantSlug,
   getRootDomain,
 } from './utils/storage';
-import { dbFetchStores, dbFetchProducts, dbFetchStoreBySlug, dbFetchStoreByCustomDomain } from './utils/supabase';
+import {
+  dbFetchStores,
+  dbFetchProducts,
+  dbFetchAllProducts,
+  dbFetchAllOrders,
+  dbFetchStoreBySlug,
+  dbFetchStoreByCustomDomain,
+} from './utils/supabase';
 
 export default function App() {
   const [allStores, setAllStores] = useState<Store[]>([]);
@@ -118,11 +127,21 @@ export default function App() {
 
     try {
       if (adminSession) {
-        const liveStores = await dbFetchStores();
+        const [liveStores, liveAllProducts, liveAllOrders] = await Promise.all([
+          dbFetchStores(),
+          dbFetchAllProducts(),
+          dbFetchAllOrders(),
+        ]);
         if (liveStores && liveStores.length > 0) {
           stores = liveStores;
           setAllStores(liveStores);
           saveStores(liveStores);
+        }
+        if (liveAllProducts && liveAllProducts.length > 0) {
+          saveProducts(liveAllProducts);
+        }
+        if (liveAllOrders && liveAllOrders.length > 0) {
+          saveOrders(liveAllOrders);
         }
       } else if (targetFetchSlug) {
         const liveStore = await dbFetchStoreBySlug(targetFetchSlug);

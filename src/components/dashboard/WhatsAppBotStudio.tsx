@@ -78,10 +78,21 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   const [bubbleEnabled, setBubbleEnabled] = useState(existingConfig.enabled);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Baileys WhatsApp Connection State
-  const [baileysStatus, setBaileysStatus] = useState<'disconnected' | 'waiting_scan' | 'connected'>('disconnected');
+  // Baileys WhatsApp Connection State (persisted so logout/reload never breaks pairing)
+  const isPreviouslyConnected = Boolean(
+    store.aiBotConfig?.whatsappConnected ||
+    store.whatsappBotConnected ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem(`ta_wa_conn_${store.id}`) === '1')
+  );
+
+  const [baileysStatus, setBaileysStatus] = useState<'disconnected' | 'waiting_scan' | 'connected'>(
+    isPreviouslyConnected ? 'connected' : 'disconnected'
+  );
   const [baileysQr, setBaileysQr] = useState<string | null>(null);
   const [isPairingLoading, setIsPairingLoading] = useState(false);
+  const [connectedPhone, setConnectedPhone] = useState<string | null>(
+    store.aiBotConfig?.whatsappPhone || store.whatsappBotPhone || null
+  );
   const [serverEndpoint, setServerEndpoint] = useState(
     (import.meta as any).env?.VITE_BAILEYS_SERVER_URL ||
       (typeof window !== 'undefined' && window.location.hostname === 'localhost'
@@ -101,6 +112,27 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         if (data.connected || data.status === 'connected') {
           setBaileysStatus('connected');
           setBaileysQr(null);
+          const phone = data.phone || `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || ''}`;
+          setConnectedPhone(phone);
+          try {
+            localStorage.setItem(`ta_wa_conn_${store.id}`, '1');
+          } catch (e) {}
+
+          if (!store.aiBotConfig?.whatsappConnected || !store.whatsappBotConnected) {
+            const updatedConfig: StoreAIBotConfig = {
+              ...(store.aiBotConfig || existingConfig),
+              whatsappConnected: true,
+              whatsappPhone: phone,
+              lastConnectedAt: new Date().toISOString(),
+            };
+            updateStore({
+              ...store,
+              aiBotConfig: updatedConfig,
+              whatsappBotConnected: true,
+              whatsappBotPhone: phone,
+            });
+            if (onRefreshData) onRefreshData();
+          }
         } else if (data.qrDataUrl && baileysStatus === 'waiting_scan') {
           setBaileysQr(data.qrDataUrl);
         }
@@ -143,6 +175,24 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       if (data.connected) {
         setBaileysStatus('connected');
         setBaileysQr(null);
+        const phone = data.phone || `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || ''}`;
+        setConnectedPhone(phone);
+        try {
+          localStorage.setItem(`ta_wa_conn_${store.id}`, '1');
+        } catch (e) {}
+        const updatedConfig: StoreAIBotConfig = {
+          ...(store.aiBotConfig || existingConfig),
+          whatsappConnected: true,
+          whatsappPhone: phone,
+          lastConnectedAt: new Date().toISOString(),
+        };
+        updateStore({
+          ...store,
+          aiBotConfig: updatedConfig,
+          whatsappBotConnected: true,
+          whatsappBotPhone: phone,
+        });
+        if (onRefreshData) onRefreshData();
       } else if (data.qrDataUrl) {
         setBaileysQr(data.qrDataUrl);
       } else {
@@ -161,14 +211,48 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   const handleSimulateConnected = () => {
     setBaileysStatus('connected');
     setBaileysQr(null);
+    const phone = `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || '8012345678'}`;
+    setConnectedPhone(phone);
+    try {
+      localStorage.setItem(`ta_wa_conn_${store.id}`, '1');
+    } catch (e) {}
+    const updatedConfig: StoreAIBotConfig = {
+      ...(store.aiBotConfig || existingConfig),
+      whatsappConnected: true,
+      whatsappPhone: phone,
+      lastConnectedAt: new Date().toISOString(),
+    };
+    updateStore({
+      ...store,
+      aiBotConfig: updatedConfig,
+      whatsappBotConnected: true,
+      whatsappBotPhone: phone,
+    });
+    if (onRefreshData) onRefreshData();
   };
 
   const handleDisconnectBaileys = async () => {
+    try {
+      localStorage.removeItem(`ta_wa_conn_${store.id}`);
+    } catch (e) {}
     try {
       await fetch(`${serverEndpoint}/api/whatsapp/disconnect/${store.id}`, { method: 'POST' });
     } catch (e) {}
     setBaileysStatus('disconnected');
     setBaileysQr(null);
+    setConnectedPhone(null);
+    const updatedConfig: StoreAIBotConfig = {
+      ...(store.aiBotConfig || existingConfig),
+      whatsappConnected: false,
+      whatsappPhone: undefined,
+    };
+    updateStore({
+      ...store,
+      aiBotConfig: updatedConfig,
+      whatsappBotConnected: false,
+      whatsappBotPhone: undefined,
+    });
+    if (onRefreshData) onRefreshData();
   };
 
   // Chat Simulator State
@@ -378,7 +462,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                 {/* Security notice pill */}
                 <div className="text-center">
                   <span className="bg-amber-100/90 text-amber-900 text-[9px] font-semibold px-2.5 py-1 rounded-lg shadow-2xs inline-block">
-                    🔒 Messages are end-to-end verified via Tá.shop Webhook
+                    🔒 Messages are end-to-end verified via Taaa.shop Webhook
                   </span>
                 </div>
 
@@ -487,7 +571,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
             <div>
               <h3 className="font-bold text-emerald-900 text-sm">No Webhook Setup Required</h3>
               <p className="text-emerald-700 text-xs mt-1 leading-relaxed">
-                Tá.shop uses <strong>Baileys</strong> — a free, open-source WhatsApp bridge. You connect via QR code
+                Taaa.shop uses <strong>Baileys</strong> — a free, open-source WhatsApp bridge. You connect via QR code
                 scan (just like WhatsApp Web) and order notifications go straight to your phone. No Meta Business
                 Manager, no webhook URL, no API approval needed.
               </p>
@@ -521,7 +605,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                 {baileysStatus === 'connected' ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Connected ({store.whatsappCountryCode} {store.whatsappNumber})</span>
+                    <span>Connected ({connectedPhone || `${store.whatsappCountryCode} ${store.whatsappNumber}`})</span>
                   </span>
                 ) : baileysStatus === 'waiting_scan' ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">

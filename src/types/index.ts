@@ -95,6 +95,8 @@ export interface Store {
   planExpiresAt?: string;
   adminNotes?: string[];
   aiBotConfig?: StoreAIBotConfig;
+  whatsappBotConnected?: boolean;
+  whatsappBotPhone?: string;
   /** Optional open-hours info shown on storefront hero */
   openHours?: {
     /** e.g. "Mon–Sat · 9am–8pm WAT" */
@@ -121,6 +123,9 @@ export interface StoreAIBotConfig {
   tone: 'luxury' | 'friendly' | 'fast' | 'professional';
   suggestedQuestions: string[];
   enabled: boolean;
+  whatsappConnected?: boolean;
+  whatsappPhone?: string;
+  lastConnectedAt?: string;
 }
 
 export interface WhatsAppInquiryLog {
