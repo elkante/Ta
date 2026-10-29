@@ -1,13 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Check,
   Copy,
   Download,
-  ExternalLink,
-  Layers,
+  Package,
   Palette,
-  QrCode,
-  Share2,
   Sparkles,
   X,
 } from 'lucide-react';
@@ -31,37 +28,86 @@ export const StatusStudioModal: React.FC<StatusStudioModalProps> = ({
   isOpen,
   onClose,
   store,
-  products,
+  products = [],
   initialProduct,
 }) => {
-  const [selectedProduct, setSelectedProduct] = useState<Product>(
-    initialProduct || products[0]
+  const [selectedProductId, setSelectedProductId] = useState<string>(
+    initialProduct?.id || products?.[0]?.id || ''
   );
   const [theme, setTheme] = useState<CardTheme>('luxury-dark');
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [customAiCaption, setCustomAiCaption] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  if (!isOpen || !selectedProduct) return null;
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // Unconditionally sync selected product when initialProduct or products list changes
   useEffect(() => {
+    if (initialProduct?.id) {
+      setSelectedProductId(initialProduct.id);
+    } else if (products && products.length > 0) {
+      setSelectedProductId((prev) =>
+        products.some((p) => p.id === prev) ? prev : products[0].id
+      );
+    }
+  }, [initialProduct, products]);
+
+  // Unconditionally handle Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [isOpen, onClose]);
+
+  // Early return ONLY after all React hooks have executed unconditionally
+  if (!isOpen) return null;
+
+  // Resolve active product safely
+  const selectedProduct: Product | null =
+    products.find((p) => p.id === selectedProductId) ||
+    initialProduct ||
+    products[0] ||
+    null;
+
+  // If store has no products yet, render friendly guided empty state
+  if (!selectedProduct) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0" onClick={onClose} />
+        <div className="relative bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 z-10 text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+            <Package className="w-7 h-7 text-amber-500" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">No Products in Catalog Yet</h3>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+              Add your first product in the Products tab to automatically generate high-resolution vertical WhatsApp Status and Instagram Story cards.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer shadow-xs active:scale-95 transition"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const images = Array.isArray(selectedProduct.images) ? selectedProduct.images : [];
+  const mainImage = images[0] || store.logoUrl || '';
 
   const productUrl = getStoreUrl(store.slug, { productId: selectedProduct.id });
   const qrSvg = generateQRCodeSVG(productUrl, 160, '#0f172a', '#ffffff');
 
-  // Pre-formatted viral status caption without hardcoding "on WhatsApp"
-  const statusCaption = `ðŸ›ï¸ NEW DROP: ${selectedProduct.name}
+  // Pre-formatted viral status caption
+  const statusCaption = `🛍️ NEW DROP: ${selectedProduct.name}
 Code: #${selectedProduct.uid}
 Price: ${formatPrice(selectedProduct.price, store.currencySymbol)}
 
-ðŸ‘‰ Reply with #${selectedProduct.uid} to order or tap:
+👉 Reply with #${selectedProduct.uid} to order or tap:
 ${productUrl}`;
 
   const currentActiveCaption = customAiCaption || statusCaption;
@@ -130,11 +176,11 @@ ${productUrl}`;
       };
 
       const [logoImg, prodImg] = await Promise.all([
-        loadImage(store.logoUrl),
-        loadImage(selectedProduct.images[0] || store.logoUrl),
+        loadImage(store.logoUrl || ''),
+        loadImage(mainImage),
       ]);
 
-      // 1. Draw Uploaded Store Logo & Store Title (NO website link text â€” QR code handles it alone)
+      // 1. Draw Uploaded Store Logo & Store Title
       if (logoImg) {
         const logoSize = 100;
         const logoX = (width - logoSize) / 2;
@@ -158,13 +204,13 @@ ${productUrl}`;
         ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
         ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(store.name.toUpperCase(), width / 2, 235);
+        ctx.fillText((store.name || 'STORE').toUpperCase(), width / 2, 235);
       } else {
         // Fallback Store Name header without logo
         ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
         ctx.font = 'bold 50px -apple-system, BlinkMacSystemFont, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(store.name.toUpperCase(), width / 2, 180);
+        ctx.fillText((store.name || 'STORE').toUpperCase(), width / 2, 180);
       }
 
       // 2. Product Image
@@ -246,7 +292,7 @@ ${productUrl}`;
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // CTA Text â€” clean without "on WhatsApp"
+      // CTA Text — clean without "on WhatsApp"
       ctx.textAlign = 'left';
       ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
       ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -283,7 +329,7 @@ ${productUrl}`;
       socialParts.push(`WhatsApp: ${store.whatsappCountryCode || '+234'} ${store.whatsappNumber}`);
       socialParts.push(store.customDomain || `${store.slug}.${getRootDomain()}`);
 
-      const socialText = socialParts.join('   â€¢   ');
+      const socialText = socialParts.join('   •   ');
       const socialY = 1810;
       ctx.fillStyle = theme === 'clean-minimal' ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.08)';
       ctx.beginPath();
@@ -315,14 +361,15 @@ ${productUrl}`;
       <div className="fixed inset-0" onClick={onClose} onTouchEnd={onClose} />
 
       <div className="relative bg-white rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden border border-slate-200 z-10 flex flex-col md:flex-row max-h-[92vh]">
-        {/* Fixed pill close button — always tappable on mobile, even outside scrollable area */}
+        {/* Modal close button */}
         <button
           onClick={onClose}
-          className="fixed top-4 right-4 z-[9999] p-3 rounded-full bg-slate-900/95 text-white shadow-2xl border border-white/30 active:scale-95 transition flex items-center justify-center cursor-pointer"
+          className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-slate-900/90 text-white shadow-lg border border-white/20 active:scale-95 transition flex items-center justify-center cursor-pointer hover:bg-slate-800"
           aria-label="Close"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
+
         {/* Left: 9:16 Story / Status Preview Canvas */}
         <div className="flex-1 bg-slate-900 p-6 flex flex-col items-center justify-center relative overflow-hidden">
           {/* Subtle Ambient Glow */}
@@ -344,7 +391,7 @@ ${productUrl}`;
               color: theme === 'clean-minimal' ? '#0f172a' : '#ffffff',
             }}
           >
-            {/* Top Store Header with uploaded logo â€” NO website link */}
+            {/* Top Store Header with uploaded logo */}
             <div className="flex items-center justify-center gap-2 pt-1">
               {store.logoUrl && (
                 <img
@@ -362,7 +409,7 @@ ${productUrl}`;
             <div className="relative my-auto">
               <div className="aspect-square w-full rounded-2xl overflow-hidden bg-black/20 border border-white/10 shadow-lg relative">
                 <img
-                  src={selectedProduct.images[0] || store.logoUrl}
+                  src={mainImage}
                   alt={selectedProduct.name}
                   className="w-full h-full object-cover"
                 />
@@ -383,7 +430,7 @@ ${productUrl}`;
               </div>
             </div>
 
-            {/* Bottom Call to Action + QR Box (NO 'on WhatsApp') */}
+            {/* Bottom Call to Action + QR Box */}
             <div
               className={`p-2.5 rounded-2xl flex items-center justify-between gap-2 border ${
                 theme === 'clean-minimal'
@@ -433,7 +480,7 @@ ${productUrl}`;
           </div>
 
           <span className="mt-3 text-[11px] text-slate-400 font-medium">
-            ðŸ“± 9:16 Vertical Card for Status & Stories
+            📱 9:16 Vertical Card for Status & Stories
           </span>
         </div>
 
@@ -447,12 +494,6 @@ ${productUrl}`;
                   Status & Story Studio
                 </h3>
               </div>
-              <button
-                onClick={onClose}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
             {/* Select Product */}
@@ -462,10 +503,7 @@ ${productUrl}`;
               </label>
               <select
                 value={selectedProduct.id}
-                onChange={(e) => {
-                  const found = products.find((p) => p.id === e.target.value);
-                  if (found) setSelectedProduct(found);
-                }}
+                onChange={(e) => setSelectedProductId(e.target.value)}
                 className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-medium bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900"
               >
                 {products.map((p) => (
@@ -554,7 +592,8 @@ ${productUrl}`;
             </p>
           </div>
         </div>
-        {/* Mobile close strip â€” always visible at bottom */}
+
+        {/* Mobile close strip — visible on small screens */}
         <div className="sm:hidden flex-shrink-0 p-3 border-t border-slate-200 bg-white">
           <button
             onClick={onClose}

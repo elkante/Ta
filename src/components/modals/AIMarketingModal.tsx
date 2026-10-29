@@ -65,6 +65,16 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
     setCurrentStore(store);
   }, [store]);
 
+  useEffect(() => {
+    if (initialProduct?.id) {
+      setSelectedProductId(initialProduct.id);
+    } else if (products && products.length > 0) {
+      setSelectedProductId((prev) =>
+        products.some((p) => p.id === prev) ? prev : products[0].id
+      );
+    }
+  }, [initialProduct, products]);
+
   const quota = getStoreAIUsage(currentStore);
 
   const selectedProduct = products.find((p) => p.id === selectedProductId) || {

@@ -17,6 +17,7 @@ import { SysHqPage } from './components/admin/SysHqPage';
 import { SplashScreen } from './components/common/SplashScreen';
 import { OnboardingGuide } from './components/onboarding/OnboardingGuide';
 import { LegalModal, LegalTab } from './components/legal/LegalModal';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import {
   Product,
   SellerSession,
@@ -61,6 +62,14 @@ export default function App() {
       const stores = getStoredStores();
       if (session) {
         return stores.find((s) => s.id === session.storeId || s.slug === session.storeSlug) || null;
+      }
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const storeParam = urlParams.get('store');
+        if (storeParam) {
+          const match = stores.find((s) => s.slug.toLowerCase() === storeParam.toLowerCase());
+          if (match) return match;
+        }
       }
       const savedSlug = sessionStorage.getItem('ta_last_store_slug');
       if (savedSlug) {
@@ -578,7 +587,7 @@ export default function App() {
   // even when no store is selected (e.g. direct navigation to /sys-hq).
   if (activeView === 'superadmin') {
     return (
-      <>
+      <ErrorBoundary fallbackTitle="Super Admin HQ Error">
         {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
         <SysHqPage
           session={superAdminSession}
@@ -603,7 +612,7 @@ export default function App() {
             setActiveView('landing');
           }}
         />
-      </>
+      </ErrorBoundary>
     );
   }
 
@@ -695,106 +704,108 @@ export default function App() {
 
       {/* Main View Area */}
       <div className="flex-1">
-        {activeView === 'landing' ? (
-          /* PLATFORM LANDING PAGE */
-          <LandingPage
-            stores={allStores}
-            sellerSession={sellerSession}
-            onOpenDashboard={() => setActiveView('dashboard')}
-            onOpenStore={(slug) => {
-              const target = allStores.find((s) => s.slug === slug);
-              if (target) {
-                handleSelectStore(target);
-                setActiveView('storefront');
-              }
-            }}
-            onOpenLogin={() => {
-              setAuthModalMode('login');
-              setIsAuthModalOpen(true);
-            }}
-            onOpenSignup={(slug) => {
-              setAuthModalMode('signup');
-              setAuthModalSlug(slug || '');
-              setIsAuthModalOpen(true);
-            }}
-            onOpenSuperAdmin={handleOpenSuperAdmin}
-            onOpenLegal={handleOpenLegal}
-          />
-        ) : activeView === 'storefront' ? (
-          isMobileDeviceFrame ? (
-            /* Mobile Device Frame Simulation (Shows Instagram/WhatsApp in-app browser view) */
-            <div className="py-8 px-4 flex flex-col items-center justify-center bg-slate-800 min-h-[calc(100vh-64px)]">
-              <div className="mb-3 text-center">
-                <span className="text-xs font-semibold text-slate-300 bg-white/10 px-3 py-1 rounded-full">
-                  ðŸ“± Mobile Web Simulator (How buyers see your catalog on WhatsApp/Instagram)
-                </span>
-              </div>
-              <div className="relative w-full max-w-[400px] h-[820px] bg-black rounded-[48px] p-3 shadow-2xl border-4 border-slate-700 overflow-hidden ring-1 ring-white/10 flex flex-col">
-                {/* Speaker & camera notch */}
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 w-28 h-4 bg-black rounded-full z-30 flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800 mr-2" />
-                  <div className="w-8 h-1 rounded-full bg-slate-900" />
-                </div>
-
-                {/* In-app Browser URL bar */}
-                <div className="bg-slate-900 text-slate-300 text-[11px] font-mono py-1.5 px-3 rounded-full mt-3 mb-2 mx-2 text-center truncate flex items-center justify-center gap-1.5 border border-slate-800 z-20">
-                  <span className="text-emerald-400">ðŸ”’</span>
-                  <span>{currentStore.customDomain || `${currentStore.slug}.${getRootDomain()}`}</span>
-                </div>
-
-                {/* Inner Screen */}
-                <div className="flex-1 bg-white rounded-[36px] overflow-y-auto overflow-x-hidden relative [transform:translateZ(0)]">
-                  <Storefront
-                    store={currentStore}
-                    products={storeProducts}
-                    reviews={storeReviews}
-                    onOpenCreateStore={() => {
-                      setAuthModalMode('signup');
-                      setIsAuthModalOpen(true);
-                    }}
-                    onOpenLogin={() => {
-                      setAuthModalMode('login');
-                      setIsAuthModalOpen(true);
-                    }}
-                    onOpenLanding={() => setActiveView('landing')}
-                    onRefreshData={handleRefreshData}
-                    onOpenLegal={handleOpenLegal}
-                    initialProductId={initialProductId}
-                  />
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Full Width Responsive View */
-            <Storefront
-              store={currentStore}
-              products={storeProducts}
-              reviews={storeReviews}
-              onOpenCreateStore={() => {
-                setAuthModalMode('signup');
-                setIsAuthModalOpen(true);
+        <ErrorBoundary fallbackTitle="View Loading Error">
+          {activeView === 'landing' ? (
+            /* PLATFORM LANDING PAGE */
+            <LandingPage
+              stores={allStores}
+              sellerSession={sellerSession}
+              onOpenDashboard={() => setActiveView('dashboard')}
+              onOpenStore={(slug) => {
+                const target = allStores.find((s) => s.slug === slug);
+                if (target) {
+                  handleSelectStore(target);
+                  setActiveView('storefront');
+                }
               }}
               onOpenLogin={() => {
                 setAuthModalMode('login');
                 setIsAuthModalOpen(true);
               }}
-              onOpenLanding={() => setActiveView('landing')}
-              onRefreshData={handleRefreshData}
+              onOpenSignup={(slug) => {
+                setAuthModalMode('signup');
+                setAuthModalSlug(slug || '');
+                setIsAuthModalOpen(true);
+              }}
+              onOpenSuperAdmin={handleOpenSuperAdmin}
               onOpenLegal={handleOpenLegal}
-              initialProductId={initialProductId}
             />
-          )
-        ) : (
-          <SellerDashboard
-            store={currentStore}
-            products={storeProducts}
-            inquiries={storeInquiries}
-            onOpenStorefront={() => setActiveView('storefront')}
-            onRefreshData={handleRefreshData}
-            onSelectStore={handleSelectStore}
-            onOpenGuide={() => setShowOnboarding(true)}
-          />
-        )}
+          ) : activeView === 'storefront' ? (
+            isMobileDeviceFrame ? (
+              /* Mobile Device Frame Simulation (Shows Instagram/WhatsApp in-app browser view) */
+              <div className="py-8 px-4 flex flex-col items-center justify-center bg-slate-800 min-h-[calc(100vh-64px)]">
+                <div className="mb-3 text-center">
+                  <span className="text-xs font-semibold text-slate-300 bg-white/10 px-3 py-1 rounded-full">
+                    📱 Mobile Web Simulator (How buyers see your catalog on WhatsApp/Instagram)
+                  </span>
+                </div>
+                <div className="relative w-full max-w-[400px] h-[820px] bg-black rounded-[48px] p-3 shadow-2xl border-4 border-slate-700 overflow-hidden ring-1 ring-white/10 flex flex-col">
+                  {/* Speaker & camera notch */}
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 w-28 h-4 bg-black rounded-full z-30 flex items-center justify-center">
+                    <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800 mr-2" />
+                    <div className="w-8 h-1 rounded-full bg-slate-900" />
+                  </div>
+
+                  {/* In-app Browser URL bar */}
+                  <div className="bg-slate-900 text-slate-300 text-[11px] font-mono py-1.5 px-3 rounded-full mt-3 mb-2 mx-2 text-center truncate flex items-center justify-center gap-1.5 border border-slate-800 z-20">
+                    <span className="text-emerald-400">🔒</span>
+                    <span>{currentStore.customDomain || `${currentStore.slug}.${getRootDomain()}`}</span>
+                  </div>
+
+                  {/* Inner Screen */}
+                  <div className="flex-1 bg-white rounded-[36px] overflow-y-auto overflow-x-hidden relative [transform:translateZ(0)]">
+                    <Storefront
+                      store={currentStore}
+                      products={storeProducts}
+                      reviews={storeReviews}
+                      onOpenCreateStore={() => {
+                        setAuthModalMode('signup');
+                        setIsAuthModalOpen(true);
+                      }}
+                      onOpenLogin={() => {
+                        setAuthModalMode('login');
+                        setIsAuthModalOpen(true);
+                      }}
+                      onOpenLanding={() => setActiveView('landing')}
+                      onRefreshData={handleRefreshData}
+                      onOpenLegal={handleOpenLegal}
+                      initialProductId={initialProductId}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Full Width Responsive View */
+              <Storefront
+                store={currentStore}
+                products={storeProducts}
+                reviews={storeReviews}
+                onOpenCreateStore={() => {
+                  setAuthModalMode('signup');
+                  setIsAuthModalOpen(true);
+                }}
+                onOpenLogin={() => {
+                  setAuthModalMode('login');
+                  setIsAuthModalOpen(true);
+                }}
+                onOpenLanding={() => setActiveView('landing')}
+                onRefreshData={handleRefreshData}
+                onOpenLegal={handleOpenLegal}
+                initialProductId={initialProductId}
+              />
+            )
+          ) : (
+            <SellerDashboard
+              store={currentStore}
+              products={storeProducts}
+              inquiries={storeInquiries}
+              onOpenStorefront={() => setActiveView('storefront')}
+              onRefreshData={handleRefreshData}
+              onSelectStore={handleSelectStore}
+              onOpenGuide={() => setShowOnboarding(true)}
+            />
+          )}
+        </ErrorBoundary>
       </div>
 
       {/* Seller Login & Signup Modal */}
