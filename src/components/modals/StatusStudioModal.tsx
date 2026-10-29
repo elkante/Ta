@@ -57,11 +57,11 @@ export const StatusStudioModal: React.FC<StatusStudioModalProps> = ({
   const qrSvg = generateQRCodeSVG(productUrl, 160, '#0f172a', '#ffffff');
 
   // Pre-formatted viral status caption without hardcoding "on WhatsApp"
-  const statusCaption = `🛍️ NEW DROP: ${selectedProduct.name}
+  const statusCaption = `ðŸ›ï¸ NEW DROP: ${selectedProduct.name}
 Code: #${selectedProduct.uid}
 Price: ${formatPrice(selectedProduct.price, store.currencySymbol)}
 
-👉 Reply with #${selectedProduct.uid} to order or tap:
+ðŸ‘‰ Reply with #${selectedProduct.uid} to order or tap:
 ${productUrl}`;
 
   const currentActiveCaption = customAiCaption || statusCaption;
@@ -134,7 +134,7 @@ ${productUrl}`;
         loadImage(selectedProduct.images[0] || store.logoUrl),
       ]);
 
-      // 1. Draw Uploaded Store Logo & Store Title (NO website link text — QR code handles it alone)
+      // 1. Draw Uploaded Store Logo & Store Title (NO website link text â€” QR code handles it alone)
       if (logoImg) {
         const logoSize = 100;
         const logoX = (width - logoSize) / 2;
@@ -246,7 +246,7 @@ ${productUrl}`;
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // CTA Text — clean without "on WhatsApp"
+      // CTA Text â€” clean without "on WhatsApp"
       ctx.textAlign = 'left';
       ctx.fillStyle = theme === 'clean-minimal' ? '#0f172a' : '#ffffff';
       ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -283,7 +283,7 @@ ${productUrl}`;
       socialParts.push(`WhatsApp: ${store.whatsappCountryCode || '+234'} ${store.whatsappNumber}`);
       socialParts.push(`${store.slug}.ta.shop`);
 
-      const socialText = socialParts.join('   •   ');
+      const socialText = socialParts.join('   â€¢   ');
       const socialY = 1810;
       ctx.fillStyle = theme === 'clean-minimal' ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.08)';
       ctx.beginPath();
@@ -318,10 +318,10 @@ ${productUrl}`;
         {/* Fixed pill close button — always tappable on mobile, even outside scrollable area */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 z-20 sm:hidden p-2 rounded-full bg-slate-900/80 text-white shadow-lg active:scale-95 transition"
+          className="fixed top-4 right-4 z-[9999] p-3 rounded-full bg-slate-900/95 text-white shadow-2xl border border-white/30 active:scale-95 transition flex items-center justify-center cursor-pointer"
           aria-label="Close"
         >
-          <X className="w-4 h-4" />
+          <X className="w-5 h-5" />
         </button>
         {/* Left: 9:16 Story / Status Preview Canvas */}
         <div className="flex-1 bg-slate-900 p-6 flex flex-col items-center justify-center relative overflow-hidden">
@@ -344,7 +344,7 @@ ${productUrl}`;
               color: theme === 'clean-minimal' ? '#0f172a' : '#ffffff',
             }}
           >
-            {/* Top Store Header with uploaded logo — NO website link */}
+            {/* Top Store Header with uploaded logo â€” NO website link */}
             <div className="flex items-center justify-center gap-2 pt-1">
               {store.logoUrl && (
                 <img
@@ -433,7 +433,7 @@ ${productUrl}`;
           </div>
 
           <span className="mt-3 text-[11px] text-slate-400 font-medium">
-            📱 9:16 Vertical Card for Status & Stories
+            ðŸ“± 9:16 Vertical Card for Status & Stories
           </span>
         </div>
 
@@ -554,7 +554,7 @@ ${productUrl}`;
             </p>
           </div>
         </div>
-        {/* Mobile close strip — always visible at bottom */}
+        {/* Mobile close strip â€” always visible at bottom */}
         <div className="sm:hidden flex-shrink-0 p-3 border-t border-slate-200 bg-white">
           <button
             onClick={onClose}

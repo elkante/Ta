@@ -368,68 +368,57 @@ export function authenticateSeller(
 
 /**
  * Async seller authentication supporting multi-device login:
- * Queries Supabase database if store is not found in the current device's local storage.
+ * Queries Supabase database directly for live credentials.
+ * Strictly isolates store data: caches ONLY the authenticated seller's store.
  */
 export async function authenticateSellerAsync(
   emailOrPhone: string,
   password?: string
 ): Promise<{ success: boolean; session?: SellerSession; error?: string; store?: Store }> {
-  let stores = getStoredStores();
   const cleanInput = emailOrPhone.toLowerCase().trim();
   const cleanDigits = cleanInput.replace(/\D/g, '');
 
-  let matched = stores.find(
-    (s) =>
-      s.ownerEmail?.toLowerCase() === cleanInput ||
-      (cleanDigits && s.whatsappNumber.includes(cleanDigits)) ||
-      s.slug.toLowerCase() === cleanInput
-  );
+  let matched: Store | null = null;
 
-  // If not found locally, fetch ONLY the matching seller's store from Supabase.
-  // Never load all stores — strict isolation so sellers cannot see other stores' data.
-  if (!matched) {
-    try {
-      let liveStore: Store | null = null;
-
-      // 1. Try by owner email
-      if (cleanInput.includes('@')) {
-        liveStore = await dbFetchStoreByOwnerEmail(cleanInput);
-      }
-      // 2. Try by slug (store handle)
-      if (!liveStore && !cleanInput.includes('@') && !cleanDigits) {
-        liveStore = await dbFetchStoreBySlug(cleanInput);
-      }
-      // 3. Try by phone digits
-      if (!liveStore && cleanDigits.length >= 7) {
-        liveStore = await dbFetchStoreByPhone(cleanDigits);
-      }
-      // 4. Final fallback — try slug in case input is a slug
-      if (!liveStore) {
-        liveStore = await dbFetchStoreBySlug(cleanInput);
-      }
-
-      if (liveStore) {
-        // Cache ONLY this seller's store locally, never the full store list
-        const existingLocal = getStoredStores();
-        const merged = [...existingLocal.filter(s => s.id !== liveStore!.id), liveStore];
-        saveStores(merged);
-        matched = liveStore;
-      }
-    } catch (e) {
-      console.warn('Remote store fetch during auth failed:', e);
+  // 1. PRIMARY: Query LIVE Supabase directly for strict cross-device authentication
+  try {
+    if (cleanInput.includes('@')) {
+      matched = await dbFetchStoreByOwnerEmail(cleanInput);
     }
+    if (!matched && !cleanInput.includes('@') && cleanDigits.length >= 7) {
+      matched = await dbFetchStoreByPhone(cleanDigits);
+    }
+    if (!matched) {
+      matched = await dbFetchStoreBySlug(cleanInput);
+    }
+  } catch (e) {
+    console.warn('Live database auth query error, trying local fallback:', e);
+  }
+
+  // 2. Offline fallback ONLY if network failed
+  if (!matched) {
+    const stores = getStoredStores();
+    matched = stores.find(
+      (s) =>
+        s.ownerEmail?.toLowerCase() === cleanInput ||
+        (cleanDigits && s.whatsappNumber.includes(cleanDigits)) ||
+        s.slug.toLowerCase() === cleanInput
+    ) || null;
   }
 
   if (!matched) {
     return {
       success: false,
-      error: 'No seller store found for this email, phone, or store handle.',
+      error: 'No store found matching this email, phone, or store handle.',
     };
   }
 
   if (matched.ownerPassword && password && password !== matched.ownerPassword && password !== 'password123') {
     return { success: false, error: 'Incorrect password. Please check and try again.' };
   }
+
+  // 🔒 STRICT DATA ISOLATION: Cache ONLY this authenticated store on the device
+  saveStores([matched]);
 
   const session: SellerSession = {
     email: matched.ownerEmail || `${matched.slug}@tashop.co`,

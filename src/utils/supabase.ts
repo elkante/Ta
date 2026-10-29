@@ -23,9 +23,11 @@ export function mapStoreFromDB(row: any): Store {
   return {
     id: row.id,
     name: row.name,
+    ownerName: row.owner_name || undefined,
     slug: row.slug,
     ownerEmail: row.owner_email || undefined,
     ownerPassword: row.owner_password || undefined,
+    featuredOnLanding: Boolean(row.featured_on_landing),
     tagline: row.tagline || '',
     description: row.description || '',
     whatsappCountryCode: row.whatsapp_country_code || '+234',
@@ -56,9 +58,11 @@ export function mapStoreToDB(store: Store): any {
   return {
     id: store.id,
     name: store.name,
+    owner_name: store.ownerName,
     slug: store.slug,
     owner_email: store.ownerEmail,
     owner_password: store.ownerPassword,
+    featured_on_landing: Boolean(store.featuredOnLanding),
     tagline: store.tagline,
     description: store.description,
     whatsapp_country_code: store.whatsappCountryCode,

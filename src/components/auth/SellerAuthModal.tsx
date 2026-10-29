@@ -34,7 +34,7 @@ import {
   setSellerSession,
   validateSlug,
 } from '../../utils/storage';
-import { dbSaveStore, dbSaveProduct } from '../../utils/supabase';
+import { dbSaveStore, dbSaveProduct, dbFetchStoreBySlug } from '../../utils/supabase';
 
 interface SellerAuthModalProps {
   isOpen: boolean;
@@ -71,6 +71,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
   const [signupPassword, setSignupPassword] = useState('');
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [signupCurrency, setSignupCurrency] = useState<CurrencyCode>('NGN');
+  const [isSigningUp, setIsSigningUp] = useState(false);
 
   // Optional ID collection state (can be added later or now)
   const [showIdSection, setShowIdSection] = useState(false);
@@ -192,22 +193,26 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsSigningUp(true);
 
     if (!signupStoreName.trim()) {
       setError('Please provide a store name');
+      setIsSigningUp(false);
       return;
     }
 
     if (!signupOwnerName.trim()) {
       setError('Please provide the store owner name');
+      setIsSigningUp(false);
       return;
     }
 
     if (!signupPhone.trim()) {
       setError('Please provide a WhatsApp phone number for receiving orders');
+      setIsSigningUp(false);
       return;
     }
 
@@ -223,7 +228,20 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     const slugCheck = validateSlug(autoCleanSlug);
     if (!slugCheck.isValid) {
       setError(slugCheck.error || 'Invalid store name. Please use standard characters.');
+      setIsSigningUp(false);
       return;
+    }
+
+    // 🔒 LIVE SUPABASE CHECK: Ensure store slug is unique across all stores
+    try {
+      const existingSlugStore = await dbFetchStoreBySlug(slugCheck.cleanSlug);
+      if (existingSlugStore) {
+        setError(`The store address "${slugCheck.cleanSlug}.ta.shop" is already taken. Please choose another.`);
+        setIsSigningUp(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('Live slug uniqueness check failed:', e);
     }
 
     const curSymbol =
@@ -305,24 +323,28 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
       },
     ];
 
-    const allStores = getStoredStores();
-    allStores.push(newStore);
-    saveStores(allStores);
-
-    // Save directly to Supabase cloud db so multi-device login works immediately
-    dbSaveStore(newStore).catch((e) => console.error('Cloud store save error:', e));
-    if (starterProducts[0]) {
-      dbSaveProduct(starterProducts[0]).catch(() => {});
+    try {
+      // 🔒 LIVE SUPABASE CLOUD SYNC: Save store & product directly to cloud
+      await dbSaveStore(newStore);
+      if (starterProducts[0]) {
+        await dbSaveProduct(starterProducts[0]);
+      }
+    } catch (e) {
+      console.error('Cloud store save error:', e);
     }
 
+    // 🔒 STRICT ISOLATION: Save ONLY this store locally for this seller
+    saveStores([newStore]);
+
     const allProducts = getStoredProducts();
-    saveProducts([...starterProducts, ...allProducts]);
+    saveProducts([...starterProducts, ...allProducts.filter(p => p.storeId === newStore.id)]);
 
     const session: SellerSession = {
       email: newStore.ownerEmail || `${newStore.slug}@tashop.co`,
       storeId: newStore.id,
       storeSlug: newStore.slug,
       storeName: newStore.name,
+      ownerName: newStore.ownerName,
       isLoggedIn: true,
     };
     setSellerSession(session);
@@ -333,6 +355,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
       origin: { y: 0.6 },
     });
 
+    setIsSigningUp(false);
     onStoreCreated(newStore);
     onClose();
   };
@@ -769,10 +792,11 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm shadow-md transition cursor-pointer flex items-center justify-center gap-2 pt-2"
+                disabled={isSigningUp}
+                className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-semibold text-sm shadow-md transition cursor-pointer flex items-center justify-center gap-2 pt-2"
               >
                 <Sparkles className="w-4 h-4 text-amber-400" />
-                <span>Launch My Tá.shop Store</span>
+                <span>{isSigningUp ? 'Launching Store on Cloud...' : 'Launch My Tá.shop Store'}</span>
               </button>
             </form>
           )}

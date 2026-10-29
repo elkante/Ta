@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle2, Globe, Palette, Sparkles, Store as StoreIcon
 import confetti from 'canvas-confetti';
 import { CurrencyCode, Product, Store } from '../../types';
 import { getStoredProducts, getStoredStores, saveProducts, saveStores, validateSlug } from '../../utils/storage';
+import { dbSaveStore, dbSaveProduct, dbFetchStoreBySlug } from '../../utils/supabase';
 
 interface CreateStoreModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
   const [accentColor, setAccentColor] = useState('#b45309');
   const [location, setLocation] = useState('Lagos, Nigeria');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -73,7 +75,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) {
@@ -106,6 +108,21 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
       return;
     }
 
+    setIsSubmitting(true);
+    setValidationError(null);
+
+    // 🔒 LIVE SUPABASE CHECK: Ensure store slug is unique
+    try {
+      const existingLive = await dbFetchStoreBySlug(slugCheck.cleanSlug);
+      if (existingLive) {
+        setValidationError(`The store handle "${slugCheck.cleanSlug}.ta.shop" is already registered. Please choose another.`);
+        setIsSubmitting(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('Live slug uniqueness check failed:', e);
+    }
+
     const cur = CURRENCIES.find((c) => c.code === currency) || CURRENCIES[0];
 
     const storeId = `store_${Date.now()}`;
@@ -114,6 +131,8 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
       name: name.trim(),
       ownerName: ownerName.trim(),
       slug: slugCheck.cleanSlug,
+      ownerEmail: `${slugCheck.cleanSlug}@tashop.co`,
+      ownerPassword: 'password123',
       tagline: `Welcome to ${name.trim()}`,
       description: `Shop our curated collection directly on WhatsApp with fast and reliable delivery.`,
       whatsappCountryCode: countryCode,
@@ -186,13 +205,21 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
       },
     ];
 
-    // Persist
-    const allStores = getStoredStores();
-    allStores.push(newStore);
-    saveStores(allStores);
+    try {
+      // 🔒 LIVE SUPABASE SAVE FIRST
+      await dbSaveStore(newStore);
+      for (const sp of sampleProducts) {
+        await dbSaveProduct(sp);
+      }
+    } catch (e) {
+      console.error('Cloud store creation error:', e);
+    }
+
+    // 🔒 STRICT ISOLATION: Save ONLY this store locally for this creator
+    saveStores([newStore]);
 
     const allProducts = getStoredProducts();
-    saveProducts([...allProducts, ...sampleProducts]);
+    saveProducts([...allProducts.filter(p => p.storeId === newStore.id), ...sampleProducts]);
 
     // Celebrate
     confetti({
@@ -201,6 +228,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
       origin: { y: 0.6 },
     });
 
+    setIsSubmitting(false);
     onStoreCreated(newStore);
   };
 
@@ -391,10 +419,11 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm shadow-md transition active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isSubmitting}
+              className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-semibold text-sm shadow-md transition active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>Launch Storefront & Open Dashboard</span>
+              <span>{isSubmitting ? 'Launching Store on Cloud...' : 'Launch Storefront & Open Dashboard'}</span>
             </button>
           </div>
         </form>

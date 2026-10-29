@@ -219,11 +219,19 @@ export default function App() {
     // restore their store context strictly for the seller portal without mixing stores
     if (!targetStore && session) {
       targetStore = stores.find((s) => s.id === session.storeId || s.slug === session.storeSlug) || null;
+      if (!targetStore && session.storeSlug) {
+        try {
+          const liveStore = await dbFetchStoreBySlug(session.storeSlug);
+          if (liveStore) {
+            targetStore = liveStore;
+            saveStores([liveStore]);
+          }
+        } catch (e) {}
+      }
     }
 
-    if (!targetStore && !session) {
-      targetStore = stores[0] || null;
-    }
+    // 🔒 STRICT ISOLATION: Never default to arbitrary seed stores (prevents store mixing)
+    // If no store matched and user is a guest, targetStore remains null (Landing page view)
 
     if (targetStore) {
       setCurrentStore(targetStore);
@@ -253,12 +261,31 @@ export default function App() {
     loadTenantData();
   }, []);
 
-  // Persist last active view to sessionStorage so refresh restores it
+  // 🔒 Persist last active view to sessionStorage AND update URL so browser refresh preserves location
   useEffect(() => {
-    if (activeView !== 'landing') {
-      sessionStorage.setItem('ta_last_view', activeView);
-    }
-  }, [activeView]);
+    try {
+      const url = new URL(window.location.href);
+      if (activeView === 'dashboard' && currentStore) {
+        sessionStorage.setItem('ta_last_view', 'dashboard');
+        sessionStorage.setItem('ta_last_store_slug', currentStore.slug);
+        url.searchParams.set('store', currentStore.slug);
+        url.searchParams.set('view', 'dashboard');
+        window.history.replaceState({}, '', url.toString());
+      } else if (activeView === 'storefront' && currentStore) {
+        sessionStorage.setItem('ta_last_view', 'storefront');
+        sessionStorage.setItem('ta_last_store_slug', currentStore.slug);
+        url.searchParams.set('store', currentStore.slug);
+        url.searchParams.delete('view');
+        window.history.replaceState({}, '', url.toString());
+      } else if (activeView === 'landing') {
+        sessionStorage.removeItem('ta_last_view');
+        sessionStorage.removeItem('ta_last_store_slug');
+        url.searchParams.delete('store');
+        url.searchParams.delete('view');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch (e) {}
+  }, [activeView, currentStore]);
 
   // â”€â”€â”€ PWA ONLY on Landing Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
