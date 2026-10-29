@@ -151,8 +151,14 @@ export default function App() {
     const storeParamForFetch = urlParamsForFetch.get('store');
     const targetFetchSlug = slug || subdomainSlugForFetch || storeParamForFetch || session?.storeSlug || '';
 
+    const isSysHqRoute =
+      window.location.pathname.startsWith('/sys-hq') ||
+      urlParamsForFetch.get('view') === 'sys-hq' ||
+      urlParamsForFetch.get('view') === 'superadmin' ||
+      urlParamsForFetch.get('view') === 'admin';
+
     try {
-      if (adminSession) {
+      if (adminSession || isSysHqRoute) {
         const [liveStores, liveAllProducts, liveAllOrders] = await Promise.all([
           dbFetchStores(),
           dbFetchAllProducts(),
@@ -522,6 +528,7 @@ export default function App() {
     url.pathname = '/sys-hq';
     url.searchParams.delete('view');
     window.history.replaceState({}, '', url.toString());
+    handleRefreshData();
   };
 
   const handleSuperAdminLogout = () => {

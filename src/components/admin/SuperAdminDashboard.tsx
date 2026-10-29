@@ -78,7 +78,7 @@ import {
 } from '../../utils/storage';
 import { formatPrice } from '../../utils/whatsapp';
 import { getStoreAIUsage } from '../../utils/aiMarketing';
-import { dbSaveStore, dbDeleteStore, dbSaveProduct, dbFetchAllProducts, dbFetchAllOrders } from '../../utils/supabase';
+import { dbSaveStore, dbDeleteStore, dbSaveProduct, dbFetchAllProducts, dbFetchAllOrders, dbFetchStores } from '../../utils/supabase';
 
 interface SuperAdminDashboardProps {
   session: SuperAdminSession;
@@ -179,6 +179,34 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   // Modals / Action states
   const [storeToDelete, setStoreToDelete] = useState<Store | null>(null);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+  const [isRefreshingStores, setIsRefreshingStores] = useState(false);
+
+  // Live stores - self-fetched from Supabase on mount (not relying on prop from parent)
+  const [liveStores, setLiveStores] = useState<Store[]>(allStores);
+
+  useEffect(() => {
+    let mounted = true;
+    async function fetchAllStoresFromDB() {
+      try {
+        const stores = await dbFetchStores();
+        if (mounted && stores && stores.length > 0) {
+          setLiveStores(stores);
+          saveStores(stores); // refresh localStorage with complete store list
+        }
+      } catch (err) {
+        console.warn('SuperAdmin: failed to fetch all stores from Supabase:', err);
+      }
+    }
+    fetchAllStoresFromDB();
+    return () => { mounted = false; };
+  }, []);
+
+  // Sync when parent allStores prop updates (e.g. after onRefreshData)
+  useEffect(() => {
+    if (allStores.length > liveStores.length) {
+      setLiveStores(allStores);
+    }
+  }, [allStores]);
 
   // Live products & orders across entire system from Supabase cloud database
   const [liveProducts, setLiveProducts] = useState<Product[]>(() => getStoredProducts());
@@ -208,19 +236,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     }
     syncCloudCatalog();
     return () => { mounted = false; };
-  }, [allStores]);
+  }, [liveStores]);
 
   const allProducts = liveProducts;
   const allOrders = liveOrders;
 
   // Platform Metrics
-  const totalStoresCount = allStores.length;
-  const proStoresCount = allStores.filter((s) => s.tier === 'pro' || s.tier === 'business').length;
-  const freeStoresCount = allStores.filter((s) => s.tier === 'free').length;
-  const verifiedStoresCount = allStores.filter((s) => s.verified).length;
-  const suspendedStoresCount = allStores.filter((s) => s.status === 'suspended').length;
-  const pendingVerificationsCount = allStores.filter((s) => s.idVerification?.status === 'pending').length;
-  const totalVerificationsCount = allStores.filter((s) => s.idVerification).length;
+  const totalStoresCount = liveStores.length;
+  const proStoresCount = liveStores.filter((s) => s.tier === 'pro' || s.tier === 'business').length;
+  const freeStoresCount = liveStores.filter((s) => s.tier === 'free').length;
+  const verifiedStoresCount = liveStores.filter((s) => s.verified).length;
+  const suspendedStoresCount = liveStores.filter((s) => s.status === 'suspended').length;
+  const pendingVerificationsCount = liveStores.filter((s) => s.idVerification?.status === 'pending').length;
+  const totalVerificationsCount = liveStores.filter((s) => s.idVerification).length;
   const totalProductsCount = allProducts.length;
   const pendingProductsCount = allProducts.filter((p) => p.approvalStatus === 'pending').length;
   const totalOrdersCount = allOrders.length;
@@ -228,7 +256,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   // Filtered stores
   const filteredStores = useMemo(() => {
-    return allStores.filter((store) => {
+    return liveStores.filter((store) => {
       const matchSearch =
         !storeSearch ||
         store.name.toLowerCase().includes(storeSearch.toLowerCase()) ||
@@ -245,7 +273,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       return matchSearch && matchTier && matchStatus;
     });
-  }, [allStores, storeSearch, tierFilter, statusFilter]);
+  }, [liveStores, storeSearch, tierFilter, statusFilter]);
 
   // Filtered products across platform
   const filteredProducts = useMemo(() => {
@@ -274,20 +302,41 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setTimeout(() => setActionSuccessMessage(null), 3500);
   };
 
-  // ── Unified store save: localStorage + Supabase + local allStores state ──────
+  // ── Unified store save: localStorage + Supabase + local liveStores state ──────
   const saveStoreEverywhere = async (updated: Store) => {
-    // 1. Update local allStores state immediately so UI reflects without reload
-    // (Note: allStores comes from props so we signal parent to refresh)
-    // 2. Persist to localStorage
-    updateStore(updated);
+    // 1. Optimistic UI update — immediately reflect in liveStores so no flicker/revert
+    setLiveStores((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    // 2. Persist to localStorage (update within the full list)
+    const currentStores = liveStores.map((s) => (s.id === updated.id ? updated : s));
+    saveStores(currentStores);
     // 3. Persist to Supabase
     try {
       await dbSaveStore(updated);
     } catch (e) {
       console.warn('Supabase store save error:', e);
     }
-    // 4. Tell parent to refresh allStores from Supabase
+    // 4. Tell parent to refresh (background sync, won't override liveStores unless more stores found)
     onRefreshData();
+  };
+
+  const handleManualRefreshStores = async () => {
+    setIsRefreshingStores(true);
+    try {
+      const stores = await dbFetchStores();
+      if (stores && stores.length > 0) {
+        setLiveStores(stores);
+        saveStores(stores);
+        triggerToast(`Synced ${stores.length} store(s) from Supabase.`);
+      } else {
+        triggerToast('No stores returned from Supabase.');
+      }
+      onRefreshData();
+    } catch (e) {
+      console.warn('Manual store refresh error:', e);
+      triggerToast('Failed to refresh stores from database.');
+    } finally {
+      setIsRefreshingStores(false);
+    }
   };
 
   // Action handlers
@@ -454,6 +503,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   };
 
   const handleDeleteStore = async (store: Store) => {
+    // Remove from local liveStores immediately
+    setLiveStores((prev) => prev.filter((s) => s.id !== store.id));
     deleteStoreAndData(store.id);
     try {
       await dbDeleteStore(store.id);
@@ -483,7 +534,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     const payload = {
       exportedAt: new Date().toISOString(),
       platformSettings,
-      stores: allStores,
+      stores: liveStores,
       products: allProducts,
       orders: allOrders,
     };
@@ -540,7 +591,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const adminNavItems: { id: AdminTab; label: string; icon: React.ElementType; badge?: string; badgeColor?: string }[] = [
     {
       id: 'stores',
-      label: `Stores (${allStores.length})`,
+      label: `Stores (${liveStores.length})`,
       icon: Building,
       badge: suspendedStoresCount > 0 ? `${suspendedStoresCount} Banned` : undefined,
       badgeColor: 'bg-rose-500 text-white',
@@ -630,7 +681,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             <span>Landing Page</span>
           </button>
           <button
-            onClick={() => onOpenStorefront(allStores[0]?.slug || '')}
+            onClick={() => onOpenStorefront(liveStores[0]?.slug || '')}
             className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition text-xs font-medium cursor-pointer"
           >
             <Eye className="w-4 h-4 text-slate-400" />
@@ -831,6 +882,17 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     <option value="verified">Verified Only</option>
                     <option value="suspended">Banned / Suspended Only</option>
                   </select>
+
+                  <button
+                    type="button"
+                    onClick={handleManualRefreshStores}
+                    disabled={isRefreshingStores}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold cursor-pointer transition shadow-2xs"
+                    title="Reload all stores directly from Supabase database"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingStores ? 'animate-spin' : ''}`} />
+                    <span>{isRefreshingStores ? 'Syncing...' : 'Sync Stores'}</span>
+                  </button>
                 </div>
               </div>
 
@@ -1124,8 +1186,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   onChange={(e) => setProductStoreFilter(e.target.value)}
                   className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold cursor-pointer focus:outline-none"
                 >
-                  <option value="all">All Stores ({allStores.length})</option>
-                  {allStores.map((s) => (
+                  <option value="all">All Stores ({liveStores.length})</option>
+                  {liveStores.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
                     </option>
@@ -1168,7 +1230,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     </div>
                   ) : (
                     filteredProducts.map((p) => {
-                      const store = allStores.find((s) => s.id === p.storeId);
+                      const store = liveStores.find((s) => s.id === p.storeId);
                       const isApproved = p.approvalStatus === 'approved';
                       const isRejected = p.approvalStatus === 'rejected';
                       const isPending = !p.approvalStatus || p.approvalStatus === 'pending';
@@ -1283,7 +1345,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     <div className="p-8 text-center text-slate-400 text-xs">No orders recorded yet.</div>
                   ) : (
                     allOrders.map((ord) => {
-                      const store = allStores.find((s) => s.id === ord.storeId);
+                      const store = liveStores.find((s) => s.id === ord.storeId);
                       return (
                         <div key={ord.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                           <div>
@@ -1361,13 +1423,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <div className="bg-emerald-50/70 rounded-xl p-3 border border-emerald-200/80">
                     <span className="text-[11px] font-semibold text-emerald-700 block">Verified Merchants</span>
                     <span className="text-lg font-black text-emerald-800">
-                      {allStores.filter((s) => s.idVerification?.status === 'verified').length}
+                      {liveStores.filter((s) => s.idVerification?.status === 'verified').length}
                     </span>
                   </div>
                   <div className="bg-rose-50/70 rounded-xl p-3 border border-rose-200/80">
                     <span className="text-[11px] font-semibold text-rose-700 block">Rejected / Needs Fix</span>
                     <span className="text-lg font-black text-rose-800">
-                      {allStores.filter((s) => s.idVerification?.status === 'rejected').length}
+                      {liveStores.filter((s) => s.idVerification?.status === 'rejected').length}
                     </span>
                   </div>
                 </div>
@@ -1378,7 +1440,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     const count =
                       filterKey === 'all'
                         ? totalVerificationsCount
-                        : allStores.filter((s) => s.idVerification?.status === filterKey).length;
+                        : liveStores.filter((s) => s.idVerification?.status === filterKey).length;
                     const isActive = idVerificationFilter === filterKey;
                     return (
                       <button
@@ -1406,7 +1468,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
                 {/* Verification Queue List */}
                 {(() => {
-                  const filteredStores = allStores.filter((s) => {
+                  const filteredStores = liveStores.filter((s) => {
                     if (!s.idVerification) return false;
                     if (idVerificationFilter === 'all') return true;
                     return s.idVerification.status === idVerificationFilter;
@@ -1731,12 +1793,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     </p>
                   </div>
                   <div className="text-xs font-semibold text-slate-500">
-                    Total Stores: <span className="font-bold text-slate-900">{allStores.length}</span>
+                    Total Stores: <span className="font-bold text-slate-900">{liveStores.length}</span>
                   </div>
                 </div>
 
                 <div className="divide-y divide-slate-100">
-                  {allStores.map((store) => {
+                  {liveStores.map((store) => {
                     const planTime = getPlanTimeRemaining(store);
                     return (
                       <div key={store.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1833,7 +1895,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </div>
 
                 <div className="divide-y divide-slate-100">
-                  {allStores.map((store) => {
+                  {liveStores.map((store) => {
                     const notes = store.adminNotes || [];
                     return (
                       <div key={store.id} className="py-4 space-y-3">

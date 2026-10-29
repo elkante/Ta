@@ -37,6 +37,7 @@ import {
   generateWhatsAppLink,
 } from '../../utils/whatsapp';
 import { recordWhatsAppInquiry } from '../../utils/storage';
+import { parseSocialLink } from '../../utils/social';
 
 interface StorefrontProps {
   store: Store;
@@ -394,59 +395,70 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 )}
 
                 {/* Social media links */}
-                {store.socialLinks?.instagram && (
-                  <a
-                    href={`https://instagram.com/${store.socialLinks.instagram.replace(/^@/, '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1 hover:text-white transition"
-                    title={`Instagram: @${store.socialLinks.instagram.replace(/^@/, '')}`}
-                  >
-                    <Instagram className="w-3.5 h-3.5 text-pink-400 shrink-0" />
-                    <span>@{store.socialLinks.instagram.replace(/^@/, '')}</span>
-                  </a>
-                )}
+                {(() => {
+                  const ig = parseSocialLink('instagram', store.socialLinks?.instagram);
+                  const tt = parseSocialLink('tiktok', store.socialLinks?.tiktok);
+                  const fb = parseSocialLink('facebook', store.socialLinks?.facebook);
+                  const tw = parseSocialLink('twitter', store.socialLinks?.twitter);
 
-                {store.socialLinks?.tiktok && (
-                  <a
-                    href={`https://tiktok.com/@${store.socialLinks.tiktok.replace(/^@/, '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1 hover:text-white transition"
-                    title={`TikTok: @${store.socialLinks.tiktok.replace(/^@/, '')}`}
-                  >
-                    <svg className="w-3.5 h-3.5 text-cyan-400 fill-current shrink-0" viewBox="0 0 24 24">
-                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.86 4.43 6.3 6.3 0 0 0 1.93-4.52V8.58a8.28 8.28 0 0 0 4.8 1.54V6.69z"/>
-                    </svg>
-                    <span>@{store.socialLinks.tiktok.replace(/^@/, '')}</span>
-                  </a>
-                )}
+                  return (
+                    <>
+                      {ig && (
+                        <a
+                          href={ig.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 hover:text-white transition"
+                          title={`Instagram: ${ig.display}`}
+                        >
+                          <Instagram className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                          <span>{ig.display}</span>
+                        </a>
+                      )}
 
-                {store.socialLinks?.facebook && (
-                  <a
-                    href={`https://facebook.com/${store.socialLinks.facebook.replace(/^@/, '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1 hover:text-white transition"
-                    title={`Facebook: ${store.socialLinks.facebook.replace(/^@/, '')}`}
-                  >
-                    <Facebook className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                    <span>{store.socialLinks.facebook.replace(/^@/, '')}</span>
-                  </a>
-                )}
+                      {tt && (
+                        <a
+                          href={tt.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 hover:text-white transition"
+                          title={`TikTok: ${tt.display}`}
+                        >
+                          <svg className="w-3.5 h-3.5 text-cyan-400 fill-current shrink-0" viewBox="0 0 24 24">
+                            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.86 4.43 6.3 6.3 0 0 0 1.93-4.52V8.58a8.28 8.28 0 0 0 4.8 1.54V6.69z"/>
+                          </svg>
+                          <span>{tt.display}</span>
+                        </a>
+                      )}
 
-                {store.socialLinks?.twitter && (
-                  <a
-                    href={`https://x.com/${store.socialLinks.twitter.replace(/^@/, '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1 hover:text-white transition"
-                    title={`X / Twitter: @${store.socialLinks.twitter.replace(/^@/, '')}`}
-                  >
-                    <Twitter className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                    <span>@{store.socialLinks.twitter.replace(/^@/, '')}</span>
-                  </a>
-                )}
+                      {fb && (
+                        <a
+                          href={fb.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 hover:text-white transition"
+                          title={`Facebook: ${fb.display}`}
+                        >
+                          <Facebook className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                          <span>{fb.display}</span>
+                        </a>
+                      )}
+
+                      {tw && (
+                        <a
+                          href={tw.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 hover:text-white transition"
+                          title={`X / Twitter: ${tw.display}`}
+                        >
+                          <Twitter className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                          <span>{tw.display}</span>
+                        </a>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
 

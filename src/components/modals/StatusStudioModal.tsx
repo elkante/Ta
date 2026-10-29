@@ -13,6 +13,7 @@ import { formatPrice } from '../../utils/whatsapp';
 import { generateQRCodeSVG } from '../../utils/qrCode';
 import { getStoreUrl, getRootDomain } from '../../utils/storage';
 import { generateLocalMarketingContent } from '../../utils/aiMarketing';
+import { parseSocialLink } from '../../utils/social';
 
 interface StatusStudioModalProps {
   isOpen: boolean;
@@ -317,16 +318,17 @@ ${productUrl}`;
 
       // 8. Social Media Footer Bar stamped across every exported image
       const socialParts: string[] = [];
-      if (store.socialLinks?.instagram) {
-        socialParts.push(`IG: @${store.socialLinks.instagram.replace(/^@/, '')}`);
-      }
-      if (store.socialLinks?.tiktok) {
-        socialParts.push(`TikTok: @${store.socialLinks.tiktok.replace(/^@/, '')}`);
-      }
-      if (store.socialLinks?.facebook) {
-        socialParts.push(`FB: @${store.socialLinks.facebook.replace(/^@/, '')}`);
-      }
-      socialParts.push(`WhatsApp: ${store.whatsappCountryCode || '+234'} ${store.whatsappNumber}`);
+      const ig = parseSocialLink('instagram', store.socialLinks?.instagram);
+      const tt = parseSocialLink('tiktok', store.socialLinks?.tiktok);
+      const tw = parseSocialLink('twitter', store.socialLinks?.twitter);
+      const fb = parseSocialLink('facebook', store.socialLinks?.facebook);
+
+      if (ig) socialParts.push(`IG: ${ig.display}`);
+      if (tt) socialParts.push(`TT: ${tt.display}`);
+      if (tw) socialParts.push(`X: ${tw.display}`);
+      if (fb) socialParts.push(`FB: ${fb.display}`);
+
+      socialParts.push(`WA: ${store.whatsappCountryCode || '+234'} ${store.whatsappNumber}`);
       socialParts.push(store.customDomain || `${store.slug}.${getRootDomain()}`);
 
       const socialText = socialParts.join('   •   ');
@@ -340,7 +342,16 @@ ${productUrl}`;
       ctx.stroke();
 
       ctx.fillStyle = theme === 'clean-minimal' ? '#334155' : '#e2e8f0';
-      ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
+
+      // Auto-fit font size so the footer string NEVER overflows the pill
+      let fontSize = 22;
+      ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      const textWidth = ctx.measureText(socialText).width;
+      if (textWidth > 840) {
+        fontSize = Math.max(13, Math.floor((840 / textWidth) * fontSize));
+        ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      }
+
       ctx.textAlign = 'center';
       ctx.fillText(socialText, width / 2, socialY + 44);
 
@@ -463,16 +474,36 @@ ${productUrl}`;
                   : 'bg-white/10 text-slate-200 border-white/10'
               }`}
             >
-              {store.socialLinks?.instagram && (
-                <span className="font-semibold text-amber-300">
-                  IG: @{store.socialLinks.instagram.replace(/^@/, '')}
-                </span>
-              )}
-              {store.socialLinks?.tiktok && (
-                <span>
-                  TT: @{store.socialLinks.tiktok.replace(/^@/, '')}
-                </span>
-              )}
+              {(() => {
+                const ig = parseSocialLink('instagram', store.socialLinks?.instagram);
+                const tt = parseSocialLink('tiktok', store.socialLinks?.tiktok);
+                const tw = parseSocialLink('twitter', store.socialLinks?.twitter);
+                const fb = parseSocialLink('facebook', store.socialLinks?.facebook);
+                return (
+                  <>
+                    {ig && (
+                      <span className="font-semibold text-amber-300">
+                        IG: {ig.display}
+                      </span>
+                    )}
+                    {tt && (
+                      <span>
+                        TT: {tt.display}
+                      </span>
+                    )}
+                    {tw && (
+                      <span>
+                        X: {tw.display}
+                      </span>
+                    )}
+                    {fb && (
+                      <span>
+                        FB: {fb.display}
+                      </span>
+                    )}
+                  </>
+                );
+              })()}
               <span>
                 WA: {store.whatsappCountryCode || '+234'} {store.whatsappNumber}
               </span>

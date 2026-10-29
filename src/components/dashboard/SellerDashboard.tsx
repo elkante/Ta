@@ -68,6 +68,7 @@ import { AIMarketingModal } from '../modals/AIMarketingModal';
 import { WaybillModal } from '../modals/WaybillModal';
 import { WhatsAppBotStudio } from './WhatsAppBotStudio';
 import { formatPrice, generateWhatsAppLink } from '../../utils/whatsapp';
+import { sanitizeSocialInput } from '../../utils/social';
 import { generateQRCodeSVG } from '../../utils/qrCode';
 import { playOrderNotificationSound } from '../../utils/audio';
 import { dbFetchOrders, dbDeleteProduct, dbSaveProduct, dbSaveStore } from '../../utils/supabase';
@@ -343,10 +344,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [settingsAccentColor, setSettingsAccentColor] = useState(store.accentColor || '#b45309');
   const [settingsAnnouncement, setSettingsAnnouncement] = useState(store.announcement || '');
   const [settingsDeliveryInfo, setSettingsDeliveryInfo] = useState(store.deliveryInfo || '');
-  const [settingsInstagram, setSettingsInstagram] = useState(store.socialLinks?.instagram || '');
-  const [settingsTikTok, setSettingsTikTok] = useState(store.socialLinks?.tiktok || '');
-  const [settingsFacebook, setSettingsFacebook] = useState(store.socialLinks?.facebook || '');
-  const [settingsTwitter, setSettingsTwitter] = useState(store.socialLinks?.twitter || '');
+  const [settingsInstagram, setSettingsInstagram] = useState(() => sanitizeSocialInput('instagram', store.socialLinks?.instagram || ''));
+  const [settingsTikTok, setSettingsTikTok] = useState(() => sanitizeSocialInput('tiktok', store.socialLinks?.tiktok || ''));
+  const [settingsFacebook, setSettingsFacebook] = useState(() => sanitizeSocialInput('facebook', store.socialLinks?.facebook || ''));
+  const [settingsTwitter, setSettingsTwitter] = useState(() => sanitizeSocialInput('twitter', store.socialLinks?.twitter || ''));
   const [settingsLogoUrl, setSettingsLogoUrl] = useState(store.logoUrl || '');
   const [settingsBannerUrl, setSettingsBannerUrl] = useState(store.bannerUrl || '');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -374,10 +375,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     setSettingsAccentColor(store.accentColor || '#b45309');
     setSettingsAnnouncement(store.announcement || '');
     setSettingsDeliveryInfo(store.deliveryInfo || '');
-    setSettingsInstagram(store.socialLinks?.instagram || '');
-    setSettingsTikTok(store.socialLinks?.tiktok || '');
-    setSettingsFacebook(store.socialLinks?.facebook || '');
-    setSettingsTwitter(store.socialLinks?.twitter || '');
+    setSettingsInstagram(sanitizeSocialInput('instagram', store.socialLinks?.instagram || ''));
+    setSettingsTikTok(sanitizeSocialInput('tiktok', store.socialLinks?.tiktok || ''));
+    setSettingsFacebook(sanitizeSocialInput('facebook', store.socialLinks?.facebook || ''));
+    setSettingsTwitter(sanitizeSocialInput('twitter', store.socialLinks?.twitter || ''));
     setSettingsLogoUrl(store.logoUrl || '');
     setSettingsBannerUrl(store.bannerUrl || '');
     setSettingsOwnerName(store.ownerName || '');
@@ -612,10 +613,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       announcement: settingsAnnouncement.trim(),
       deliveryInfo: settingsDeliveryInfo.trim(),
       socialLinks: {
-        instagram: settingsInstagram.trim(),
-        tiktok: settingsTikTok.trim(),
-        facebook: settingsFacebook.trim(),
-        twitter: settingsTwitter.trim(),
+        instagram: sanitizeSocialInput('instagram', settingsInstagram),
+        tiktok: sanitizeSocialInput('tiktok', settingsTikTok),
+        facebook: sanitizeSocialInput('facebook', settingsFacebook),
+        twitter: sanitizeSocialInput('twitter', settingsTwitter),
       },
     };
 
@@ -2387,7 +2388,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                       type="text"
                       placeholder="username"
                       value={settingsInstagram}
-                      onChange={(e) => setSettingsInstagram(e.target.value.replace(/^@/, ''))}
+                      onChange={(e) => setSettingsInstagram(sanitizeSocialInput('instagram', e.target.value))}
                       className="w-full px-1.5 py-2 text-xs bg-transparent focus:outline-none"
                     />
                   </div>
@@ -2401,7 +2402,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                       type="text"
                       placeholder="pagename"
                       value={settingsFacebook}
-                      onChange={(e) => setSettingsFacebook(e.target.value.replace(/^@/, ''))}
+                      onChange={(e) => setSettingsFacebook(sanitizeSocialInput('facebook', e.target.value))}
                       className="w-full px-1.5 py-2 text-xs bg-transparent focus:outline-none"
                     />
                   </div>
@@ -2415,7 +2416,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                       type="text"
                       placeholder="username"
                       value={settingsTikTok}
-                      onChange={(e) => setSettingsTikTok(e.target.value.replace(/^@/, ''))}
+                      onChange={(e) => setSettingsTikTok(sanitizeSocialInput('tiktok', e.target.value))}
                       className="w-full px-1.5 py-2 text-xs bg-transparent focus:outline-none"
                     />
                   </div>
@@ -2429,7 +2430,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                       type="text"
                       placeholder="handle"
                       value={settingsTwitter}
-                      onChange={(e) => setSettingsTwitter(e.target.value.replace(/^@/, ''))}
+                      onChange={(e) => setSettingsTwitter(sanitizeSocialInput('twitter', e.target.value))}
                       className="w-full px-1.5 py-2 text-xs bg-transparent focus:outline-none"
                     />
                   </div>
