@@ -82,6 +82,8 @@ export interface Store {
   };
   tier: 'free' | 'starter' | 'pro' | 'business';
   verified: boolean;
+  hasVerifiedBadgeAddon?: boolean; // Standalone ₦2,000/mo verification add-on
+  verifiedBadgeExpiresAt?: string;
   status?: 'active' | 'suspended' | 'deleted';
   planExpiresAt?: string;
   adminNotes?: string[];

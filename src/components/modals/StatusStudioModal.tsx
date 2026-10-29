@@ -251,6 +251,35 @@ ${productUrl}`;
       }
       URL.revokeObjectURL(qrUrl);
 
+      // 8. Social Media Footer Bar stamped across every exported image
+      const socialParts: string[] = [];
+      if (store.socialLinks?.instagram) {
+        socialParts.push(`IG: @${store.socialLinks.instagram.replace(/^@/, '')}`);
+      }
+      if (store.socialLinks?.tiktok) {
+        socialParts.push(`TikTok: @${store.socialLinks.tiktok.replace(/^@/, '')}`);
+      }
+      if (store.socialLinks?.facebook) {
+        socialParts.push(`FB: @${store.socialLinks.facebook.replace(/^@/, '')}`);
+      }
+      socialParts.push(`WhatsApp: ${store.whatsappCountryCode || '+234'} ${store.whatsappNumber}`);
+      socialParts.push(`${store.slug}.ta.shop`);
+
+      const socialText = socialParts.join('   •   ');
+      const socialY = 1810;
+      ctx.fillStyle = theme === 'clean-minimal' ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.08)';
+      ctx.beginPath();
+      ctx.roundRect(90, socialY, 900, 70, 20);
+      ctx.fill();
+      ctx.strokeStyle = theme === 'clean-minimal' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = theme === 'clean-minimal' ? '#334155' : '#e2e8f0';
+      ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(socialText, width / 2, socialY + 44);
+
       // Trigger download
       const link = document.createElement('a');
       link.download = `${selectedProduct.uid}-status-card.png`;
@@ -351,6 +380,29 @@ ${productUrl}`;
                 className="w-12 h-12 bg-white rounded-lg p-1 shrink-0 flex items-center justify-center shadow-xs"
                 dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
+            </div>
+
+            {/* Social Media Footer Strip on preview */}
+            <div
+              className={`mt-2 px-2.5 py-1.5 rounded-xl flex items-center justify-center flex-wrap gap-x-2 gap-y-0.5 text-[8px] font-medium border text-center ${
+                theme === 'clean-minimal'
+                  ? 'bg-slate-100/90 text-slate-700 border-slate-200'
+                  : 'bg-white/10 text-slate-200 border-white/10'
+              }`}
+            >
+              {store.socialLinks?.instagram && (
+                <span className="font-semibold text-amber-300">
+                  IG: @{store.socialLinks.instagram.replace(/^@/, '')}
+                </span>
+              )}
+              {store.socialLinks?.tiktok && (
+                <span>
+                  TT: @{store.socialLinks.tiktok.replace(/^@/, '')}
+                </span>
+              )}
+              <span>
+                WA: {store.whatsappCountryCode || '+234'} {store.whatsappNumber}
+              </span>
             </div>
           </div>
 

@@ -252,7 +252,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
   // Paystack & Share Modals
   const [isPaystackOpen, setIsPaystackOpen] = useState(false);
-  const [paystackInitialPlan, setPaystackInitialPlan] = useState<'starter' | 'pro' | 'business'>('pro');
+  const [paystackInitialPlan, setPaystackInitialPlan] = useState<'starter' | 'badge' | 'pro' | 'business'>('pro');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
@@ -4030,8 +4030,9 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           const allStores = getStoredStores();
           const updatedStore: Store = {
             ...store,
-            tier: plan,
-            verified: plan === 'pro' || plan === 'business',
+            tier: plan === 'badge' ? store.tier : plan,
+            verified: plan === 'badge' || plan === 'pro' || plan === 'business' ? true : store.verified,
+            hasVerifiedBadgeAddon: plan === 'badge' || plan === 'business' ? true : store.hasVerifiedBadgeAddon,
           };
           saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
           onSelectStore(updatedStore);
