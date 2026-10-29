@@ -13,6 +13,7 @@ import {
   Edit,
   ExternalLink,
   Eye,
+  FileText,
   Filter,
   Globe,
   HardDrive,
@@ -43,7 +44,9 @@ import {
   Users,
   X,
   Zap,
+  ZoomIn,
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import {
   CurrencyCode,
   PlatformSettings,
@@ -65,6 +68,7 @@ import {
   impersonateStoreAsSeller,
   resetPlatformToSeedData,
   savePlatformSettings,
+  saveProducts,
   saveStores,
   updateStore,
 } from '../../utils/storage';
@@ -81,7 +85,15 @@ interface SuperAdminDashboardProps {
   onOpenLanding: () => void;
 }
 
-type AdminTab = 'stores' | 'products' | 'orders' | 'plans' | 'notes' | 'settings';
+type AdminTab = 'stores' | 'products' | 'orders' | 'verifications' | 'plans' | 'notes' | 'settings';
+
+const ID_TYPE_LABELS: Record<string, string> = {
+  nin: 'NIN (National Identification Number)',
+  drivers_license: "Driver's License",
+  passport: 'International Passport',
+  voters_card: "Voter's Card (PVC)",
+  national_id: 'Other National ID',
+};
 
 export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   session,
@@ -103,9 +115,24 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [tierFilter, setTierFilter] = useState<'all' | 'free' | 'starter' | 'pro' | 'business'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspended'>('all');
 
+  // KYC ID Verification Queue state
+  const [idVerificationFilter, setIdVerificationFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
+  const [selectedImageModal, setSelectedImageModal] = useState<{ url: string; title: string } | null>(null);
+  const [rejectModalStore, setRejectModalStore] = useState<Store | null>(null);
+  const [rejectReason, setRejectReason] = useState('ID photo is unclear or blurred. Please upload a clear photo.');
+
   // Search state for Products
   const [productSearch, setProductSearch] = useState('');
   const [productStoreFilter, setProductStoreFilter] = useState<string>('all');
+  const [productApprovalFilter, setProductApprovalFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [rejectProductModal, setRejectProductModal] = useState<Product | null>(null);
+  const [rejectProductReason, setRejectProductReason] = useState('');
+
+  // Plan override modal state
+  const [planOverrideStore, setPlanOverrideStore] = useState<Store | null>(null);
+  const [planOverrideTier, setPlanOverrideTier] = useState<'free' | 'starter' | 'pro' | 'business'>('starter');
+  const [planOverrideDays, setPlanOverrideDays] = useState('30');
+  const [planOverrideNote, setPlanOverrideNote] = useState('');
 
   // Platform Settings State
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(getPlatformSettings());
@@ -129,7 +156,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const freeStoresCount = allStores.filter((s) => s.tier === 'free').length;
   const verifiedStoresCount = allStores.filter((s) => s.verified).length;
   const suspendedStoresCount = allStores.filter((s) => s.status === 'suspended').length;
+  const pendingVerificationsCount = allStores.filter((s) => s.idVerification?.status === 'pending').length;
+  const totalVerificationsCount = allStores.filter((s) => s.idVerification).length;
   const totalProductsCount = allProducts.length;
+  const pendingProductsCount = allProducts.filter((p) => p.approvalStatus === 'pending').length;
   const totalOrdersCount = allOrders.length;
   const totalPlatformGMV = allOrders.reduce((sum, ord) => sum + (ord.totalAmount || 0), 0);
 
@@ -164,9 +194,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       const matchStore = productStoreFilter === 'all' || prod.storeId === productStoreFilter;
 
-      return matchSearch && matchStore;
+      const matchApproval =
+        productApprovalFilter === 'all' ||
+        (productApprovalFilter === 'pending' && (!prod.approvalStatus || prod.approvalStatus === 'pending')) ||
+        (productApprovalFilter === 'approved' && prod.approvalStatus === 'approved') ||
+        (productApprovalFilter === 'rejected' && prod.approvalStatus === 'rejected');
+
+      return matchSearch && matchStore && matchApproval;
     });
-  }, [allProducts, productSearch, productStoreFilter]);
+  }, [allProducts, productSearch, productStoreFilter, productApprovalFilter]);
 
   // Toast trigger
   const triggerToast = (msg: string) => {
@@ -194,20 +230,41 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     );
   };
 
-  const handleSetPlan = (store: Store, tier: 'free' | 'starter' | 'pro' | 'business') => {
+  const handleSetPlan = (store: Store, tier: 'free' | 'starter' | 'pro' | 'business', daysOverride?: number) => {
     const now = new Date();
     const expiry = new Date(now);
-    expiry.setDate(expiry.getDate() + 30); // 30 days validity
+    expiry.setDate(expiry.getDate() + (daysOverride ?? 30));
 
     const updated: Store = {
       ...store,
       tier,
-      verified: tier === 'pro' || tier === 'business',
+      verified: tier === 'pro' || tier === 'business' ? true : store.verified,
       planExpiresAt: tier === 'free' ? undefined : expiry.toISOString(),
     };
     updateStore(updated);
     onRefreshData();
-    triggerToast(`Store "${store.name}" plan updated to ${tier.toUpperCase()} (30-day timer started).`);
+    triggerToast(`"${store.name}" → ${tier.toUpperCase()} plan for ${daysOverride ?? 30} day(s).`);
+    setPlanOverrideStore(null);
+    setPlanOverrideNote('');
+  };
+
+  // Product approval handlers
+  const handleApproveProduct = (product: Product) => {
+    const updated: Product = { ...product, approvalStatus: 'approved', approvalRejectionReason: undefined };
+    const allProds = getStoredProducts();
+    saveProducts(allProds.map((p) => (p.id === product.id ? updated : p)));
+    onRefreshData();
+    triggerToast(`✓ "${product.name}" approved — live on storefront.`);
+  };
+
+  const handleRejectProduct = (product: Product, reason: string) => {
+    const updated: Product = { ...product, approvalStatus: 'rejected', approvalRejectionReason: reason };
+    const allProds = getStoredProducts();
+    saveProducts(allProds.map((p) => (p.id === product.id ? updated : p)));
+    onRefreshData();
+    triggerToast(`"${product.name}" rejected.`);
+    setRejectProductModal(null);
+    setRejectProductReason('');
   };
 
   const handleSendNote = (store: Store) => {
@@ -223,6 +280,43 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setNoteText('');
     setNoteTarget(null);
     triggerToast(`Private note sent to ${store.name}.`);
+  };
+
+  const handleApproveId = (store: Store) => {
+    if (!store.idVerification) return;
+    const updatedStore: Store = {
+      ...store,
+      verified: true,
+      idVerification: {
+        ...store.idVerification,
+        status: 'verified',
+        verifiedAt: new Date().toISOString(),
+        rejectionReason: undefined,
+      },
+    };
+    updateStore(updatedStore);
+    onRefreshData();
+    triggerToast(`Store "${store.name}" ID approved! Verified Blue Tick activated.`);
+    try {
+      confetti({ particleCount: 80, spread: 70, origin: { y: 0.5 } });
+    } catch (e) {}
+  };
+
+  const handleRejectId = (store: Store, reason: string) => {
+    if (!store.idVerification) return;
+    const updatedStore: Store = {
+      ...store,
+      verified: false,
+      idVerification: {
+        ...store.idVerification,
+        status: 'rejected',
+        rejectionReason: reason,
+      },
+    };
+    updateStore(updatedStore);
+    onRefreshData();
+    triggerToast(`Store "${store.name}" ID rejected.`);
+    setRejectModalStore(null);
   };
 
   const handleDeleteStore = (store: Store) => {
@@ -312,8 +406,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       badge: suspendedStoresCount > 0 ? `${suspendedStoresCount} Banned` : undefined,
       badgeColor: 'bg-rose-500 text-white',
     },
-    { id: 'products', label: `Products (${allProducts.length})`, icon: Package },
+    { id: 'products', label: `Products (${allProducts.length})`, icon: Package, badge: pendingProductsCount > 0 ? `${pendingProductsCount} Pending` : undefined, badgeColor: 'bg-amber-400 text-slate-950 font-black animate-pulse' },
     { id: 'orders', label: `Master Orders (${allOrders.length})`, icon: ShoppingBag },
+    {
+      id: 'verifications',
+      label: `ID Verifications (${totalVerificationsCount})`,
+      icon: ShieldCheck,
+      badge: pendingVerificationsCount > 0 ? `${pendingVerificationsCount} Pending` : undefined,
+      badgeColor: 'bg-amber-400 text-slate-950 font-black animate-pulse',
+    },
     { id: 'plans', label: 'Plan & Subscriptions', icon: CreditCard, badge: 'Timers', badgeColor: 'bg-amber-400 text-slate-950 font-bold' },
     { id: 'notes', label: 'Private Notes', icon: MessageSquare },
     { id: 'settings', label: 'Platform Config', icon: Settings },
@@ -648,10 +749,40 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                     ● Active
                                   </span>
                                 )}
+
+                                {/* KYC ID Status Badge */}
+                                {store.idVerification ? (
+                                  <button
+                                    onClick={() => setActiveTab('verifications')}
+                                    className={`text-[10px] font-black px-2 py-0.5 rounded-full cursor-pointer flex items-center gap-1 transition ${
+                                      store.idVerification.status === 'verified'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : store.idVerification.status === 'pending'
+                                        ? 'bg-amber-100 text-amber-900 border border-amber-300 animate-pulse'
+                                        : 'bg-rose-100 text-rose-800'
+                                    }`}
+                                    title="Click to view submitted ID"
+                                  >
+                                    <ShieldCheck className="w-3 h-3" />
+                                    <span>
+                                      {store.idVerification.status === 'verified'
+                                        ? 'ID Verified'
+                                        : store.idVerification.status === 'pending'
+                                        ? 'Review ID ⚠️'
+                                        : 'ID Rejected'}
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                                    No ID Yet
+                                  </span>
+                                )}
                               </div>
 
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
                                 <span className="font-mono text-slate-700 font-semibold">{store.slug}.ta.shop</span>
+                                <span>•</span>
+                                <span className="font-semibold text-slate-900">Owner: {store.ownerName || 'Not specified'}</span>
                                 <span>•</span>
                                 <span>{store.ownerEmail || 'No email registered'}</span>
                                 <span>•</span>
@@ -788,15 +919,47 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </select>
               </div>
 
+              {/* Approval filter pills */}
+              <div className="flex flex-wrap items-center gap-2">
+                {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => {
+                  const count =
+                    f === 'all'
+                      ? allProducts.length
+                      : f === 'pending'
+                      ? allProducts.filter((p) => !p.approvalStatus || p.approvalStatus === 'pending').length
+                      : allProducts.filter((p) => p.approvalStatus === f).length;
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setProductApprovalFilter(f)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition cursor-pointer flex items-center gap-1.5 ${
+                        productApprovalFilter === f
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span>{f === 'all' ? 'All Products' : f}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${productApprovalFilter === f ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700'}`}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
                 <div className="divide-y divide-slate-100">
                   {filteredProducts.length === 0 ? (
-                    <div className="p-8 text-center text-slate-400 text-xs">No products match your search.</div>
+                    <div className="p-8 text-center text-slate-400 text-xs">
+                      {productApprovalFilter === 'pending' ? '🎉 No products pending review!' : 'No products match your filters.'}
+                    </div>
                   ) : (
                     filteredProducts.map((p) => {
                       const store = allStores.find((s) => s.id === p.storeId);
+                      const isApproved = p.approvalStatus === 'approved';
+                      const isRejected = p.approvalStatus === 'rejected';
+                      const isPending = !p.approvalStatus || p.approvalStatus === 'pending';
                       return (
-                        <div key={p.id} className="p-3.5 sm:p-4 flex items-center justify-between gap-4 hover:bg-slate-50/70 transition">
+                        <div key={p.id} className={`p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition ${isPending ? 'border-l-2 border-amber-400' : isRejected ? 'border-l-2 border-rose-400' : ''}`}>
                           <div className="flex items-center gap-3">
                             <img
                               src={p.images[0]}
@@ -804,11 +967,26 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                               className="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-100 flex-shrink-0"
                             />
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-bold text-slate-900 text-xs sm:text-sm">{p.name}</span>
                                 <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
                                   #{p.uid}
                                 </span>
+                                {isPending && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                                    ⏳ Pending Review
+                                  </span>
+                                )}
+                                {isApproved && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                    ✓ Live
+                                  </span>
+                                )}
+                                {isRejected && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                                    ✗ Rejected
+                                  </span>
+                                )}
                               </div>
                               <div className="text-xs text-slate-500 mt-0.5">
                                 <strong>{store?.name}</strong> • {p.category} •{' '}
@@ -816,20 +994,47 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                   {formatPrice(p.price, store?.currencySymbol || '₦')}
                                 </span>
                               </div>
+                              {isRejected && p.approvalRejectionReason && (
+                                <p className="text-[11px] text-rose-600 mt-0.5">Reason: {p.approvalRejectionReason}</p>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                p.inStock ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                              }`}
-                            >
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.inStock ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                               {p.inStock ? 'In Stock' : 'Sold Out'}
                             </span>
+                            {!isApproved && (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveProduct(p)}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition cursor-pointer flex items-center gap-1 shadow-xs"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Approve</span>
+                              </button>
+                            )}
+                            {isApproved && (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveProduct(p)}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold flex items-center gap-1 cursor-default"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Approved</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => { setRejectProductModal(p); setRejectProductReason(''); }}
+                              className="px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                            >
+                              <Ban className="w-3.5 h-3.5" />
+                              <span>Reject</span>
+                            </button>
                             {store && (
                               <button
                                 onClick={() => onOpenStorefront(store.slug)}
-                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
                               >
                                 <ExternalLink className="w-3.5 h-3.5" />
                               </button>
@@ -906,6 +1111,397 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </div>
           )}
 
+          {/* ── TAB: KYC & ID VERIFICATIONS QUEUE ── */}
+          {activeTab === 'verifications' && (
+            <div className="space-y-4">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-slate-100 pb-4">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                      <span>KYC & Merchant ID Verification Queue</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Review government ID documents (NIN, Driver's License, International Passport, Voter's Card) submitted during upgrade or seller onboarding.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
+                      <span>{pendingVerificationsCount} Awaiting Review</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Metric Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/80">
+                    <span className="text-[11px] font-semibold text-slate-500 block">Total KYC Submissions</span>
+                    <span className="text-lg font-black text-slate-900">{totalVerificationsCount}</span>
+                  </div>
+                  <div className="bg-amber-50/70 rounded-xl p-3 border border-amber-200/80">
+                    <span className="text-[11px] font-semibold text-amber-700 block">Pending Review</span>
+                    <span className="text-lg font-black text-amber-800">{pendingVerificationsCount}</span>
+                  </div>
+                  <div className="bg-emerald-50/70 rounded-xl p-3 border border-emerald-200/80">
+                    <span className="text-[11px] font-semibold text-emerald-700 block">Verified Merchants</span>
+                    <span className="text-lg font-black text-emerald-800">
+                      {allStores.filter((s) => s.idVerification?.status === 'verified').length}
+                    </span>
+                  </div>
+                  <div className="bg-rose-50/70 rounded-xl p-3 border border-rose-200/80">
+                    <span className="text-[11px] font-semibold text-rose-700 block">Rejected / Needs Fix</span>
+                    <span className="text-lg font-black text-rose-800">
+                      {allStores.filter((s) => s.idVerification?.status === 'rejected').length}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex flex-wrap items-center gap-2 mb-5">
+                  {(['all', 'pending', 'verified', 'rejected'] as const).map((filterKey) => {
+                    const count =
+                      filterKey === 'all'
+                        ? totalVerificationsCount
+                        : allStores.filter((s) => s.idVerification?.status === filterKey).length;
+                    const isActive = idVerificationFilter === filterKey;
+                    return (
+                      <button
+                        key={filterKey}
+                        type="button"
+                        onClick={() => setIdVerificationFilter(filterKey)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer capitalize flex items-center gap-2 ${
+                          isActive
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        <span>{filterKey === 'all' ? 'All Submissions' : filterKey}</span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                            isActive ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Verification Queue List */}
+                {(() => {
+                  const filteredStores = allStores.filter((s) => {
+                    if (!s.idVerification) return false;
+                    if (idVerificationFilter === 'all') return true;
+                    return s.idVerification.status === idVerificationFilter;
+                  });
+
+                  if (filteredStores.length === 0) {
+                    return (
+                      <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">
+                        <ShieldCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                        <h4 className="text-sm font-bold text-slate-700">No verification requests found</h4>
+                        <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                          {idVerificationFilter === 'pending'
+                            ? 'All merchant verification submissions have been reviewed! New submissions will appear here.'
+                            : 'No merchant stores match the selected verification status filter.'}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {filteredStores.map((st) => {
+                        const ver = st.idVerification!;
+                        const isVerified = ver.status === 'verified';
+                        const isPending = ver.status === 'pending';
+                        const isRejected = ver.status === 'rejected';
+
+                        return (
+                          <div
+                            key={st.id}
+                            className={`rounded-2xl border transition-all p-4 sm:p-5 ${
+                              isPending
+                                ? 'border-amber-300 bg-amber-50/20 shadow-xs'
+                                : isVerified
+                                ? 'border-emerald-200 bg-white'
+                                : 'border-rose-200 bg-rose-50/15'
+                            }`}
+                          >
+                            {/* Merchant Meta Header */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={st.logoUrl}
+                                  alt={st.name}
+                                  className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
+                                />
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className="font-bold text-slate-900 text-sm sm:text-base">{st.name}</h4>
+                                    <span className="text-xs font-mono text-slate-400">({st.slug}.ta.shop)</span>
+                                    <span
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                        st.tier === 'business'
+                                          ? 'bg-purple-100 text-purple-700'
+                                          : st.tier === 'pro'
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-slate-100 text-slate-700'
+                                      }`}
+                                    >
+                                      {st.tier} Plan
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-slate-600 mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                    <span>
+                                      <strong>Owner Name:</strong>{' '}
+                                      <span className="text-slate-900 font-semibold">{st.ownerName || 'Not specified'}</span>
+                                    </span>
+                                    {st.ownerEmail && (
+                                      <span>
+                                        <strong>Email:</strong> {st.ownerEmail}
+                                      </span>
+                                    )}
+                                    <span>
+                                      <strong>WhatsApp:</strong> {st.whatsappCountryCode || '+234'} {st.whatsappNumber}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Status Badge */}
+                              <div className="flex items-center gap-2 shrink-0">
+                                {isPending && (
+                                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1.5 animate-pulse">
+                                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Pending Verification</span>
+                                  </span>
+                                )}
+                                {isVerified && (
+                                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1.5">
+                                    <BadgeCheck className="w-4 h-4 text-emerald-600" />
+                                    <span>Verified Merchant</span>
+                                  </span>
+                                )}
+                                {isRejected && (
+                                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1.5">
+                                    <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+                                    <span>Rejected / Resubmission Requested</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* ID Details & Rejection Notice */}
+                            <div className="py-3 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs text-slate-600">
+                              <div>
+                                <span className="text-slate-400">ID Document Type: </span>
+                                <span className="font-bold text-slate-800">
+                                  {ID_TYPE_LABELS[ver.idType] || ver.idType}
+                                </span>
+                              </div>
+                              {ver.idNumber && (
+                                <div>
+                                  <span className="text-slate-400">ID Number / Reg: </span>
+                                  <span className="font-mono font-bold text-slate-800">{ver.idNumber}</span>
+                                </div>
+                              )}
+                              <div>
+                                <span className="text-slate-400">Submitted: </span>
+                                <span className="font-medium text-slate-700">
+                                  {ver.submittedAt ? new Date(ver.submittedAt).toLocaleString() : 'N/A'}
+                                </span>
+                              </div>
+                              {ver.verifiedAt && (
+                                <div>
+                                  <span className="text-slate-400">Verified: </span>
+                                  <span className="font-medium text-emerald-700">
+                                    {new Date(ver.verifiedAt).toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Rejection Alert if rejected */}
+                            {ver.rejectionReason && (
+                              <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+                                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <strong className="block font-semibold">Previous Rejection Reason:</strong>
+                                  <span>{ver.rejectionReason}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* ID Photos Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 pb-3">
+                              {/* Front Image */}
+                              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                    <FileText className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Front of ID Card</span>
+                                  </span>
+                                  {ver.frontImageUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedImageModal({
+                                          url: ver.frontImageUrl,
+                                          title: `${st.name} - Front of ${ID_TYPE_LABELS[ver.idType] || ver.idType}`,
+                                        })
+                                      }
+                                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                                    >
+                                      <ZoomIn className="w-3.5 h-3.5" />
+                                      <span>Zoom & Inspect</span>
+                                    </button>
+                                  )}
+                                </div>
+                                {ver.frontImageUrl ? (
+                                  <div
+                                    onClick={() =>
+                                      setSelectedImageModal({
+                                        url: ver.frontImageUrl,
+                                        title: `${st.name} - Front of ${ID_TYPE_LABELS[ver.idType] || ver.idType}`,
+                                      })
+                                    }
+                                    className="relative h-44 rounded-lg overflow-hidden border border-slate-200 bg-white group cursor-pointer"
+                                  >
+                                    <img
+                                      src={ver.frontImageUrl}
+                                      alt="Front ID"
+                                      className="w-full h-full object-contain group-hover:scale-102 transition duration-200"
+                                    />
+                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                                      <ZoomIn className="w-4 h-4" /> Click to view full image
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="h-44 rounded-lg border border-dashed border-slate-300 bg-slate-100 flex items-center justify-center text-xs text-slate-400">
+                                    Front image not provided
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Back Image */}
+                              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                    <FileText className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Back of ID Card</span>
+                                  </span>
+                                  {ver.backImageUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedImageModal({
+                                          url: ver.backImageUrl,
+                                          title: `${st.name} - Back of ${ID_TYPE_LABELS[ver.idType] || ver.idType}`,
+                                        })
+                                      }
+                                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                                    >
+                                      <ZoomIn className="w-3.5 h-3.5" />
+                                      <span>Zoom & Inspect</span>
+                                    </button>
+                                  )}
+                                </div>
+                                {ver.backImageUrl ? (
+                                  <div
+                                    onClick={() =>
+                                      setSelectedImageModal({
+                                        url: ver.backImageUrl,
+                                        title: `${st.name} - Back of ${ID_TYPE_LABELS[ver.idType] || ver.idType}`,
+                                      })
+                                    }
+                                    className="relative h-44 rounded-lg overflow-hidden border border-slate-200 bg-white group cursor-pointer"
+                                  >
+                                    <img
+                                      src={ver.backImageUrl}
+                                      alt="Back ID"
+                                      className="w-full h-full object-contain group-hover:scale-102 transition duration-200"
+                                    />
+                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                                      <ZoomIn className="w-4 h-4" /> Click to view full image
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="h-44 rounded-lg border border-dashed border-slate-300 bg-slate-100 flex items-center justify-center text-xs text-slate-400">
+                                    Back image not provided
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Action Bar */}
+                            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenStorefront(st.slug)}
+                                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>View Storefront</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleImpersonate(st)}
+                                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5"
+                                >
+                                  <LogIn className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Impersonate Seller</span>
+                                </button>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {!isVerified && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApproveId(st)}
+                                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                    <span>Approve & Verify Merchant</span>
+                                  </button>
+                                )}
+                                {isVerified && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApproveId(st)}
+                                    className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold flex items-center gap-1.5 cursor-default"
+                                  >
+                                    <BadgeCheck className="w-4 h-4 text-emerald-600" />
+                                    <span>Verified Active</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRejectModalStore(st);
+                                    setRejectReason('ID photo is unclear or blurred. Please upload a clear photo.');
+                                  }}
+                                  className="px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5"
+                                >
+                                  <ShieldAlert className="w-3.5 h-3.5" />
+                                  <span>{isRejected ? 'Update Rejection Note' : 'Reject ID'}</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
           {/* ── TAB 4: PLAN & SUBSCRIPTIONS MANAGER (With Expiry Timer) ── */}
           {activeTab === 'plans' && (
             <div className="space-y-4">
@@ -976,7 +1572,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                 }`}
                               >
                                 {tierOption === 'business'
-                                  ? '🤖 Business AI'
+                                  ? '🤖 Business Bot'
                                   : tierOption === 'pro'
                                   ? '⚡ Pro'
                                   : tierOption === 'starter'
@@ -985,6 +1581,20 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                               </button>
                             );
                           })}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPlanOverrideStore(store);
+                              setPlanOverrideTier(store.tier || 'starter');
+                              setPlanOverrideDays('30');
+                              setPlanOverrideNote('');
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 flex items-center gap-1 shadow-2xs"
+                            title="Set custom plan tier & duration for trial or promo"
+                          >
+                            <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Custom Duration</span>
+                          </button>
                         </div>
                       </div>
                     );
@@ -1263,8 +1873,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </button>
           </div>
 
-          {/* Right 2 Items: Private Notes & Settings */}
-          {(['notes', 'settings'] as AdminTab[]).map((tabId) => {
+          {/* Right 2 Items: ID Verifications & Settings */}
+          {(['verifications', 'settings'] as AdminTab[]).map((tabId) => {
             const tab = adminNavItems.find((t) => t.id === tabId)!;
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -1272,11 +1882,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               <button
                 key={tabId}
                 onClick={() => setActiveTab(tabId)}
-                className="flex-1 flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer"
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer relative"
               >
-                <Icon className={`w-5 h-5 ${active ? 'text-amber-400' : 'text-slate-500'}`} />
+                <div className="relative">
+                  <Icon className={`w-5 h-5 ${active ? 'text-amber-400' : 'text-slate-500'}`} />
+                  {tab.badge && tabId === 'verifications' && pendingVerificationsCount > 0 && (
+                    <span className="absolute -top-1.5 -right-2 w-4 h-4 bg-amber-400 text-slate-950 font-black text-[9px] rounded-full flex items-center justify-center animate-pulse">
+                      {pendingVerificationsCount}
+                    </span>
+                  )}
+                </div>
                 <span className={`text-[10px] font-semibold ${active ? 'text-amber-400' : 'text-slate-500'}`}>
-                  {tabId === 'notes' ? 'Notes' : 'Config'}
+                  {tabId === 'verifications' ? 'KYC IDs' : 'Settings'}
                 </span>
               </button>
             );
@@ -1357,6 +1974,355 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition cursor-pointer shadow-sm"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── KYC REJECTION REASON MODAL ── */}
+      {rejectModalStore && (
+        <div className="fixed inset-0 z-[320] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Reject ID Submission</h3>
+                  <p className="text-xs text-slate-500">{rejectModalStore.name} ({rejectModalStore.ownerName || 'Merchant'})</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setRejectModalStore(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Select or customize the feedback given to the merchant. They will see this note in their dashboard settings and can upload corrected photos.
+            </p>
+
+            {/* Quick preset chips */}
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                Quick Preset Reasons:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'ID photo is blurry, unreadable or has glare.',
+                  'Missing or unreadable back of ID card.',
+                  'Name on ID does not match store owner name.',
+                  'Uploaded document has expired.',
+                  'Document type does not match selected option.',
+                ].map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setRejectReason(reason)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer text-left ${
+                      rejectReason === reason
+                        ? 'bg-rose-100 text-rose-800 font-bold border border-rose-300'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-1">
+                Rejection Feedback to Seller:
+              </label>
+              <textarea
+                rows={3}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-rose-500 resize-none"
+                placeholder="Explain what is wrong with the document..."
+              />
+            </div>
+
+            <div className="flex gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setRejectModalStore(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRejectId(rejectModalStore, rejectReason)}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Confirm Rejection</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── FULLSCREEN ID IMAGE LIGHTBOX MODAL ── */}
+      {selectedImageModal && (
+        <div className="fixed inset-0 z-[350] flex flex-col items-center justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-md">
+          <div className="max-w-4xl w-full flex items-center justify-between pb-3 text-white">
+            <div className="min-w-0 pr-4">
+              <h4 className="font-bold text-sm sm:text-base truncate">{selectedImageModal.title}</h4>
+              <p className="text-xs text-slate-400">High-resolution document preview</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedImageModal(null)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="max-w-4xl w-full max-h-[80vh] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center p-2 shadow-2xl">
+            <img
+              src={selectedImageModal.url}
+              alt={selectedImageModal.title}
+              className="max-h-[75vh] max-w-full object-contain rounded-lg"
+            />
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <a
+              href={selectedImageModal.url}
+              download="id-document"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download Original</span>
+            </a>
+            <button
+              type="button"
+              onClick={() => setSelectedImageModal(null)}
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer"
+            >
+              Done Viewing
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── PRODUCT REJECTION MODAL ── */}
+      {rejectProductModal && (
+        <div className="fixed inset-0 z-[320] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                  <Ban className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-slate-900 text-sm truncate">Reject Product Listing</h3>
+                  <p className="text-xs text-slate-500 truncate">{rejectProductModal.name} (#{rejectProductModal.uid})</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectProductModal(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Rejecting this product removes it from public storefront visibility. Provide feedback so the seller understands why:
+            </p>
+
+            {/* Quick preset chips */}
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                Quick Preset Reasons:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'Prohibited or shady goods.',
+                  'Misleading description or fake pricing.',
+                  'Low quality or broken product images.',
+                  'Copyright or brand trademark infringement.',
+                  'Missing variant or sizing details.',
+                ].map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setRejectProductReason(reason)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer text-left ${
+                      rejectProductReason === reason
+                        ? 'bg-rose-100 text-rose-800 font-bold border border-rose-300'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-1">
+                Feedback for Store Owner:
+              </label>
+              <textarea
+                rows={3}
+                value={rejectProductReason}
+                onChange={(e) => setRejectProductReason(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-rose-500 resize-none"
+                placeholder="Explain why this item cannot be published..."
+              />
+            </div>
+
+            <div className="flex gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setRejectProductModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRejectProduct(rejectProductModal, rejectProductReason || 'Item does not meet platform catalog guidelines.')}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+              >
+                <Ban className="w-3.5 h-3.5" />
+                <span>Confirm Rejection</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CUSTOM PLAN OVERRIDE & DURATION MODAL ── */}
+      {planOverrideStore && (
+        <div className="fixed inset-0 z-[320] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-slate-900 text-sm truncate">Manual Plan & Trial Override</h3>
+                  <p className="text-xs text-slate-500 truncate">{planOverrideStore.name} ({planOverrideStore.ownerName || 'Merchant'})</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPlanOverrideStore(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Manually set this merchant's subscription tier and configure exact duration (give friends a free trial, extend existing plans, or upgrade manually).
+            </p>
+
+            {/* Tier Selector */}
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                Select Plan Tier:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'free', label: 'Free Tier', badge: '₦0' },
+                  { id: 'starter', label: 'Starter', badge: '₦500/mo' },
+                  { id: 'pro', label: '⚡ Pro Plan', badge: '₦4,900/mo' },
+                  { id: 'business', label: '🤖 Business Bot', badge: '₦25,000/mo' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setPlanOverrideTier(t.id as any)}
+                    className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                      planOverrideTier === t.id
+                        ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 font-bold ring-1 ring-indigo-500'
+                        : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <div className="text-xs font-bold">{t.label}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">{t.badge}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Duration Days */}
+            {planOverrideTier !== 'free' && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Duration in Days:</label>
+                  <span className="text-[11px] font-mono text-indigo-700 font-bold">
+                    Expires on {new Date(Date.now() + (parseInt(planOverrideDays) || 30) * 86400000).toLocaleDateString()}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max="3650"
+                  value={planOverrideDays}
+                  onChange={(e) => setPlanOverrideDays(e.target.value)}
+                  className="w-full px-3 py-2 text-sm font-mono border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                  placeholder="30"
+                />
+
+                {/* Quick day presets */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {[
+                    { days: '7', label: '7d (Trial)' },
+                    { days: '14', label: '14d' },
+                    { days: '30', label: '30d (1 Mo)' },
+                    { days: '60', label: '60d' },
+                    { days: '90', label: '90d' },
+                    { days: '365', label: '365d (1 Yr)' },
+                  ].map((p) => (
+                    <button
+                      key={p.days}
+                      type="button"
+                      onClick={() => setPlanOverrideDays(p.days)}
+                      className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border transition cursor-pointer ${
+                        planOverrideDays === p.days
+                          ? 'border-indigo-600 bg-indigo-50 text-indigo-800 font-bold'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setPlanOverrideStore(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetPlan(planOverrideStore, planOverrideTier, parseInt(planOverrideDays) || 30)}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Apply Plan Override</span>
               </button>
             </div>
           </div>

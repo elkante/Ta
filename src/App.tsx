@@ -47,7 +47,7 @@ export default function App() {
   const [storeInquiries, setStoreInquiries] = useState<WhatsAppInquiryLog[]>([]);
   const [storeReviews, setStoreReviews] = useState<StoreReview[]>([]);
 
-  const [activeView, setActiveView] = useState<'landing' | 'storefront' | 'dashboard' | 'superadmin'>('storefront');
+  const [activeView, setActiveView] = useState<'landing' | 'storefront' | 'dashboard' | 'superadmin'>('landing');
   const [sellerSession, setSellerSession] = useState<SellerSession | null>(null);
   const [superAdminSession, setSuperAdminSessionState] = useState<SuperAdminSession | null>(null);
 
@@ -106,11 +106,15 @@ export default function App() {
     // 1. Explicit arg passed to loadTenantData (e.g. after creating a store)
     // 2. Subdomain in hostname (e.g. amaka-perfumes.ta.shop)
     // 3. ?store= URL param — QR code scans / shared links (MUST beat localStorage)
-    // 4. localStorage last-visited store (lowest priority)
+    // 4. localStorage last-visited store (lowest priority, only for authenticated sellers)
     const subdomainSlug = getSubdomainFromHostname();
-    const urlStoreSlug = slug || subdomainSlug || storeParam || getCurrentTenantSlug();
 
-    if (viewParam === 'landing' || stores.length === 0) {
+    // Determine if a specific store was explicitly requested
+    const hasExplicitStore = !!(slug || subdomainSlug || storeParam);
+    const urlStoreSlug = slug || subdomainSlug || storeParam || '';
+
+    if (viewParam === 'landing') {
+      // Explicit landing request → show landing page
       setActiveView('landing');
     } else if (viewParam === 'admin' || viewParam === 'superadmin') {
       // Secret key check: ?view=superadmin&key=ta_root_9921 (set your own in storage.ts)
@@ -127,14 +131,25 @@ export default function App() {
       } else {
         setIsSuperAdminModalOpen(true);
       }
-    } else if (storeParam || subdomainSlug) {
+    } else if (hasExplicitStore) {
       // Explicit store in URL (QR scan or shared link) → always go straight to storefront
       setActiveView('storefront');
+    } else {
+      // No explicit store in URL → always show landing page (main site link)
+      setActiveView('landing');
     }
 
-    let targetStore = stores.find((s) => s.slug.toLowerCase() === urlStoreSlug.toLowerCase());
-    if (!targetStore) {
-      targetStore = stores[0] || null;
+    // Only resolve the target store if a slug was explicitly provided
+    // Never fall back to stores[0] for anonymous visitors on the main link
+    let targetStore: Store | null = null;
+    if (urlStoreSlug) {
+      targetStore = stores.find((s) => s.slug.toLowerCase() === urlStoreSlug.toLowerCase()) || null;
+    }
+
+    // If authenticated seller session exists and no explicit store in URL,
+    // restore their store context silently (but keep landing view)
+    if (!targetStore && session) {
+      targetStore = stores.find((s) => s.id === session.storeId) || null;
     }
 
     if (targetStore) {

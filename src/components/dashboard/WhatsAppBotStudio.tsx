@@ -268,7 +268,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         const botReply: ChatMessage = {
           id: `msg_${Date.now()}_bot`,
           sender: 'bot',
-          text: greetingTemplate,
+          text: welcomeMessage,
           timestamp: timeNow,
         };
         setMessages((prev) => [...prev, botReply]);
@@ -276,7 +276,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         const botReply: ChatMessage = {
           id: `msg_${Date.now()}_bot`,
           sender: 'bot',
-          text: `${fallbackTemplate}\n\nOr reply *"AGENT"* to speak with our sales manager on duty.`,
+          text: `I didn't quite catch that. You can drop any Item UID (e.g. #${products[0]?.uid || 'PROD-101'}) or ask about prices, stock, and delivery.\n\nOr reply *"AGENT"* to speak with our sales manager on duty.`,
           timestamp: timeNow,
         };
         setMessages((prev) => [...prev, botReply]);

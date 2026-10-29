@@ -33,6 +33,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
   onStoreCreated,
 }) => {
   const [name, setName] = useState('');
+  const [ownerName, setOwnerName] = useState('');
   const [slug, setSlug] = useState('');
   const [countryCode, setCountryCode] = useState('+234');
   const [whatsappNumber, setWhatsappNumber] = useState('');
@@ -80,6 +81,11 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
       return;
     }
 
+    if (!ownerName.trim()) {
+      setValidationError('Please enter the store owner full name');
+      return;
+    }
+
     if (!whatsappNumber.trim()) {
       setValidationError('Please provide your WhatsApp phone number');
       return;
@@ -106,6 +112,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
     const newStore: Store = {
       id: storeId,
       name: name.trim(),
+      ownerName: ownerName.trim(),
       slug: slugCheck.cleanSlug,
       tagline: `Welcome to ${name.trim()}`,
       description: `Shop our curated collection directly on WhatsApp with fast and reliable delivery.`,
@@ -266,6 +273,19 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
               placeholder="e.g. Bella Scents, Zenith Tech, Apex Stores"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+            />
+          </div>
+
+          {/* Store Owner Full Name */}
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">Store Owner Full Name *</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Chioma Adebayo or Ibrahim Musa"
+              value={ownerName}
+              onChange={(e) => setOwnerName(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
             />
           </div>

@@ -31,6 +31,8 @@ export interface Product {
   attributes?: Record<string, string>; // e.g. "Fragrance Notes": "Amber, Oud, Vanilla"
   inquiryCount: number;
   createdAt: string;
+  approvalStatus?: 'pending' | 'approved' | 'rejected'; // Super admin approval gate
+  approvalRejectionReason?: string;
 }
 
 export interface StoreCategory {
@@ -40,12 +42,25 @@ export interface StoreCategory {
   slug: string;
 }
 
+export interface StoreIdVerification {
+  idType: 'nin' | 'drivers_license' | 'passport' | 'voters_card' | 'national_id';
+  idNumber?: string;
+  frontImageUrl: string;
+  backImageUrl: string;
+  status: 'unsubmitted' | 'pending' | 'verified' | 'rejected';
+  submittedAt?: string;
+  verifiedAt?: string;
+  rejectionReason?: string;
+}
+
 export interface Store {
   id: string;
   name: string;
   slug: string; // unique, e.g. "amaka-perfumes"
+  ownerName?: string; // Store owner full name
   ownerEmail?: string;
   ownerPassword?: string;
+  idVerification?: StoreIdVerification;
   tagline: string;
   description: string;
   whatsappCountryCode: string; // "+234"
@@ -63,6 +78,7 @@ export interface Store {
     instagram?: string;
     tiktok?: string;
     twitter?: string;
+    facebook?: string;
   };
   tier: 'free' | 'starter' | 'pro' | 'business';
   verified: boolean;
@@ -137,7 +153,7 @@ export interface StoreOrder {
   totalAmount: number;
   currencySymbol: string;
   whatsappUrl: string;
-  status: 'pending' | 'confirmed' | 'dispatched' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'payment_confirmed' | 'ready' | 'dispatched' | 'completed' | 'cancelled';
   createdAt: string;
 }
 
@@ -163,6 +179,7 @@ export interface SellerSession {
   storeId: string;
   storeSlug: string;
   storeName: string;
+  ownerName?: string;
   isLoggedIn: boolean;
 }
 
@@ -170,6 +187,26 @@ export interface SuperAdminSession {
   email: string;
   isLoggedIn: boolean;
   authenticatedAt: string;
+}
+
+export interface StoreNote {
+  id: string;
+  storeId: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StoreExpense {
+  id: string;
+  storeId: string;
+  description: string;
+  amount: number;
+  category: 'Shipping' | 'Supplies' | 'Marketing' | 'Rent' | 'Utilities' | 'Other';
+  date: string;
+  createdAt: string;
 }
 
 export interface PlatformSettings {

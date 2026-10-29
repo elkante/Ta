@@ -14,7 +14,9 @@ import {
   Sparkles,
   Store as StoreIcon,
   Upload,
+  User,
   UserPlus,
+  FileText,
   X,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -55,12 +57,22 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
 
   // Signup form state
   const [signupStoreName, setSignupStoreName] = useState('');
+  const [signupOwnerName, setSignupOwnerName] = useState('');
   const [signupSlug, setSignupSlug] = useState(initialSlug);
   const [signupCountryCode, setSignupCountryCode] = useState('+234');
   const [signupPhone, setSignupPhone] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupCurrency, setSignupCurrency] = useState<CurrencyCode>('NGN');
+
+  // Optional ID collection state (can be added later or now)
+  const [showIdSection, setShowIdSection] = useState(false);
+  const [signupIdType, setSignupIdType] = useState<'nin' | 'drivers_license' | 'passport' | 'voters_card' | 'national_id'>('nin');
+  const [signupIdNumber, setSignupIdNumber] = useState('');
+  const [signupFrontIdUrl, setSignupFrontIdUrl] = useState('');
+  const [signupBackIdUrl, setSignupBackIdUrl] = useState('');
+  const [isUploadingFrontId, setIsUploadingFrontId] = useState(false);
+  const [isUploadingBackId, setIsUploadingBackId] = useState(false);
 
   // Optional social links
   const [socialInstagram, setSocialInstagram] = useState('');
@@ -130,12 +142,52 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     reader.readAsDataURL(file);
   };
 
+  const handleIdFileUpload = (e: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose a valid image file (JPG, PNG, WebP) for your ID');
+      return;
+    }
+    if (file.size > 7 * 1024 * 1024) {
+      setError('ID photo must be under 7MB');
+      return;
+    }
+
+    if (side === 'front') setIsUploadingFrontId(true);
+    else setIsUploadingBackId(true);
+    setError(null);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (side === 'front') {
+        setSignupFrontIdUrl(reader.result as string);
+        setIsUploadingFrontId(false);
+      } else {
+        setSignupBackIdUrl(reader.result as string);
+        setIsUploadingBackId(false);
+      }
+    };
+    reader.onerror = () => {
+      setError('Failed to read ID image file.');
+      if (side === 'front') setIsUploadingFrontId(false);
+      else setIsUploadingBackId(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSignup = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!signupStoreName.trim()) {
       setError('Please provide a store name');
+      return;
+    }
+
+    if (!signupOwnerName.trim()) {
+      setError('Please provide the store owner name');
       return;
     }
 
@@ -176,9 +228,18 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     const newStore: Store = {
       id: storeId,
       name: signupStoreName.trim(),
+      ownerName: signupOwnerName.trim(),
       slug: slugCheck.cleanSlug,
       ownerEmail: signupEmail.trim() || `${slugCheck.cleanSlug}@tashop.co`,
       ownerPassword: signupPassword || 'password123',
+      idVerification: (signupFrontIdUrl && signupBackIdUrl) ? {
+        idType: signupIdType,
+        idNumber: signupIdNumber.trim() || undefined,
+        frontImageUrl: signupFrontIdUrl,
+        backImageUrl: signupBackIdUrl,
+        status: 'pending',
+        submittedAt: new Date().toISOString(),
+      } : undefined,
       tagline: `Welcome to ${signupStoreName.trim()}`,
       description: `Browse our catalog and order directly on WhatsApp. Search products by Item UID for fast checkout.`,
       whatsappCountryCode: signupCountryCode,
@@ -399,6 +460,23 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Store Owner Full Name *
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Chioma Adebayo or Ibrahim Musa"
+                    value={signupOwnerName}
+                    onChange={(e) => setSignupOwnerName(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
               {/* Auto-generated Live URL Preview Pill (Slug is automatic - not asked from user) */}
               {signupSlug ? (
                 <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 font-mono">
@@ -497,6 +575,110 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                 </div>
+              </div>
+
+              {/* Optional ID Verification (KYC) - Can be added now or later */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BadgeCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">Identity Verification (KYC)</span>
+                      <span className="text-[11px] text-slate-500">Optional now • Required if upgrading from ₦500 plan</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowIdSection(!showIdSection)}
+                    className="text-xs font-bold text-slate-700 hover:text-slate-900 underline cursor-pointer"
+                  >
+                    {showIdSection ? 'Hide' : '+ Upload ID Now'}
+                  </button>
+                </div>
+
+                {showIdSection && (
+                  <div className="space-y-3 pt-2 border-t border-slate-200">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Select ID Document Type</label>
+                      <select
+                        value={signupIdType}
+                        onChange={(e) => setSignupIdType(e.target.value as any)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none cursor-pointer"
+                      >
+                        <option value="nin">National Identification Number (NIN)</option>
+                        <option value="drivers_license">Driver's License</option>
+                        <option value="passport">International Passport</option>
+                        <option value="voters_card">Voter's Card (PVC)</option>
+                        <option value="national_id">Other Government Issued National ID</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 block mb-1">ID / Document Number (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 11-digit NIN or License Number"
+                        value={signupIdNumber}
+                        onChange={(e) => setSignupIdNumber(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Front ID */}
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-600 block mb-1">Front of ID</span>
+                        <label className="flex flex-col items-center justify-center p-2.5 border-2 border-dashed border-slate-200 rounded-xl hover:border-slate-400 bg-white cursor-pointer transition text-center min-h-[74px]">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleIdFileUpload(e, 'front')}
+                          />
+                          {signupFrontIdUrl ? (
+                            <div className="relative w-full h-14 rounded-lg overflow-hidden">
+                              <img src={signupFrontIdUrl} alt="Front ID" className="w-full h-full object-cover" />
+                              <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5">Change</span>
+                            </div>
+                          ) : (
+                            <div className="space-y-0.5">
+                              <Upload className="w-4 h-4 text-slate-400 mx-auto" />
+                              <span className="text-[10px] text-slate-500 font-medium block">
+                                {isUploadingFrontId ? 'Reading...' : 'Upload Front'}
+                              </span>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+
+                      {/* Back ID */}
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-600 block mb-1">Back of ID</span>
+                        <label className="flex flex-col items-center justify-center p-2.5 border-2 border-dashed border-slate-200 rounded-xl hover:border-slate-400 bg-white cursor-pointer transition text-center min-h-[74px]">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleIdFileUpload(e, 'back')}
+                          />
+                          {signupBackIdUrl ? (
+                            <div className="relative w-full h-14 rounded-lg overflow-hidden">
+                              <img src={signupBackIdUrl} alt="Back ID" className="w-full h-full object-cover" />
+                              <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5">Change</span>
+                            </div>
+                          ) : (
+                            <div className="space-y-0.5">
+                              <Upload className="w-4 h-4 text-slate-400 mx-auto" />
+                              <span className="text-[10px] text-slate-500 font-medium block">
+                                {isUploadingBackId ? 'Reading...' : 'Upload Back'}
+                              </span>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Optional Social Links */}

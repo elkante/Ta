@@ -7,6 +7,8 @@ import {
   StoreOrder,
   SuperAdminSession,
   PlatformSettings,
+  StoreNote,
+  StoreExpense,
 } from '../types';
 import { dbSaveStore, dbSaveProduct, dbSaveOrder, dbUpdateOrderStatus, dbSaveCategory } from './supabase';
 
@@ -165,6 +167,11 @@ export function createStoreOrder(
       buyerNote: `${order.buyerName} (${order.buyerPhone}) - ${order.fulfillmentMethod === 'delivery' ? 'Delivery' : 'Pickup'}`,
       whatsappUrl: order.whatsappUrl,
     });
+  }
+
+  // Dispatch event for instant dashboard notification and sound alert
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tashop:order_placed', { detail: newOrder }));
   }
 
   return newOrder;
@@ -335,6 +342,7 @@ export function authenticateSeller(
     storeId: matched.id,
     storeSlug: matched.slug,
     storeName: matched.name,
+    ownerName: matched.ownerName,
     isLoggedIn: true,
   };
 
@@ -446,6 +454,7 @@ export function impersonateStoreAsSeller(storeId: string): SellerSession | null 
     storeId: store.id,
     storeSlug: store.slug,
     storeName: store.name,
+    ownerName: store.ownerName,
     isLoggedIn: true,
   };
   setSellerSession(session);
@@ -589,4 +598,40 @@ export function addStoreCategory(storeId: string, categoryName: string): string[
     localStorage.setItem(customKey, JSON.stringify(existing));
   }
   return getStoreCategories(storeId);
+}
+
+// ----------------------------------------------------
+// Notes Manager (per store)
+// ----------------------------------------------------
+
+export function getStoreNotes(storeId: string): StoreNote[] {
+  try {
+    const raw = localStorage.getItem(`ta_store_notes_${storeId}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    // ignore
+  }
+  return [];
+}
+
+export function saveStoreNotes(storeId: string, notes: StoreNote[]): void {
+  localStorage.setItem(`ta_store_notes_${storeId}`, JSON.stringify(notes));
+}
+
+// ----------------------------------------------------
+// Expenses Manager (per store)
+// ----------------------------------------------------
+
+export function getStoreExpenses(storeId: string): StoreExpense[] {
+  try {
+    const raw = localStorage.getItem(`ta_store_expenses_${storeId}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    // ignore
+  }
+  return [];
+}
+
+export function saveStoreExpenses(storeId: string, expenses: StoreExpense[]): void {
+  localStorage.setItem(`ta_store_expenses_${storeId}`, JSON.stringify(expenses));
 }

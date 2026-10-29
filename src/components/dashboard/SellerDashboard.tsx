@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   AlertCircle,
   BadgeCheck,
@@ -23,6 +23,7 @@ import {
   MessageCircle,
   Package,
   Phone,
+  Pin,
   Plus,
   Printer,
   QrCode,
@@ -31,6 +32,7 @@ import {
   Share2,
   ShoppingBag,
   Sparkles,
+  StickyNote,
   ToggleLeft,
   ToggleRight,
   Trash2,
@@ -39,11 +41,21 @@ import {
   Upload,
   Users,
   Volume2,
+  Wallet,
   X,
   Zap,
+  BarChart3,
+  Calculator,
+  DollarSign,
+  Bell,
+  Calendar,
+  RotateCcw,
+  TrendingDown,
+  Percent,
+  FileText,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { CurrencyCode, Product, Store, StoreOrder, WhatsAppInquiryLog } from '../../types';
+import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense } from '../../types';
 import { AddEditProductModal } from './AddEditProductModal';
 import { PaystackModal } from '../modals/PaystackModal';
 import { SocialShareModal } from '../modals/SocialShareModal';
@@ -65,7 +77,12 @@ import {
   saveProducts,
   saveStores,
   updateOrderStatus,
+  updateStore,
   validateSlug,
+  getStoreNotes,
+  saveStoreNotes,
+  getStoreExpenses,
+  saveStoreExpenses,
 } from '../../utils/storage';
 
 const COVER_PRESETS = [
@@ -95,12 +112,51 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   onSelectStore,
   onOpenGuide,
 }) => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing' | 'analytics' | 'notes' | 'expenses' | 'calculator'>('orders');
 
   // Orders State & Filtering
+  const [orderViewMode, setOrderViewMode] = useState<'active' | 'history'>('active');
   const [orderSearch, setOrderSearch] = useState('');
-  const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'dispatched' | 'completed' | 'cancelled'>('all');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'payment_confirmed' | 'ready' | 'dispatched' | 'completed' | 'cancelled'>('all');
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
+
+  // New Order Notification listener & polling
+  const lastOrderCountRef = useRef<number>(-1);
+  const [newOrderToast, setNewOrderToast] = useState(false);
+  const [latestOrderInfo, setLatestOrderInfo] = useState<{ id: string; name: string; amount: number } | null>(null);
+
+  // Analytics Filter States
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<'all' | 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'custom_day' | 'custom_year'>('month');
+  const [analyticsYear, setAnalyticsYear] = useState<number>(new Date().getFullYear());
+  const [analyticsDay, setAnalyticsDay] = useState<string>(new Date().toISOString().slice(0, 10));
+
+  // Notes Manager States
+  const [storeNotes, setStoreNotes] = useState<StoreNote[]>(() => getStoreNotes(store.id));
+  const [noteSearch, setNoteSearch] = useState('');
+  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<StoreNote | null>(null);
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteBody, setNoteBody] = useState('');
+  const [notePinned, setNotePinned] = useState(false);
+
+  // Expenses Manager States
+  const [storeExpenses, setStoreExpenses] = useState<StoreExpense[]>(() => getStoreExpenses(store.id));
+  const [expenseSearch, setExpenseSearch] = useState('');
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<string>('all');
+  const [expenseMonthFilter, setExpenseMonthFilter] = useState<string>('all');
+  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  const [expenseDesc, setExpenseDesc] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseCategory, setExpenseCategory] = useState<StoreExpense['category']>('Supplies');
+  const [expenseDate, setExpenseDate] = useState<string>(new Date().toISOString().slice(0, 10));
+
+  // Calculator States
+  const [calcDisplay, setCalcDisplay] = useState('0');
+  const [calcFormula, setCalcFormula] = useState('');
+  const [calcHistory, setCalcHistory] = useState<string[]>([]);
+  const [pmCostPrice, setPmCostPrice] = useState<string>('');
+  const [pmSellingPrice, setPmSellingPrice] = useState<string>('');
+  const [pmTargetMargin, setPmTargetMargin] = useState<string>('30');
 
   // Status & Story Studio Modal state
   const [isStatusStudioOpen, setIsStatusStudioOpen] = useState(false);
@@ -112,9 +168,68 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
   const storeOrders = getOrdersByStore(store.id);
   const totalOrderRevenue = storeOrders.reduce((sum, o) => sum + (o.status !== 'cancelled' ? o.totalAmount : 0), 0);
+  const activeOrders = storeOrders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled');
+  const historyOrders = storeOrders.filter((o) => o.status === 'completed' || o.status === 'cancelled');
   const pendingOrdersCount = storeOrders.filter((o) => o.status === 'pending').length;
 
+  // New Order Real-Time Listener + Polling Effect
+  useEffect(() => {
+    const checkOrders = () => {
+      const currentOrders = getOrdersByStore(store.id);
+      const count = currentOrders.length;
+      if (lastOrderCountRef.current === -1) {
+        lastOrderCountRef.current = count;
+      } else if (count > lastOrderCountRef.current) {
+        lastOrderCountRef.current = count;
+        const newest = currentOrders[0];
+        if (newest) {
+          setLatestOrderInfo({ id: newest.id, name: newest.buyerName, amount: newest.totalAmount });
+        }
+        playOrderNotificationSound(1.0);
+        setNewOrderToast(true);
+        onRefreshData();
+        setTimeout(() => setNewOrderToast(false), 8000);
+      } else {
+        lastOrderCountRef.current = count;
+      }
+    };
+
+    const handleCustomOrderEvent = (e: any) => {
+      const ord = e.detail;
+      if (ord && ord.storeId === store.id) {
+        setLatestOrderInfo({ id: ord.id, name: ord.buyerName, amount: ord.totalAmount });
+      }
+      playOrderNotificationSound(1.0);
+      setNewOrderToast(true);
+      onRefreshData();
+      setTimeout(() => setNewOrderToast(false), 8000);
+    };
+
+    window.addEventListener('tashop:order_placed', handleCustomOrderEvent);
+    window.addEventListener('storage', checkOrders);
+    const interval = setInterval(checkOrders, 6000);
+
+    return () => {
+      window.removeEventListener('tashop:order_placed', handleCustomOrderEvent);
+      window.removeEventListener('storage', checkOrders);
+      clearInterval(interval);
+    };
+  }, [store.id, onRefreshData]);
+
+  // Sync notes & expenses when store changes
+  useEffect(() => {
+    setStoreNotes(getStoreNotes(store.id));
+    setStoreExpenses(getStoreExpenses(store.id));
+  }, [store.id]);
+
   const filteredOrders = storeOrders.filter((o) => {
+    // Partition by active vs history
+    if (orderViewMode === 'active') {
+      if (o.status === 'completed' || o.status === 'cancelled') return false;
+    } else {
+      if (o.status !== 'completed' && o.status !== 'cancelled') return false;
+    }
+
     const matchStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
     const cleanQ = orderSearch.trim().toLowerCase();
     const matchSearch =
@@ -142,6 +257,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Settings local state
+  const [settingsOwnerName, setSettingsOwnerName] = useState(store.ownerName || '');
   const [settingsName, setSettingsName] = useState(store.name);
   const [settingsSlug, setSettingsSlug] = useState(store.slug);
   const [settingsTagline, setSettingsTagline] = useState(store.tagline || '');
@@ -164,6 +280,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [settingsSavedToast, setSettingsSavedToast] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
+  // KYC re-upload state in Settings tab
+  const [kycIdType, setKycIdType] = useState<StoreIdVerification['idType']>(store.idVerification?.idType || 'nin');
+  const [kycIdNumber, setKycIdNumber] = useState(store.idVerification?.idNumber || '');
+  const [kycFrontPreview, setKycFrontPreview] = useState<string>(store.idVerification?.frontImageUrl || '');
+  const [kycBackPreview, setKycBackPreview] = useState<string>(store.idVerification?.backImageUrl || '');
+  const [kycSaving, setKycSaving] = useState(false);
+
   useEffect(() => {
     setSettingsName(store.name);
     setSettingsSlug(store.slug);
@@ -180,6 +303,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     setSettingsFacebook(store.socialLinks?.facebook || '');
     setSettingsLogoUrl(store.logoUrl || '');
     setSettingsBannerUrl(store.bannerUrl || '');
+    setSettingsOwnerName(store.ownerName || '');
   }, [store]);
 
   const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -284,6 +408,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       name: `${product.name} (Copy)`,
       inquiryCount: 0,
       createdAt: new Date().toISOString(),
+      approvalStatus: 'pending',
     };
     saveProducts([duplicated, ...allProducts]);
     onRefreshData();
@@ -331,6 +456,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         variants: payload.variants || [],
         inquiryCount: 0,
         createdAt: new Date().toISOString(),
+        approvalStatus: 'pending', // Must be approved by super admin before going live
       };
       saveProducts([newProd, ...allProducts]);
     }
@@ -374,6 +500,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
     const updatedStore: Store = {
       ...store,
+      ownerName: settingsOwnerName.trim() || store.ownerName,
       name: settingsName.trim(),
       slug: slugCheck.cleanSlug,
       tagline: settingsTagline.trim(),
@@ -402,6 +529,35 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
     setSettingsSavedToast(true);
     setTimeout(() => setSettingsSavedToast(false), 2500);
+  };
+
+  // KYC re-upload save handler
+  const handleSaveKyc = () => {
+    if (!kycFrontPreview) {
+      setSettingsError('Please upload the front photo of your ID document before saving.');
+      return;
+    }
+    if (!kycBackPreview) {
+      setSettingsError('Please upload the back photo of your ID document before saving.');
+      return;
+    }
+    setSettingsError(null);
+    setKycSaving(true);
+    const kycData: StoreIdVerification = {
+      idType: kycIdType,
+      idNumber: kycIdNumber.trim(),
+      frontImageUrl: kycFrontPreview,
+      backImageUrl: kycBackPreview,
+      status: 'pending',
+      submittedAt: new Date().toISOString(),
+    };
+    const updatedStore: Store = { ...store, idVerification: kycData };
+    updateStore(updatedStore);
+    onSelectStore(updatedStore);
+    onRefreshData();
+    setKycSaving(false);
+    setSettingsSavedToast(true);
+    setTimeout(() => setSettingsSavedToast(false), 3000);
   };
 
   const handleCopyStoreLink = () => {
@@ -441,18 +597,181 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   };
 
   // ─── Nav definition (shared by sidebar + mobile bottom bar) ───────────────
-  type TabId = 'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing';
+  type TabId = 'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing' | 'analytics' | 'notes' | 'expenses' | 'calculator';
   const allTabs: { id: TabId; label: string; icon: React.ElementType; badge?: string }[] = [
     { id: 'orders',    label: 'Orders',          icon: ShoppingBag,   badge: pendingOrdersCount > 0 ? `${pendingOrdersCount}` : undefined },
     { id: 'products',  label: 'Products',         icon: Package,       badge: `${products.length}` },
+    { id: 'analytics', label: 'Analytics',        icon: BarChart3 },
     { id: 'uid-bot',   label: 'UID Drop Bot',     icon: Bot,           badge: 'Auto' },
     { id: 'marketing', label: 'Status & QR',      icon: QrCode },
     { id: 'inquiries', label: 'WA Clicks',         icon: MessageCircle, badge: inquiries.length > 0 ? `${inquiries.length}` : undefined },
+    { id: 'notes',     label: 'Notes',            icon: StickyNote },
+    { id: 'expenses',  label: 'Expenses',         icon: Wallet },
+    { id: 'calculator',label: 'Calculator',       icon: Calculator },
     { id: 'settings',  label: 'Store Settings',   icon: Settings },
     { id: 'billing',   label: 'Subscription',     icon: CreditCard },
   ];
   // Bottom 5 for mobile notched nav (FAB is center — index 2 slot)
   const bottomTabs: TabId[] = ['orders', 'products', 'marketing', 'settings'];
+
+  // Notes Helpers
+  const handleSaveNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!noteTitle.trim() && !noteBody.trim()) return;
+    const now = new Date().toISOString();
+    let updated: StoreNote[];
+    if (editingNote) {
+      updated = storeNotes.map((n) =>
+        n.id === editingNote.id
+          ? {
+              ...n,
+              title: noteTitle.trim() || 'Untitled Note',
+              body: noteBody.trim(),
+              pinned: notePinned,
+              updatedAt: now,
+            }
+          : n
+      );
+    } else {
+      const newNote: StoreNote = {
+        id: `note_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        storeId: store.id,
+        title: noteTitle.trim() || 'Untitled Note',
+        body: noteBody.trim(),
+        pinned: notePinned,
+        createdAt: now,
+        updatedAt: now,
+      };
+      updated = [newNote, ...storeNotes];
+    }
+    setStoreNotes(updated);
+    saveStoreNotes(store.id, updated);
+    setIsAddNoteOpen(false);
+    setEditingNote(null);
+    setNoteTitle('');
+    setNoteBody('');
+    setNotePinned(false);
+  };
+
+  const handleDeleteNote = (noteId: string) => {
+    if (confirm('Delete this note?')) {
+      const updated = storeNotes.filter((n) => n.id !== noteId);
+      setStoreNotes(updated);
+      saveStoreNotes(store.id, updated);
+    }
+  };
+
+  const handleTogglePinNote = (noteId: string) => {
+    const updated = storeNotes.map((n) => (n.id === noteId ? { ...n, pinned: !n.pinned } : n));
+    setStoreNotes(updated);
+    saveStoreNotes(store.id, updated);
+  };
+
+  // Expenses Helpers
+  const handleAddExpense = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(expenseAmount);
+    if (!expenseDesc.trim() || isNaN(amt) || amt <= 0) return;
+    const newExp: StoreExpense = {
+      id: `exp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      storeId: store.id,
+      description: expenseDesc.trim(),
+      amount: amt,
+      category: expenseCategory,
+      date: expenseDate || new Date().toISOString().slice(0, 10),
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [newExp, ...storeExpenses];
+    setStoreExpenses(updated);
+    saveStoreExpenses(store.id, updated);
+    setIsAddExpenseOpen(false);
+    setExpenseDesc('');
+    setExpenseAmount('');
+    setExpenseCategory('Supplies');
+  };
+
+  const handleDeleteExpense = (expId: string) => {
+    if (confirm('Delete this expense entry?')) {
+      const updated = storeExpenses.filter((e) => e.id !== expId);
+      setStoreExpenses(updated);
+      saveStoreExpenses(store.id, updated);
+    }
+  };
+
+  // Safe Calculator Evaluation
+  const safeEvaluateArithmetic = (expr: string): number => {
+    try {
+      const sanitized = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/[^0-9+\-*/.]/g, '');
+      if (!sanitized) return 0;
+      // Evaluate only numbers and basic operators
+      const res = Function(`"use strict"; return (${sanitized})`)();
+      return typeof res === 'number' && Number.isFinite(res) ? Math.round(res * 10000) / 10000 : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const handleCalcDigit = (digit: string) => {
+    if (digit === '.') {
+      if (calcDisplay.includes('.')) return;
+      setCalcDisplay(calcDisplay + '.');
+      return;
+    }
+    if (calcDisplay === '0' || calcDisplay === 'Error') {
+      setCalcDisplay(digit);
+    } else {
+      setCalcDisplay(calcDisplay + digit);
+    }
+  };
+
+  const handleCalcOperator = (op: string) => {
+    if (calcFormula && !calcDisplay) {
+      setCalcFormula(calcFormula.slice(0, -1) + op);
+      return;
+    }
+    const nextFormula = calcFormula ? `${calcFormula} ${calcDisplay} ${op}` : `${calcDisplay} ${op}`;
+    setCalcFormula(nextFormula);
+    setCalcDisplay('0');
+  };
+
+  const handleCalcEquals = () => {
+    if (!calcFormula) return;
+    const fullExpr = `${calcFormula} ${calcDisplay}`;
+    const result = safeEvaluateArithmetic(fullExpr);
+    const historyItem = `${fullExpr} = ${result}`;
+    setCalcHistory([historyItem, ...calcHistory.slice(0, 9)]);
+    setCalcDisplay(String(result));
+    setCalcFormula('');
+  };
+
+  const handleCalcClear = () => {
+    setCalcDisplay('0');
+    setCalcFormula('');
+  };
+
+  const handleCalcBackspace = () => {
+    if (calcDisplay.length <= 1 || calcDisplay === 'Error') {
+      setCalcDisplay('0');
+    } else {
+      setCalcDisplay(calcDisplay.slice(0, -1));
+    }
+  };
+
+  const handleCalcNegate = () => {
+    if (calcDisplay === '0') return;
+    if (calcDisplay.startsWith('-')) {
+      setCalcDisplay(calcDisplay.slice(1));
+    } else {
+      setCalcDisplay('-' + calcDisplay);
+    }
+  };
+
+  const handleCalcPercent = () => {
+    const val = parseFloat(calcDisplay);
+    if (!isNaN(val)) {
+      setCalcDisplay(String(val / 100));
+    }
+  };
 
   const NavItem = ({ tab, compact = false }: { tab: typeof allTabs[0]; compact?: boolean }) => {
     const Icon = tab.icon;
@@ -644,6 +963,58 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         {/* Content area */}
         <div className="flex-1 p-4 sm:p-6 pb-28 md:pb-8 overflow-x-hidden">
 
+        {/* LOUD NEW ORDER ALERT BANNER */}
+        {newOrderToast && (
+          <div className="mb-6 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white p-4 rounded-2xl shadow-xl border border-emerald-400/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0 text-2xl shadow-inner">
+                🛎️
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-sm uppercase tracking-wide">New Order Received! 🔊</span>
+                  <span className="bg-white/25 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">Loud Alert</span>
+                </div>
+                <p className="text-xs text-emerald-100 mt-0.5">
+                  {latestOrderInfo
+                    ? `${latestOrderInfo.name} just placed order #${latestOrderInfo.id} • ${formatPrice(latestOrderInfo.amount, store.currencySymbol)}`
+                    : 'A customer just placed a fresh order via your mobile catalog!'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => playOrderNotificationSound(1.0)}
+                className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer transition"
+              >
+                <Volume2 className="w-3.5 h-3.5" />
+                <span>Replay Sound</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('orders');
+                  setOrderViewMode('active');
+                  setOrderSearch(latestOrderInfo ? latestOrderInfo.id : '');
+                  setNewOrderToast(false);
+                }}
+                className="px-3.5 py-1.5 bg-white text-emerald-900 hover:bg-emerald-50 rounded-xl text-xs font-black shadow-md cursor-pointer transition"
+              >
+                View in Orders →
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewOrderToast(false)}
+                className="p-1.5 text-emerald-200 hover:text-white rounded-lg cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Analytics Highlights Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
@@ -719,13 +1090,66 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               </div>
             </div>
 
+            {/* View Mode Toggle: Active Orders vs Order History */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrderViewMode('active');
+                    setOrderStatusFilter('all');
+                  }}
+                  className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
+                    orderViewMode === 'active'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  <ShoppingBag className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Active Orders</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                    orderViewMode === 'active' ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {activeOrders.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrderViewMode('history');
+                    setOrderStatusFilter('all');
+                  }}
+                  className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
+                    orderViewMode === 'history'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Order History</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                    orderViewMode === 'history' ? 'bg-emerald-400 text-slate-950' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {historyOrders.length}
+                  </span>
+                </button>
+              </div>
+
+              <div className="text-xs text-slate-400 hidden sm:block">
+                {orderViewMode === 'active'
+                  ? '⚡ Orders currently in progress (advancing to complete)'
+                  : '📦 Finished & delivered orders recorded for history'}
+              </div>
+            </div>
+
             {/* Filter Toolbar */}
             <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search orders by customer name, phone, address, or Order ID (#TA-ORD)..."
+                  placeholder={orderViewMode === 'active' ? "Search active orders by name, phone, item UID..." : "Search order history by name, phone, order ID..."}
                   value={orderSearch}
                   onChange={(e) => setOrderSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
@@ -734,26 +1158,46 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
               {/* Status Filter Chips */}
               <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-                {[
-                  { id: 'all', label: 'All' },
-                  { id: 'pending', label: 'Pending' },
-                  { id: 'confirmed', label: 'Confirmed' },
-                  { id: 'dispatched', label: 'Dispatched' },
-                  { id: 'completed', label: 'Completed' },
-                  { id: 'cancelled', label: 'Cancelled' },
-                ].map((st) => (
-                  <button
-                    key={st.id}
-                    onClick={() => setOrderStatusFilter(st.id as any)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
-                      orderStatusFilter === st.id
-                        ? 'bg-slate-900 text-white shadow-xs'
-                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
-                    }`}
-                  >
-                    {st.label}
-                  </button>
-                ))}
+                {orderViewMode === 'active' ? (
+                  [
+                    { id: 'all', label: 'All Active' },
+                    { id: 'pending', label: '🆕 Received' },
+                    { id: 'confirmed', label: '✅ Confirmed' },
+                    { id: 'payment_confirmed', label: '💰 Paid' },
+                    { id: 'ready', label: '📦 Ready' },
+                    { id: 'dispatched', label: '🚚 Dispatched' },
+                  ].map((st) => (
+                    <button
+                      key={st.id}
+                      onClick={() => setOrderStatusFilter(st.id as any)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                        orderStatusFilter === st.id
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))
+                ) : (
+                  [
+                    { id: 'all', label: 'All History' },
+                    { id: 'completed', label: '🎉 Completed & Delivered' },
+                    { id: 'cancelled', label: '🔴 Cancelled' },
+                  ].map((st) => (
+                    <button
+                      key={st.id}
+                      onClick={() => setOrderStatusFilter(st.id as any)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                        orderStatusFilter === st.id
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
 
@@ -817,35 +1261,96 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                         </div>
                       </div>
 
-                      {/* Status Selector Dropdown */}
-                      <div className="flex items-center gap-2 self-start sm:self-center">
-                        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                          Status:
-                        </span>
-                        <select
-                          value={ord.status}
-                          onChange={(e) => {
-                            updateOrderStatus(ord.id, e.target.value as any);
-                            onRefreshData();
-                          }}
-                          className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition cursor-pointer ${
-                            ord.status === 'completed'
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                              : ord.status === 'dispatched'
-                              ? 'bg-purple-50 text-purple-800 border-purple-200'
-                              : ord.status === 'confirmed'
-                              ? 'bg-blue-50 text-blue-800 border-blue-200'
-                              : ord.status === 'cancelled'
-                              ? 'bg-rose-50 text-rose-800 border-rose-200'
-                              : 'bg-amber-50 text-amber-900 border-amber-200 ring-2 ring-amber-400/20'
-                          }`}
-                        >
-                          <option value="pending">🟡 Pending Dispatch</option>
-                          <option value="confirmed">🔵 Confirmed</option>
-                          <option value="dispatched">🟣 Out for Delivery</option>
-                          <option value="completed">🟢 Paid & Delivered</option>
-                          <option value="cancelled">🔴 Cancelled</option>
-                        </select>
+                      {/* Order Status Stepper */}
+                      <div className="flex flex-col gap-2 self-start sm:self-center w-full sm:w-auto">
+                        {(() => {
+                          const steps: { status: StoreOrder['status']; label: string; emoji: string }[] = [
+                            { status: 'pending',           label: 'Received',          emoji: '🆕' },
+                            { status: 'confirmed',         label: 'Confirmed',         emoji: '✅' },
+                            { status: 'payment_confirmed', label: 'Payment Confirmed', emoji: '💰' },
+                            { status: 'ready',             label: 'Ready',             emoji: '📦' },
+                            { status: 'dispatched',        label: 'Dispatched',        emoji: '🚚' },
+                            { status: 'completed',         label: 'Complete',          emoji: '🎉' },
+                          ];
+                          const statusOrder = steps.map(s => s.status);
+                          const currentIdx = statusOrder.indexOf(ord.status as any);
+                          const nextStep = currentIdx >= 0 && currentIdx < steps.length - 1 ? steps[currentIdx + 1] : null;
+                          const isCancelled = ord.status === 'cancelled';
+                          return (
+                            <div className="space-y-2">
+                              {/* Steps progress bar */}
+                              <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
+                                {steps.map((step, idx) => {
+                                  const isCompleted = currentIdx >= idx && !isCancelled;
+                                  const isCurrent = currentIdx === idx && !isCancelled;
+                                  return (
+                                    <React.Fragment key={step.status}>
+                                      <div className={`flex flex-col items-center gap-0.5 flex-shrink-0`}>
+                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                                          isCancelled ? 'border-slate-200 bg-slate-100 text-slate-400' :
+                                          isCompleted ? 'border-emerald-500 bg-emerald-500 text-white' :
+                                          'border-slate-200 bg-white text-slate-400'
+                                        }`}>
+                                          {isCompleted ? '✓' : step.emoji}
+                                        </div>
+                                        <span className={`text-[9px] font-semibold whitespace-nowrap ${
+                                          isCancelled ? 'text-slate-400' :
+                                          isCurrent ? 'text-emerald-700' :
+                                          isCompleted ? 'text-emerald-600' : 'text-slate-400'
+                                        }`}>{step.label}</span>
+                                      </div>
+                                      {idx < steps.length - 1 && (
+                                        <div className={`h-0.5 w-4 flex-shrink-0 mx-0.5 rounded-full ${
+                                          !isCancelled && currentIdx > idx ? 'bg-emerald-400' : 'bg-slate-200'
+                                        }`} />
+                                      )}
+                                    </React.Fragment>
+                                  );
+                                })}
+                                {isCancelled && (
+                                  <span className="ml-2 text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">🔴 Cancelled</span>
+                                )}
+                              </div>
+                              {/* Advance button */}
+                              {!isCancelled && nextStep && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateOrderStatus(ord.id, nextStep.status);
+                                    if (nextStep.status === 'completed') {
+                                      try {
+                                        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+                                      } catch (e) {}
+                                    }
+                                    onRefreshData();
+                                  }}
+                                  className={`text-xs font-bold px-3.5 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs ${
+                                    nextStep.status === 'completed'
+                                      ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white'
+                                      : 'bg-slate-900 hover:bg-slate-800 text-white'
+                                  }`}
+                                >
+                                  <span>Mark as {nextStep.emoji} {nextStep.label}</span>
+                                  <span>→</span>
+                                </button>
+                              )}
+                              {!isCancelled && ord.status === 'completed' && (
+                                <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                                  <span>🎉 Order Completed & Archived</span>
+                                </div>
+                              )}
+                              {!isCancelled && ord.status !== 'completed' && (
+                                <button
+                                  type="button"
+                                  onClick={() => { updateOrderStatus(ord.id, 'cancelled'); onRefreshData(); }}
+                                  className="text-[11px] font-semibold text-rose-600 hover:text-rose-800 cursor-pointer underline decoration-rose-300"
+                                >
+                                  Cancel Order
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -1001,30 +1506,6 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                             <Truck className="w-3.5 h-3.5 text-amber-600" />
                             <span>Print Waybill</span>
                           </button>
-
-                          {ord.status === 'pending' && (
-                            <button
-                              onClick={() => {
-                                updateOrderStatus(ord.id, 'confirmed');
-                                onRefreshData();
-                              }}
-                              className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition cursor-pointer"
-                            >
-                              Mark Confirmed
-                            </button>
-                          )}
-
-                          {ord.status === 'confirmed' && (
-                            <button
-                              onClick={() => {
-                                updateOrderStatus(ord.id, 'dispatched');
-                                onRefreshData();
-                              }}
-                              className="py-2 px-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold transition cursor-pointer"
-                            >
-                              Mark Dispatched
-                            </button>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -1164,6 +1645,22 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                               <span className={`w-1.5 h-1.5 rounded-full ${p.inStock ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                               <span>{p.inStock ? 'In Stock' : 'Sold Out'}</span>
                             </button>
+                            {/* Approval status badge */}
+                            {p.approvalStatus === 'pending' && (
+                              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full animate-pulse">
+                                ⏳ Pending Approval
+                              </span>
+                            )}
+                            {p.approvalStatus === 'rejected' && (
+                              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full" title={p.approvalRejectionReason || 'Rejected by admin'}>
+                                ✗ Rejected
+                              </span>
+                            )}
+                            {(!p.approvalStatus || p.approvalStatus === 'approved') && (
+                              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                ✓ Live
+                              </span>
+                            )}
                           </td>
 
                           <td className="py-3 px-4 text-right">
@@ -1335,6 +1832,24 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             )}
 
             <form onSubmit={handleSaveSettings} className="space-y-5">
+              {/* ── Store Owner Name ── */}
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Store Owner Full Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={settingsOwnerName}
+                  onChange={(e) => setSettingsOwnerName(e.target.value)}
+                  placeholder="e.g. Amara Okafor"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Your legal name as the registered store owner. Required for identity verification and plan upgrades.
+                </p>
+              </div>
+
               {/* ── Brand Assets: Logo & Profile Cover ── */}
               <div className="bg-slate-50/90 rounded-2xl border border-slate-200/90 p-4 sm:p-5 space-y-4">
                 <div>
@@ -1651,6 +2166,246 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 </button>
               </div>
             </form>
+
+            {/* ── KYC IDENTITY VERIFICATION CARD (outside form, save via own handler) ── */}
+            <div className="mt-6 bg-slate-50/90 rounded-2xl border border-slate-200/90 p-4 sm:p-5 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-indigo-600" />
+                    <span>Identity Verification (KYC)</span>
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Required to upgrade to Pro or Business plans. Upload clear front & back photos of your government-issued ID.
+                  </p>
+                </div>
+                {/* Status pill */}
+                {store.idVerification ? (
+                  <span
+                    className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 ${
+                      store.idVerification.status === 'verified'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : store.idVerification.status === 'pending'
+                        ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+                        : store.idVerification.status === 'rejected'
+                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                        : 'bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {store.idVerification.status === 'verified' && <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />}
+                    {store.idVerification.status === 'pending' && <Clock className="w-3.5 h-3.5 text-amber-600" />}
+                    {store.idVerification.status === 'pending' && 'Under Review'}
+                    {store.idVerification.status === 'verified' && 'ID Verified ✓'}
+                    {store.idVerification.status === 'rejected' && 'Rejected – Resubmit'}
+                    {store.idVerification.status === 'unsubmitted' && 'Not Submitted'}
+                  </span>
+                ) : (
+                  <span className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-200 text-slate-600">
+                    Not Submitted
+                  </span>
+                )}
+              </div>
+
+              {/* Rejection reason notice */}
+              {store.idVerification?.status === 'rejected' && store.idVerification.rejectionReason && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block font-bold">Reason for Rejection:</strong>
+                    <span>{store.idVerification.rejectionReason}</span>
+                    <span className="block mt-1 text-rose-600 font-medium">Please correct the issue and resubmit below.</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Verified — readonly display */}
+              {store.idVerification?.status === 'verified' ? (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0">
+                    <BadgeCheck className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-emerald-900">Your identity is verified!</p>
+                    <p className="text-xs text-emerald-700 mt-0.5">
+                      ID Type: <strong>{store.idVerification.idType?.replace(/_/g, ' ').toUpperCase()}</strong>
+                      {store.idVerification.idNumber && ` · ID No: ${store.idVerification.idNumber}`}
+                    </p>
+                    {store.idVerification.verifiedAt && (
+                      <p className="text-[11px] text-emerald-600 mt-0.5">
+                        Verified on {new Date(store.idVerification.verifiedAt).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Upload form for unsubmitted / pending / rejected */
+                <div className="space-y-3">
+                  {/* ID Type */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">ID Document Type</label>
+                      <select
+                        value={kycIdType}
+                        onChange={(e) => setKycIdType(e.target.value as StoreIdVerification['idType'])}
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                      >
+                        <option value="nin">NIN – National Identification Number</option>
+                        <option value="drivers_license">Driver's License</option>
+                        <option value="passport">International Passport</option>
+                        <option value="voters_card">Voter's Card (PVC)</option>
+                        <option value="national_id">Other National ID</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        ID Number / Registration (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={kycIdNumber}
+                        onChange={(e) => setKycIdNumber(e.target.value)}
+                        placeholder="e.g. 12345678901"
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Front & Back ID Photos */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Front */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        Front of ID <span className="text-rose-500">*</span>
+                      </label>
+                      <label className="block cursor-pointer">
+                        <div
+                          className={`relative h-36 rounded-xl border-2 border-dashed overflow-hidden flex items-center justify-center transition ${
+                            kycFrontPreview
+                              ? 'border-indigo-300 bg-white'
+                              : 'border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50/30'
+                          }`}
+                        >
+                          {kycFrontPreview ? (
+                            <img src={kycFrontPreview} alt="Front ID" className="w-full h-full object-contain" />
+                          ) : (
+                            <div className="text-center px-4">
+                              <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+                              <p className="text-xs text-slate-500 font-medium">Upload Front Photo</p>
+                              <p className="text-[11px] text-slate-400">JPG, PNG – Max 5MB</p>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 5 * 1024 * 1024) {
+                              setSettingsError('Front ID photo must be under 5MB');
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              setKycFrontPreview(ev.target?.result as string);
+                              setSettingsError(null);
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                      {kycFrontPreview && (
+                        <button
+                          type="button"
+                          onClick={() => setKycFrontPreview('')}
+                          className="mt-1 text-[11px] text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" /> Remove
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Back */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        Back of ID <span className="text-rose-500">*</span>
+                      </label>
+                      <label className="block cursor-pointer">
+                        <div
+                          className={`relative h-36 rounded-xl border-2 border-dashed overflow-hidden flex items-center justify-center transition ${
+                            kycBackPreview
+                              ? 'border-indigo-300 bg-white'
+                              : 'border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50/30'
+                          }`}
+                        >
+                          {kycBackPreview ? (
+                            <img src={kycBackPreview} alt="Back ID" className="w-full h-full object-contain" />
+                          ) : (
+                            <div className="text-center px-4">
+                              <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+                              <p className="text-xs text-slate-500 font-medium">Upload Back Photo</p>
+                              <p className="text-[11px] text-slate-400">JPG, PNG – Max 5MB</p>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 5 * 1024 * 1024) {
+                              setSettingsError('Back ID photo must be under 5MB');
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              setKycBackPreview(ev.target?.result as string);
+                              setSettingsError(null);
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                      {kycBackPreview && (
+                        <button
+                          type="button"
+                          onClick={() => setKycBackPreview('')}
+                          className="mt-1 text-[11px] text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" /> Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Submit KYC button */}
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveKyc}
+                      disabled={kycSaving}
+                      className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-xs font-bold shadow-xs transition cursor-pointer flex items-center gap-2"
+                    >
+                      {kycSaving ? (
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <BadgeCheck className="w-4 h-4" />
+                      )}
+                      <span>
+                        {store.idVerification?.status === 'rejected'
+                          ? 'Resubmit ID for Verification'
+                          : store.idVerification?.status === 'pending'
+                          ? 'Update & Resubmit ID'
+                          : 'Submit ID for Verification'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1995,6 +2750,1203 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             </div>
           </div>
         )}
+
+        {/* TAB: STORE ANALYTICS */}
+        {activeTab === 'analytics' && (() => {
+          // Filter orders according to selected period
+          const now = new Date();
+          const filteredAnalyticsOrders = storeOrders.filter((o) => {
+            const d = new Date(o.createdAt);
+            if (analyticsPeriod === 'today') {
+              return d.toDateString() === now.toDateString();
+            }
+            if (analyticsPeriod === 'yesterday') {
+              const yest = new Date();
+              yest.setDate(now.getDate() - 1);
+              return d.toDateString() === yest.toDateString();
+            }
+            if (analyticsPeriod === 'week') {
+              const weekAgo = new Date();
+              weekAgo.setDate(now.getDate() - 7);
+              return d >= weekAgo;
+            }
+            if (analyticsPeriod === 'month') {
+              return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            }
+            if (analyticsPeriod === 'year') {
+              return d.getFullYear() === now.getFullYear();
+            }
+            if (analyticsPeriod === 'custom_year') {
+              return d.getFullYear() === analyticsYear;
+            }
+            if (analyticsPeriod === 'custom_day') {
+              return d.toISOString().slice(0, 10) === analyticsDay;
+            }
+            return true;
+          });
+
+          const totalSales = filteredAnalyticsOrders.reduce((sum, o) => sum + (o.status !== 'cancelled' ? o.totalAmount : 0), 0);
+          const completedSales = filteredAnalyticsOrders.reduce((sum, o) => sum + (o.status === 'completed' ? o.totalAmount : 0), 0);
+          const totalOrdersCount = filteredAnalyticsOrders.length;
+          const completedOrdersCount = filteredAnalyticsOrders.filter((o) => o.status === 'completed').length;
+          const avgOrderValue = totalOrdersCount > 0 ? Math.round(totalSales / totalOrdersCount) : 0;
+          const totalItemsSold = filteredAnalyticsOrders.reduce((sum, o) => {
+            if (o.status === 'cancelled') return sum;
+            return sum + o.items.reduce((iSum, item) => iSum + item.quantity, 0);
+          }, 0);
+
+          // Monthly Chart Data (Jan - Dec)
+          const monthsNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const monthlyData = monthsNames.map((name, idx) => {
+            const monthOrders = storeOrders.filter((o) => {
+              const d = new Date(o.createdAt);
+              const targetYear = analyticsPeriod === 'custom_year' ? analyticsYear : now.getFullYear();
+              return d.getFullYear() === targetYear && d.getMonth() === idx && o.status !== 'cancelled';
+            });
+            const rev = monthOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+            return { name, revenue: rev, count: monthOrders.length };
+          });
+          const maxMonthRevenue = Math.max(...monthlyData.map((m) => m.revenue), 1);
+
+          // Top Selling Products in this period
+          const productStatsMap: Record<string, { id: string; name: string; image?: string; uid?: string; units: number; revenue: number }> = {};
+          filteredAnalyticsOrders.forEach((o) => {
+            if (o.status === 'cancelled') return;
+            o.items.forEach((item) => {
+              if (!productStatsMap[item.productId]) {
+                productStatsMap[item.productId] = {
+                  id: item.productId,
+                  name: item.productName,
+                  image: item.image,
+                  uid: item.productUid,
+                  units: 0,
+                  revenue: 0,
+                };
+              }
+              productStatsMap[item.productId].units += item.quantity;
+              productStatsMap[item.productId].revenue += item.subtotal;
+            });
+          });
+          const topProducts = Object.values(productStatsMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+          // Order status counts
+          const statusCounts = {
+            pending: filteredAnalyticsOrders.filter((o) => o.status === 'pending').length,
+            confirmed: filteredAnalyticsOrders.filter((o) => o.status === 'confirmed').length,
+            payment_confirmed: filteredAnalyticsOrders.filter((o) => o.status === 'payment_confirmed').length,
+            ready: filteredAnalyticsOrders.filter((o) => o.status === 'ready').length,
+            dispatched: filteredAnalyticsOrders.filter((o) => o.status === 'dispatched').length,
+            completed: filteredAnalyticsOrders.filter((o) => o.status === 'completed').length,
+            cancelled: filteredAnalyticsOrders.filter((o) => o.status === 'cancelled').length,
+          };
+
+          return (
+            <div className="space-y-6">
+              {/* Analytics Header & Period Filters */}
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-amber-600" />
+                      <h3 className="font-bold text-slate-900 text-base">Store Sales Analytics</h3>
+                      <span className="bg-amber-100 text-amber-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                        {store.name}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Track revenue, sales breakdown, and performance by year, day, or custom period.
+                    </p>
+                  </div>
+
+                  {/* Year & Day Quick Selectors */}
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    {/* Specific Day Picker */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="font-semibold text-[11px] text-slate-500">Pick Day:</span>
+                      <input
+                        type="date"
+                        value={analyticsDay}
+                        onChange={(e) => {
+                          setAnalyticsDay(e.target.value);
+                          setAnalyticsPeriod('custom_day');
+                        }}
+                        className="bg-transparent border-none text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Specific Year Picker */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700">
+                      <span className="font-semibold text-[11px] text-slate-500">Year:</span>
+                      <select
+                        value={analyticsPeriod === 'custom_year' ? analyticsYear : ''}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setAnalyticsYear(Number(e.target.value));
+                            setAnalyticsPeriod('custom_year');
+                          }
+                        }}
+                        className="bg-transparent border-none text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                      >
+                        <option value="">Select Year</option>
+                        {[2024, 2025, 2026, 2027].map((y) => (
+                          <option key={y} value={y}>
+                            {y}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Period Filter Chips */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Period:</span>
+                  {[
+                    { id: 'today', label: 'Today' },
+                    { id: 'yesterday', label: 'Yesterday' },
+                    { id: 'week', label: 'Last 7 Days' },
+                    { id: 'month', label: 'This Month' },
+                    { id: 'year', label: `Year ${now.getFullYear()}` },
+                    { id: 'all', label: 'All Time' },
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setAnalyticsPeriod(p.id as any)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        analyticsPeriod === p.id
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                  {analyticsPeriod === 'custom_day' && (
+                    <span className="px-2.5 py-1 bg-amber-100 text-amber-900 rounded-xl text-xs font-bold border border-amber-300">
+                      📅 Day: {analyticsDay}
+                    </span>
+                  )}
+                  {analyticsPeriod === 'custom_year' && (
+                    <span className="px-2.5 py-1 bg-purple-100 text-purple-900 rounded-xl text-xs font-bold border border-purple-300">
+                      📆 Year: {analyticsYear}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* KPI Summary Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Total Sales</span>
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+                    {formatPrice(totalSales, store.currencySymbol)}
+                  </div>
+                  <span className="text-[11px] text-emerald-600 font-semibold mt-1 block">
+                    {completedSales > 0 ? `${formatPrice(completedSales, store.currencySymbol)} fully completed` : 'From active orders'}
+                  </span>
+                </div>
+
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Orders</span>
+                    <ShoppingBag className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+                    {totalOrdersCount}
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-semibold mt-1 block">
+                    {completedOrdersCount} archived / delivered
+                  </span>
+                </div>
+
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Avg Order Value</span>
+                    <TrendingUp className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+                    {formatPrice(avgOrderValue, store.currencySymbol)}
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-semibold mt-1 block">
+                    Per customer order
+                  </span>
+                </div>
+
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Items Sold</span>
+                    <Package className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+                    {totalItemsSold}
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-semibold mt-1 block">
+                    Individual units checked out
+                  </span>
+                </div>
+              </div>
+
+              {/* Monthly Sales Breakdown Chart */}
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">Monthly Revenue Distribution</h4>
+                    <p className="text-xs text-slate-400">
+                      Annual breakdown for {analyticsPeriod === 'custom_year' ? analyticsYear : now.getFullYear()}
+                    </p>
+                  </div>
+                  <span className="text-xs font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-xl font-mono">
+                    Peak: {formatPrice(maxMonthRevenue === 1 ? 0 : maxMonthRevenue, store.currencySymbol)}
+                  </span>
+                </div>
+
+                {/* CSS Bars Chart */}
+                <div className="pt-8 pb-2 flex items-end justify-between gap-1 sm:gap-2 h-48 border-b border-slate-100 overflow-x-auto">
+                  {monthlyData.map((m) => {
+                    const heightPercent = maxMonthRevenue > 0 ? Math.round((m.revenue / maxMonthRevenue) * 100) : 0;
+                    return (
+                      <div key={m.name} className="flex-1 flex flex-col items-center gap-2 min-w-[28px] group relative">
+                        {/* Tooltip on hover */}
+                        <div className="opacity-0 group-hover:opacity-100 transition absolute -top-10 bg-slate-900 text-white text-[10px] py-1 px-2 rounded-lg font-mono whitespace-nowrap z-20 pointer-events-none shadow-lg">
+                          {formatPrice(m.revenue, store.currencySymbol)} ({m.count} ord)
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-xl h-36 flex items-end p-1 overflow-hidden">
+                          <div
+                            style={{ height: `${Math.max(heightPercent, 4)}%` }}
+                            className={`w-full rounded-lg transition-all duration-500 ${
+                              m.revenue > 0
+                                ? 'bg-gradient-to-t from-amber-600 to-amber-400 group-hover:from-amber-500 group-hover:to-amber-300'
+                                : 'bg-slate-200/60'
+                            }`}
+                          />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">{m.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Bottom 2 Columns: Top Products & Order Status Pipeline */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Top Selling Products */}
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h4 className="font-bold text-slate-900 text-sm">Top Selling Products</h4>
+                    <span className="text-xs text-slate-400 font-semibold">By Sales Volume</span>
+                  </div>
+
+                  {topProducts.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-xs">
+                      No product sales recorded for this period.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {topProducts.map((p, idx) => (
+                        <div key={p.id} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-slate-100/80 transition border border-slate-100 text-xs">
+                          <div className="flex items-center gap-3">
+                            <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-900 font-black text-xs flex items-center justify-center flex-shrink-0">
+                              #{idx + 1}
+                            </span>
+                            {p.image && (
+                              <img src={p.image} alt={p.name} className="w-10 h-10 rounded-xl object-cover bg-white border border-slate-200" />
+                            )}
+                            <div>
+                              <p className="font-bold text-slate-900 leading-tight">{p.name}</p>
+                              {p.uid && (
+                                <span className="font-mono text-[10px] text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                  UID: #{p.uid}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-black font-mono text-slate-900 text-sm">
+                              {formatPrice(p.revenue, store.currencySymbol)}
+                            </div>
+                            <span className="text-[11px] text-slate-400 font-semibold">{p.units} units sold</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Pipeline Status Breakdown */}
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h4 className="font-bold text-slate-900 text-sm">Order Status Funnel</h4>
+                    <span className="text-xs text-slate-400 font-semibold">Current Pipeline</span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {[
+                      { label: '🆕 Received & Pending', count: statusCounts.pending, color: 'bg-amber-400' },
+                      { label: '✅ Order Confirmed', count: statusCounts.confirmed, color: 'bg-blue-500' },
+                      { label: '💰 Payment Confirmed', count: statusCounts.payment_confirmed, color: 'bg-emerald-500' },
+                      { label: '📦 Packaged & Ready', count: statusCounts.ready, color: 'bg-indigo-500' },
+                      { label: '🚚 Dispatched / Out', count: statusCounts.dispatched, color: 'bg-purple-500' },
+                      { label: '🎉 Completed & Delivered', count: statusCounts.completed, color: 'bg-teal-600' },
+                      { label: '🔴 Cancelled Orders', count: statusCounts.cancelled, color: 'bg-rose-500' },
+                    ].map((st) => {
+                      const pct = totalOrdersCount > 0 ? Math.round((st.count / totalOrdersCount) * 100) : 0;
+                      return (
+                        <div key={st.label} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-slate-700">{st.label}</span>
+                            <span className="font-mono font-bold text-slate-900">
+                              {st.count} ({pct}%)
+                            </span>
+                          </div>
+                          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div style={{ width: `${pct}%` }} className={`h-full ${st.color} rounded-full transition-all duration-300`} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* TAB: NOTES MANAGER */}
+        {activeTab === 'notes' && (
+          <div className="space-y-4">
+            <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <StickyNote className="w-5 h-5 text-amber-600" />
+                  <h3 className="font-bold text-slate-900 text-base">Store Notes & Reminders</h3>
+                  <span className="bg-slate-100 text-slate-800 text-xs font-bold px-2 py-0.5 rounded-full font-mono">
+                    {storeNotes.length} Notes
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Keep customer order details, supplier contacts, restocking lists, or personal store memos.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingNote(null);
+                  setNoteTitle('');
+                  setNoteBody('');
+                  setNotePinned(false);
+                  setIsAddNoteOpen(true);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Note</span>
+              </button>
+            </div>
+
+            {/* Note Search */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search notes by title or content..."
+                value={noteSearch}
+                onChange={(e) => setNoteSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+              />
+            </div>
+
+            {/* Note Cards Grid */}
+            {(() => {
+              const filteredNotes = storeNotes
+                .filter((n) => {
+                  const q = noteSearch.toLowerCase().trim();
+                  return !q || n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q);
+                })
+                .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+
+              if (filteredNotes.length === 0) {
+                return (
+                  <div className="bg-white rounded-3xl p-12 text-center text-slate-400 border border-slate-200 space-y-3">
+                    <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                      <StickyNote className="w-8 h-8" />
+                    </div>
+                    <h4 className="font-bold text-slate-800 text-sm">No notes found</h4>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Create your first store reminder, supplier quote, or order checklist.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddNoteOpen(true)}
+                      className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer"
+                    >
+                      + Create Note
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredNotes.map((note) => (
+                    <div
+                      key={note.id}
+                      className={`p-5 rounded-3xl border transition flex flex-col justify-between shadow-2xs hover:shadow-md ${
+                        note.pinned
+                          ? 'bg-gradient-to-br from-amber-50/70 to-white border-amber-300 ring-1 ring-amber-300'
+                          : 'bg-white border-slate-200/90'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h4 className="font-bold text-slate-900 text-sm leading-snug">{note.title}</h4>
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePinNote(note.id)}
+                            className={`p-1.5 rounded-lg transition cursor-pointer ${
+                              note.pinned ? 'bg-amber-100 text-amber-800' : 'text-slate-300 hover:text-slate-600'
+                            }`}
+                            title={note.pinned ? 'Unpin' : 'Pin to top'}
+                          >
+                            <Pin className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{note.body}</p>
+                      </div>
+
+                      <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                        <span>{new Date(note.updatedAt || note.createdAt).toLocaleDateString()}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${note.title}\n\n${note.body}`);
+                              alert('Note copied to clipboard!');
+                            }}
+                            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 cursor-pointer"
+                            title="Copy text"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingNote(note);
+                              setNoteTitle(note.title);
+                              setNoteBody(note.body);
+                              setNotePinned(note.pinned);
+                              setIsAddNoteOpen(true);
+                            }}
+                            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 cursor-pointer"
+                            title="Edit"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteNote(note.id)}
+                            className="p-1.5 hover:bg-rose-50 rounded-lg text-rose-500 cursor-pointer"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Note Create/Edit Modal */}
+            {isAddNoteOpen && (
+              <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden">
+                  <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                    <h3 className="font-bold text-slate-900 text-sm">
+                      {editingNote ? 'Edit Store Note' : 'Add New Store Note'}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddNoteOpen(false)}
+                      className="p-1 text-slate-400 hover:text-slate-800 rounded-lg cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSaveNote} className="p-5 space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Restock Fragrance Bottles or Courier Contact"
+                        value={noteTitle}
+                        onChange={(e) => setNoteTitle(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        autoFocus
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Note Content</label>
+                      <textarea
+                        rows={6}
+                        placeholder="Type notes, customer requests, dispatch phone numbers, or account details..."
+                        value={noteBody}
+                        onChange={(e) => setNoteBody(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="pinNoteCheck"
+                        checked={notePinned}
+                        onChange={(e) => setNotePinned(e.target.checked)}
+                        className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                      />
+                      <label htmlFor="pinNoteCheck" className="text-xs font-semibold text-slate-700 cursor-pointer flex items-center gap-1">
+                        <Pin className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Pin this note to the top</span>
+                      </label>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddNoteOpen(false)}
+                        className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow cursor-pointer"
+                      >
+                        {editingNote ? 'Save Changes' : 'Create Note'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: EXPENSES MANAGER */}
+        {activeTab === 'expenses' && (() => {
+          const filteredExpenses = storeExpenses.filter((exp) => {
+            const matchCat = expenseCategoryFilter === 'all' || exp.category === expenseCategoryFilter;
+            const matchMonth = expenseMonthFilter === 'all' || exp.date.startsWith(expenseMonthFilter);
+            const q = expenseSearch.toLowerCase().trim();
+            const matchQ = !q || exp.description.toLowerCase().includes(q);
+            return matchCat && matchMonth && matchQ;
+          });
+
+          const totalExpensesAmount = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+          const netProfit = totalOrderRevenue - totalExpensesAmount;
+          const profitMargin = totalOrderRevenue > 0 ? Math.round((netProfit / totalOrderRevenue) * 100) : 0;
+
+          // Category totals
+          const catBreakdown: Record<string, number> = {};
+          filteredExpenses.forEach((e) => {
+            catBreakdown[e.category] = (catBreakdown[e.category] || 0) + e.amount;
+          });
+
+          return (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-amber-600" />
+                    <h3 className="font-bold text-slate-900 text-base">Store Expenses & Profit Tracker</h3>
+                    <span className="bg-slate-100 text-slate-800 text-xs font-bold px-2 py-0.5 rounded-full font-mono">
+                      {storeExpenses.length} Records
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Track courier fees, packaging supplies, stock purchases, and calculate real net profit.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAddExpenseOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Log Expense</span>
+                </button>
+              </div>
+
+              {/* P&L Financial Summary Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Store Revenue
+                  </span>
+                  <div className="text-2xl font-black text-slate-900 font-mono">
+                    {formatPrice(totalOrderRevenue, store.currencySymbol)}
+                  </div>
+                  <span className="text-[11px] text-emerald-600 font-semibold mt-1 block">From WhatsApp orders</span>
+                </div>
+
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Total Expenses
+                  </span>
+                  <div className="text-2xl font-black text-rose-600 font-mono">
+                    {formatPrice(totalExpensesAmount, store.currencySymbol)}
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-semibold mt-1 block">
+                    {filteredExpenses.length} operational items
+                  </span>
+                </div>
+
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Net Profit
+                  </span>
+                  <div className={`text-2xl font-black font-mono ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {formatPrice(netProfit, store.currencySymbol)}
+                  </div>
+                  <span className={`text-[11px] font-semibold mt-1 block ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    {netProfit >= 0 ? 'Profitable operation' : 'Expenses exceed revenue'}
+                  </span>
+                </div>
+
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Profit Margin
+                  </span>
+                  <div className="text-2xl font-black text-slate-900 font-mono">
+                    {profitMargin}%
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-semibold mt-1 block">
+                    Net return on sales
+                  </span>
+                </div>
+              </div>
+
+              {/* Filters & Expenses List */}
+              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs overflow-hidden space-y-4 p-5">
+                <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search expenses..."
+                      value={expenseSearch}
+                      onChange={(e) => setExpenseSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={expenseCategoryFilter}
+                      onChange={(e) => setExpenseCategoryFilter(e.target.value)}
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">All Categories</option>
+                      {['Shipping', 'Supplies', 'Marketing', 'Rent', 'Utilities', 'Other'].map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Expenses Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                      <tr>
+                        <th className="py-3 px-4">Date</th>
+                        <th className="py-3 px-4">Description</th>
+                        <th className="py-3 px-4">Category</th>
+                        <th className="py-3 px-4 text-right">Amount</th>
+                        <th className="py-3 px-4 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredExpenses.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-slate-400">
+                            No expenses logged yet. Click "+ Log Expense" above to record store costs.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredExpenses.map((exp) => (
+                          <tr key={exp.id} className="hover:bg-slate-50 transition">
+                            <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">{exp.date}</td>
+                            <td className="py-3 px-4 font-bold text-slate-900">{exp.description}</td>
+                            <td className="py-3 px-4">
+                              <span className="bg-slate-100 text-slate-800 font-semibold px-2.5 py-0.5 rounded-full text-[11px]">
+                                {exp.category}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right font-black font-mono text-slate-900">
+                              {formatPrice(exp.amount, store.currencySymbol)}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteExpense(exp.id)}
+                                className="p-1 hover:bg-rose-50 rounded-lg text-rose-500 cursor-pointer"
+                                title="Delete expense"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Add Expense Modal */}
+              {isAddExpenseOpen && (
+                <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                  <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
+                    <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                      <h3 className="font-bold text-slate-900 text-sm">Log Store Expense</h3>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddExpenseOpen(false)}
+                        className="p-1 text-slate-400 hover:text-slate-800 rounded-lg cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleAddExpense} className="p-5 space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Expense Description</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Courier dispatch riders fee, Packaging bags"
+                          value={expenseDesc}
+                          onChange={(e) => setExpenseDesc(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          autoFocus
+                          required
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Amount ({store.currencySymbol})</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder="0.00"
+                            value={expenseAmount}
+                            onChange={(e) => setExpenseAmount(e.target.value)}
+                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Category</label>
+                          <select
+                            value={expenseCategory}
+                            onChange={(e) => setExpenseCategory(e.target.value as any)}
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none cursor-pointer"
+                          >
+                            {['Shipping', 'Supplies', 'Marketing', 'Rent', 'Utilities', 'Other'].map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Date</label>
+                        <input
+                          type="date"
+                          value={expenseDate}
+                          onChange={(e) => setExpenseDate(e.target.value)}
+                          className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddExpenseOpen(false)}
+                          className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow cursor-pointer"
+                        >
+                          Save Expense
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* TAB: CALCULATOR & PROFIT MARGIN SUITE */}
+        {activeTab === 'calculator' && (() => {
+          const cost = parseFloat(pmCostPrice) || 0;
+          const sell = parseFloat(pmSellingPrice) || 0;
+          const profit = sell - cost;
+          const marginPct = sell > 0 ? Math.round((profit / sell) * 1000) / 10 : 0;
+          const markupPct = cost > 0 ? Math.round((profit / cost) * 1000) / 10 : 0;
+
+          // Target pricing calculation
+          const targetM = parseFloat(pmTargetMargin) || 0;
+          const targetSellingPrice = targetM < 100 && cost > 0 ? Math.round(cost / (1 - targetM / 100)) : 0;
+
+          return (
+            <div className="space-y-6">
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-amber-600" />
+                  <h3 className="font-bold text-slate-900 text-base">Commerce Calculator & Margin Suite</h3>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Handy business tools for quick on-the-fly math, product pricing, and profit margin analysis.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                {/* 1. Full Business Calculator */}
+                <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl border border-slate-800 space-y-4 max-w-sm mx-auto w-full">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Fast Calculator</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(calcDisplay);
+                        alert(`Copied ${calcDisplay} to clipboard!`);
+                      }}
+                      className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy</span>
+                    </button>
+                  </div>
+
+                  {/* Calculator Display */}
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-right space-y-1">
+                    <div className="text-xs text-slate-400 font-mono h-4 truncate">{calcFormula || '\u00A0'}</div>
+                    <div className="text-3xl font-black font-mono text-white tracking-tight truncate">{calcDisplay}</div>
+                  </div>
+
+                  {/* Keypad */}
+                  <div className="grid grid-cols-4 gap-2 text-sm font-bold font-mono">
+                    <button
+                      type="button"
+                      onClick={handleCalcClear}
+                      className="p-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 cursor-pointer active:scale-95 transition"
+                    >
+                      AC
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCalcBackspace}
+                      className="p-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer active:scale-95 transition"
+                    >
+                      DEL
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCalcPercent}
+                      className="p-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 cursor-pointer active:scale-95 transition"
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcOperator('÷')}
+                      className="p-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      ÷
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCalcDigit('7')}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      7
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcDigit('8')}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      8
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcDigit('9')}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      9
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcOperator('×')}
+                      className="p-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      ×
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCalcDigit('4')}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      4
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcDigit('5')}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      5
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcDigit('6')}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      6
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcOperator('-')}
+                      className="p-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      -
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCalcDigit('1')}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      1
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcDigit('2')}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      2
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcDigit('3')}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      3
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcOperator('+')}
+                      className="p-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      +
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCalcNegate}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 cursor-pointer active:scale-95 transition"
+                    >
+                      ±
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcDigit('0')}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      0
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCalcDigit('.')}
+                      className="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white cursor-pointer active:scale-95 transition"
+                    >
+                      .
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCalcEquals}
+                      className="p-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black cursor-pointer active:scale-95 transition shadow-md"
+                    >
+                      =
+                    </button>
+                  </div>
+
+                  {/* History Tape */}
+                  {calcHistory.length > 0 && (
+                    <div className="pt-3 border-t border-slate-800 space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>Recent Calculations</span>
+                        <button
+                          type="button"
+                          onClick={() => setCalcHistory([])}
+                          className="hover:text-white cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <div className="max-h-20 overflow-y-auto space-y-0.5 text-[11px] font-mono text-slate-300">
+                        {calcHistory.map((h, idx) => (
+                          <div key={idx} className="truncate">{h}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Profit Margin & Pricing Calculator */}
+                <div className="space-y-6">
+                  {/* Margin & Markup Tool */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-5">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <Percent className="w-4 h-4 text-emerald-600" />
+                      <h4 className="font-bold text-slate-900 text-sm">Product Profit & Margin Calculator</h4>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Cost Price ({store.currencySymbol})
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="e.g. 5000"
+                          value={pmCostPrice}
+                          onChange={(e) => setPmCostPrice(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Selling Price ({store.currencySymbol})
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="e.g. 8500"
+                          value={pmSellingPrice}
+                          onChange={(e) => setPmSellingPrice(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Output badges */}
+                    <div className="grid grid-cols-3 gap-3 pt-2">
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-center">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Profit</span>
+                        <span className={`text-base font-black font-mono ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {formatPrice(profit, store.currencySymbol)}
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-center">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Margin</span>
+                        <span className="text-base font-black font-mono text-slate-900">
+                          {marginPct}%
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-center">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Markup</span>
+                        <span className="text-base font-black font-mono text-purple-600">
+                          {markupPct}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Target Pricing Tool */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <TrendingUp className="w-4 h-4 text-blue-600" />
+                      <h4 className="font-bold text-slate-900 text-sm">Target Price Finder</h4>
+                    </div>
+
+                    <p className="text-xs text-slate-500">
+                      Determine what price you should charge to achieve a target profit margin.
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Cost Price ({store.currencySymbol})</label>
+                        <input
+                          type="number"
+                          placeholder="e.g. 5000"
+                          value={pmCostPrice}
+                          onChange={(e) => setPmCostPrice(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Target Margin (%)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="99"
+                          placeholder="30"
+                          value={pmTargetMargin}
+                          onChange={(e) => setPmTargetMargin(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] font-bold text-emerald-800 block">Suggested Selling Price:</span>
+                        <span className="text-xl font-black font-mono text-emerald-950">
+                          {formatPrice(targetSellingPrice, store.currencySymbol)}
+                        </span>
+                      </div>
+                      <span className="text-xs text-emerald-700 font-semibold">
+                        Gives {targetM}% margin
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         </div>{/* /content area */}
       </div>{/* /main flex-1 */}
 

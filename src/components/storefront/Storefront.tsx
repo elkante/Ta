@@ -116,6 +116,10 @@ export const Storefront: React.FC<StorefrontProps> = ({
   // Filtered products with UID support
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
+      // Only show approved products (or old products without the field — backward compat)
+      const isApproved = !p.approvalStatus || p.approvalStatus === 'approved';
+      if (!isApproved) return false;
+
       const matchSearch =
         !cleanSearch ||
         p.name.toLowerCase().includes(cleanSearch) ||
@@ -543,8 +547,8 @@ export const Storefront: React.FC<StorefrontProps> = ({
                   setSelectedProduct(p);
                   setIsDetailOpen(true);
                 }}
-                onQuickWhatsApp={(p, v) => {
-                  handleAddToCart(p, v);
+                onQuickWhatsApp={(p) => {
+                  handleAddToCart(p);
                   setIsCartOpen(true);
                 }}
                 onAddToCart={(p, v) => {
