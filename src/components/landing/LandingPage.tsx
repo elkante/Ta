@@ -49,12 +49,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [handleError, setHandleError] = useState<string | null>(null);
 
   // ─── 6-tap easter egg on logo (Mobile & PC) → opens /sys-hq ─────────────────
-  // Uses synchronous ref counter and touch-action:manipulation to guarantee every tap registers
+  // Uses synchronous ref counter and pointer/touch tracking to guarantee every mobile tap registers
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTapTimeRef = useRef<number>(0);
 
   const handleLogoTap = (e?: React.SyntheticEvent) => {
-    if (e) e.stopPropagation();
+    if (e) {
+      e.stopPropagation();
+    }
+    const now = Date.now();
+    // Debounce duplicate events within 50ms (prevents pointerdown + click double firing)
+    if (now - lastTapTimeRef.current < 50) return;
+    lastTapTimeRef.current = now;
 
     if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
 
@@ -64,24 +71,29 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     // Haptic vibration feedback on mobile touch devices
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
-        navigator.vibrate(currentTaps >= 6 ? [50, 70, 50] : 25);
+        navigator.vibrate(currentTaps >= 6 ? [60, 80, 60] : 30);
       } catch (err) {}
     }
 
     if (currentTaps >= 6) {
       tapCountRef.current = 0;
       if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
-      onOpenSuperAdmin?.();
+      window.history.pushState({}, '', '/sys-hq');
+      if (onOpenSuperAdmin) {
+        onOpenSuperAdmin();
+      } else {
+        window.location.href = '/sys-hq';
+      }
       return;
     }
 
-    // Rolling 3.2s window so mobile users can tap at a natural pace
+    // Rolling 3.5s window so mobile users can tap at a natural pace
     tapTimerRef.current = setTimeout(() => {
       if (tapCountRef.current === 1) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       tapCountRef.current = 0;
-    }, 3200);
+    }, 3500);
   };
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -143,6 +155,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <button
             onClick={handleLogoTap}
+            onPointerDown={(e) => {
+              if (e.pointerType === 'touch') {
+                handleLogoTap(e);
+              }
+            }}
             style={{
               touchAction: 'manipulation',
               WebkitTapHighlightColor: 'transparent',

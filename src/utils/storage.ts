@@ -17,6 +17,8 @@ import {
   dbSaveOrder,
   dbUpdateOrderStatus,
   dbSaveCategory,
+  dbSaveReview,
+  dbFetchReviews,
   dbFetchStores,
   dbFetchStoreBySlug,
   dbFetchStoreByOwnerEmail,
@@ -209,6 +211,21 @@ export function getStoredReviews(): StoreReview[] {
   }
   localStorage.setItem(REVIEWS_KEY, JSON.stringify(INITIAL_REVIEWS));
   return INITIAL_REVIEWS;
+}
+
+export function saveReviews(reviews: StoreReview[]): void {
+  try {
+    localStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
+  } catch (e) {
+    console.error('Failed reading reviews', e);
+  }
+}
+
+export function addStoreReview(review: StoreReview): void {
+  const current = getStoredReviews();
+  const next = [review, ...current.filter((r) => r.id !== review.id)];
+  saveReviews(next);
+  dbSaveReview(review).catch(() => {});
 }
 
 export function getStoreBySlug(slug: string): Store | undefined {

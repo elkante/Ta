@@ -185,6 +185,8 @@ export interface StoreReview {
   rating: number;
   comment: string;
   productName?: string;
+  customerPhotoUrl?: string; // Buyer photo of received items
+  verifiedBuyer?: boolean;
   date: string;
 }
 

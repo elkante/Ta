@@ -27,6 +27,7 @@ import { WhatsAppCartDrawer } from './WhatsAppCartDrawer';
 import { StoreAIBotBubble } from './StoreAIBotBubble';
 import { WhatsAppPreviewModal } from '../modals/WhatsAppPreviewModal';
 import { SocialShareModal } from '../modals/SocialShareModal';
+import { CustomerReviewModal } from '../modals/CustomerReviewModal';
 import {
   createCartInquiryMessage,
   createProductInquiryMessage,
@@ -91,6 +92,30 @@ export const Storefront: React.FC<StorefrontProps> = ({
       }
     }
   }, [initialProductId, products]);
+
+  // Customer Review Modal State & Deep-link support (?review=1)
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [activeReviews, setActiveReviews] = useState<StoreReview[]>(reviews);
+
+  useEffect(() => {
+    setActiveReviews(reviews);
+  }, [reviews]);
+
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (
+        url.searchParams.get('review') === '1' ||
+        url.searchParams.get('review') === 'true' ||
+        url.searchParams.get('action') === 'review'
+      ) {
+        setIsReviewModalOpen(true);
+        url.searchParams.delete('review');
+        url.searchParams.delete('action');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch (e) {}
+  }, []);
 
   // WhatsApp Message Preview Modal state
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -566,22 +591,33 @@ export const Storefront: React.FC<StorefrontProps> = ({
         )}
 
         {/* Social Proof & Customer Reviews Section */}
-        {reviews.length > 0 && (
-          <section className="mt-16 pt-10 border-t border-slate-200/80">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="font-bold text-slate-900 text-lg leading-tight flex items-center gap-2">
-                  <span>Customer Reviews & Feedback</span>
-                  <span className="text-amber-500 flex items-center text-sm font-semibold">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400 inline" /> 5.0
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-500">Verified buyer ratings from WhatsApp orders</p>
-              </div>
+        <section className="mt-16 pt-10 border-t border-slate-200/80">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 className="font-bold text-slate-900 text-lg leading-tight flex items-center gap-2">
+                <span>Customer Reviews & Feedback</span>
+                <span className="text-amber-500 flex items-center text-sm font-semibold">
+                  <Star className="w-4 h-4 fill-amber-400 text-amber-400 inline" />{' '}
+                  {activeReviews.length > 0
+                    ? (activeReviews.reduce((sum, r) => sum + r.rating, 0) / activeReviews.length).toFixed(1)
+                    : '5.0'}
+                </span>
+              </h3>
+              <p className="text-xs text-slate-500">Verified buyer ratings from orders & delivery</p>
             </div>
 
+            <button
+              onClick={() => setIsReviewModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-xs cursor-pointer transition-transform active:scale-95 shrink-0 self-start sm:self-auto"
+            >
+              <Star className="w-3.5 h-3.5 fill-slate-950" />
+              <span>Leave a Review</span>
+            </button>
+          </div>
+
+          {activeReviews.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {reviews.map((rev) => (
+              {activeReviews.map((rev) => (
                 <div
                   key={rev.id}
                   className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between"
@@ -595,12 +631,33 @@ export const Storefront: React.FC<StorefrontProps> = ({
                       </div>
                       <span className="text-[10px] text-slate-400">{rev.date}</span>
                     </div>
+
                     <p className="text-xs text-slate-700 italic leading-relaxed">
                       "{rev.comment}"
                     </p>
+
+                    {/* Customer Photo of what they received */}
+                    {rev.customerPhotoUrl && (
+                      <div className="mt-2.5 rounded-xl overflow-hidden border border-slate-100 bg-slate-50">
+                        <img
+                          src={rev.customerPhotoUrl}
+                          alt="Customer item received"
+                          className="w-full h-36 object-cover hover:scale-105 transition-transform"
+                        />
+                        <div className="px-2 py-1 bg-white/95 text-[10px] font-semibold text-emerald-700 border-t border-slate-100 flex items-center gap-1">
+                          <span>📸 Photo of item received</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
+
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                    <span className="font-semibold text-slate-900">{rev.author}</span>
+                    <span className="font-semibold text-slate-900 flex items-center gap-1">
+                      {rev.author}
+                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded-full">
+                        Verified
+                      </span>
+                    </span>
                     {rev.productName && (
                       <span className="text-slate-400 truncate max-w-[120px]">{rev.productName}</span>
                     )}
@@ -608,8 +665,18 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 </div>
               ))}
             </div>
-          </section>
-        )}
+          ) : (
+            <div className="p-6 bg-white rounded-2xl border border-dashed border-slate-200 text-center space-y-2">
+              <p className="text-xs font-semibold text-slate-600">No reviews posted yet.</p>
+              <button
+                onClick={() => setIsReviewModalOpen(true)}
+                className="text-xs font-bold text-amber-600 hover:text-amber-700 cursor-pointer underline"
+              >
+                Be the first to leave a review!
+              </button>
+            </div>
+          )}
+        </section>
 
         {/* How Ordering Works & Policies */}
         <section className="mt-12 bg-white rounded-2xl p-6 border border-slate-200/80">
@@ -800,6 +867,17 @@ export const Storefront: React.FC<StorefrontProps> = ({
         }}
         store={store}
         product={shareTargetProduct}
+      />
+
+      {/* Customer Review & Photo Feedback Modal */}
+      <CustomerReviewModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        store={store}
+        products={products}
+        onReviewSubmitted={(newRev) => {
+          setActiveReviews((prev) => [newRev, ...prev]);
+        }}
       />
 
       {/* Floating AI Shopping Assistant Bubble (Strictly for this store) */}

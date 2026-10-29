@@ -54,14 +54,18 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // ─── 6-tap easter egg on logo (Mobile & PC) → opens /sys-hq ─────────────────
-  // Uses synchronous ref counter and touch-action:manipulation to guarantee every mobile tap registers
+  // Uses synchronous ref counter and pointer/touch tracking to guarantee every mobile tap registers
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTapTimeRef = useRef<number>(0);
 
   const handleLogoTap = useCallback((e?: React.SyntheticEvent) => {
     if (e) {
       e.stopPropagation();
     }
+    const now = Date.now();
+    if (now - lastTapTimeRef.current < 50) return;
+    lastTapTimeRef.current = now;
 
     if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
 
@@ -71,7 +75,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     // Haptic vibration feedback on mobile touch devices
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
-        navigator.vibrate(currentTaps >= 6 ? [50, 70, 50] : 25);
+        navigator.vibrate(currentTaps >= 6 ? [60, 80, 60] : 30);
       } catch (err) {}
     }
 
@@ -79,18 +83,19 @@ export const Navigation: React.FC<NavigationProps> = ({
       tapCountRef.current = 0;
       if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
       setMobileMenuOpen(false);
+      window.history.pushState({}, '', '/sys-hq');
       onOpenSuperAdmin();
       return;
     }
 
-    // Rolling 3.2s window so mobile users can tap at a natural pace
+    // Rolling 3.5s window so mobile users can tap at a natural pace
     tapTimerRef.current = setTimeout(() => {
       if (tapCountRef.current === 1) {
         setMobileMenuOpen(false);
         onViewChange('landing');
       }
       tapCountRef.current = 0;
-    }, 3200);
+    }, 3500);
   }, [onOpenSuperAdmin, onViewChange]);
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -101,6 +106,11 @@ export const Navigation: React.FC<NavigationProps> = ({
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={handleLogoTap}
+            onPointerDown={(e) => {
+              if (e.pointerType === 'touch') {
+                handleLogoTap(e);
+              }
+            }}
             style={{
               touchAction: 'manipulation',
               WebkitTapHighlightColor: 'transparent',

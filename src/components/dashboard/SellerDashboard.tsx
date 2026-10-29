@@ -22,6 +22,7 @@ import {
   MapPin,
   Menu,
   MessageCircle,
+  MessageSquare,
   Package,
   Phone,
   Pin,
@@ -33,6 +34,7 @@ import {
   Share2,
   ShoppingBag,
   Sparkles,
+  Star,
   StickyNote,
   ToggleLeft,
   ToggleRight,
@@ -67,7 +69,7 @@ import { WhatsAppBotStudio } from './WhatsAppBotStudio';
 import { formatPrice, generateWhatsAppLink } from '../../utils/whatsapp';
 import { generateQRCodeSVG } from '../../utils/qrCode';
 import { playOrderNotificationSound } from '../../utils/audio';
-import { dbFetchOrders, dbDeleteProduct } from '../../utils/supabase';
+import { dbFetchOrders, dbDeleteProduct, dbSaveProduct, dbSaveStore } from '../../utils/supabase';
 import {
   generateItemUid,
   getOrdersByStore,
@@ -118,7 +120,31 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   onSelectStore,
   onOpenGuide,
 }) => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing' | 'analytics' | 'notes' | 'expenses' | 'calculator'>('orders');
+  const [activeTab, setActiveTabState] = useState<'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing' | 'analytics' | 'notes' | 'expenses' | 'calculator'>(() => {
+    try {
+      const url = new URL(window.location.href);
+      const urlTab = url.searchParams.get('tab') as any;
+      if (urlTab && ['orders', 'products', 'uid-bot', 'marketing', 'inquiries', 'settings', 'billing', 'analytics', 'notes', 'expenses', 'calculator'].includes(urlTab)) {
+        return urlTab;
+      }
+      const saved = sessionStorage.getItem(`ta_seller_tab_${store.id}`) || sessionStorage.getItem('ta_seller_tab');
+      if (saved && ['orders', 'products', 'uid-bot', 'marketing', 'inquiries', 'settings', 'billing', 'analytics', 'notes', 'expenses', 'calculator'].includes(saved)) {
+        return saved as any;
+      }
+    } catch (e) {}
+    return 'orders';
+  });
+
+  const setActiveTab = (tab: typeof activeTab) => {
+    setActiveTabState(tab);
+    try {
+      sessionStorage.setItem(`ta_seller_tab_${store.id}`, tab);
+      sessionStorage.setItem('ta_seller_tab', tab);
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState({}, '', url.toString());
+    } catch (e) {}
+  };
 
   // Orders State & Filtering
   const [orderViewMode, setOrderViewMode] = useState<'active' | 'history'>('active');
@@ -431,24 +457,32 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const categories = ['All', ...Array.from(new Set(products.map((p) => p.category)))];
 
   // Actions on Products
-  const handleToggleStock = (product: Product) => {
+  const handleToggleStock = async (product: Product) => {
+    const updatedProd: Product = { ...product, inStock: !product.inStock };
     const allProducts = getStoredProducts();
-    const updated = allProducts.map((p) => (p.id === product.id ? { ...p, inStock: !p.inStock } : p));
+    const updated = allProducts.map((p) => (p.id === product.id ? updatedProd : p));
     saveProducts(updated);
+    try {
+      await dbSaveProduct(updatedProd);
+    } catch (e) {}
     onRefreshData();
   };
 
-  const handleDeleteProduct = (productId: string) => {
+  const handleDeleteProduct = async (productId: string) => {
     if (confirm('Are you sure you want to delete this product?')) {
       const allProducts = getStoredProducts();
       const updated = allProducts.filter((p) => p.id !== productId);
       saveProducts(updated);
-      dbDeleteProduct(productId).catch((err) => console.warn('Failed deleting product from Supabase:', err));
+      try {
+        await dbDeleteProduct(productId);
+      } catch (err) {
+        console.warn('Failed deleting product from Supabase:', err);
+      }
       onRefreshData();
     }
   };
 
-  const handleDuplicateProduct = (product: Product) => {
+  const handleDuplicateProduct = async (product: Product) => {
     const allProducts = getStoredProducts();
     const duplicated: Product = {
       ...product,
@@ -460,10 +494,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       approvalStatus: 'pending',
     };
     saveProducts([duplicated, ...allProducts]);
+    try {
+      await dbSaveProduct(duplicated);
+    } catch (e) {}
     onRefreshData();
   };
 
-  const handleSaveProduct = (payload: Partial<Product>) => {
+  const handleSaveProduct = async (payload: Partial<Product>) => {
     const allProducts = getStoredProducts();
 
     // Sanitize image array to ensure preset fallback is always active if empty or missing
@@ -473,23 +510,23 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         : ['https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80'];
 
     const safePrice = Math.max(0, Number(payload.price) || 0);
+    let savedProd: Product;
 
     if (productToEdit) {
       // Update existing
+      savedProd = {
+        ...productToEdit,
+        ...payload,
+        price: safePrice,
+        images: sanitizedImages,
+      };
       const updated = allProducts.map((p) =>
-        p.id === productToEdit.id
-          ? {
-              ...p,
-              ...payload,
-              price: safePrice,
-              images: sanitizedImages,
-            }
-          : p
+        p.id === productToEdit.id ? savedProd : p
       );
       saveProducts(updated);
     } else {
       // Add new
-      const newProd: Product = {
+      savedProd = {
         id: `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         uid: payload.uid || generateItemUid(store.slug, allProducts.length + 1),
         storeId: store.id,
@@ -507,11 +544,19 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         createdAt: new Date().toISOString(),
         approvalStatus: 'pending', // Must be approved by super admin before going live
       };
-      saveProducts([newProd, ...allProducts]);
+      saveProducts([savedProd, ...allProducts]);
+    }
+
+    setProductToEdit(null);
+
+    // Await cloud persistence before triggering data refresh
+    try {
+      await dbSaveProduct(savedProd);
+    } catch (e) {
+      console.warn('Supabase product save error:', e);
     }
 
     onRefreshData();
-    setProductToEdit(null);
   };
 
   // Inquiry Status Change
@@ -523,7 +568,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   };
 
   // Save Store Settings
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSettingsError(null);
 
@@ -574,6 +619,11 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     const updatedStores = allStores.map((s) => (s.id === store.id ? updatedStore : s));
     saveStores(updatedStores);
     onSelectStore(updatedStore);
+    try {
+      await dbSaveStore(updatedStore);
+    } catch (e) {
+      console.warn('Supabase store settings save error:', e);
+    }
     onRefreshData();
 
     setSettingsSavedToast(true);
@@ -581,7 +631,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   };
 
   // KYC re-upload save handler
-  const handleSaveKyc = () => {
+  const handleSaveKyc = async () => {
     if (!kycFrontPreview) {
       setSettingsError('Please upload the front photo of your ID document before saving.');
       return;
@@ -603,6 +653,11 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     const updatedStore: Store = { ...store, idVerification: kycData };
     updateStore(updatedStore);
     onSelectStore(updatedStore);
+    try {
+      await dbSaveStore(updatedStore);
+    } catch (e) {
+      console.warn('Supabase KYC save error:', e);
+    }
     onRefreshData();
     setKycSaving(false);
     setSettingsSavedToast(true);
@@ -2610,7 +2665,63 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               </div>
             </div>
 
-            {/* Social Sharing Pitch & Tips */}
+            {/* Customer Review Collector & Photo Proof Link Card */}
+            <div className="bg-gradient-to-br from-amber-500/10 via-white to-slate-50 p-6 rounded-2xl border border-amber-200/80 shadow-2xs space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 text-base">Customer Review & Photo Feedback Link</h3>
+                    <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                      Social Proof ✨
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Send this link to buyers on WhatsApp so they can rate you 1–5 stars and upload a photo of what they received.
+                  </p>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-xs">
+                  <Star className="w-5 h-5 fill-slate-950" />
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-white rounded-xl border border-amber-200/70 space-y-2">
+                <span className="text-[11px] font-semibold text-slate-500 block">Your Store Review Link:</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${getStoreUrl(store.slug, { customDomain: store.customDomain })}?review=1`}
+                    className="flex-1 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono text-slate-800 select-all"
+                  />
+                  <button
+                    onClick={() => {
+                      const url = `${getStoreUrl(store.slug, { customDomain: store.customDomain })}?review=1`;
+                      navigator.clipboard.writeText(url);
+                      setCopiedStoreLink(true);
+                      setTimeout(() => setCopiedStoreLink(false), 2000);
+                    }}
+                    className="py-2 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-lg cursor-pointer flex items-center gap-1.5 transition active:scale-95"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>{copiedStoreLink ? 'Copied!' : 'Copy'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `Hi! 👋 Thank you for shopping with *${store.name}*! Could you take 10 seconds to leave us a quick star rating & feedback here?\n\n${getStoreUrl(store.slug, { customDomain: store.customDomain })}?review=1\n\n(You can also snap a photo of what you received!) Thank you so much for your support! ✨`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs transition"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Send Review Request on WhatsApp</span>
+                </a>
+              </div>
+            </div>
             <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">WhatsApp Status & Bio Links</h3>
@@ -4155,7 +4266,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         store={store}
         initialPlan={paystackInitialPlan}
         initialCycle={billingCycle}
-        onUpgradeSuccess={(plan) => {
+        onUpgradeSuccess={async (plan) => {
           const allStores = getStoredStores();
           const updatedStore: Store = {
             ...store,
@@ -4165,6 +4276,9 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           };
           saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
           onSelectStore(updatedStore);
+          try {
+            await dbSaveStore(updatedStore);
+          } catch (e) {}
           onRefreshData();
         }}
       />

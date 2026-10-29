@@ -413,3 +413,72 @@ export async function dbSaveCategory(storeId: string, name: string): Promise<boo
     return false;
   }
 }
+
+// ─── REVIEWS / FEEDBACK ──────────────────────────────────────────────────────
+
+export function mapReviewFromDB(row: any): StoreReview {
+  const rawComment = row.comment || '';
+  let comment = rawComment;
+  let customerPhotoUrl: string | undefined = undefined;
+
+  // Extract embedded [PHOTO:url] if present
+  const photoMatch = rawComment.match(/\[PHOTO:(.+?)\]/);
+  if (photoMatch) {
+    customerPhotoUrl = photoMatch[1];
+    comment = rawComment.replace(/\[PHOTO:.+?\]/, '').trim();
+  }
+
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    author: row.author || 'Verified Customer',
+    rating: Math.max(1, Math.min(5, Number(row.rating) || 5)),
+    comment: comment,
+    productName: row.product_name || undefined,
+    customerPhotoUrl: customerPhotoUrl,
+    verifiedBuyer: true,
+    date: row.date || (row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Recently'),
+  };
+}
+
+export function mapReviewToDB(review: StoreReview): any {
+  let commentPayload = review.comment || '';
+  if (review.customerPhotoUrl) {
+    commentPayload = `${commentPayload}\n\n[PHOTO:${review.customerPhotoUrl}]`.trim();
+  }
+
+  return {
+    id: review.id,
+    store_id: review.storeId,
+    author: review.author,
+    rating: review.rating,
+    comment: commentPayload,
+    product_name: review.productName || null,
+    date: review.date,
+    created_at: new Date().toISOString(),
+  };
+}
+
+export async function dbFetchReviews(storeId: string): Promise<StoreReview[]> {
+  try {
+    const { data, error } = await supabase
+      .from('store_reviews')
+      .select('*')
+      .eq('store_id', storeId)
+      .order('created_at', { ascending: false });
+    if (error || !data) return [];
+    return data.map(mapReviewFromDB);
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function dbSaveReview(review: StoreReview): Promise<boolean> {
+  try {
+    const payload = mapReviewToDB(review);
+    const { error } = await supabase.from('store_reviews').upsert(payload, { onConflict: 'id' });
+    return !error;
+  } catch (e) {
+    return false;
+  }
+}

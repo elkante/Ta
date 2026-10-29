@@ -65,6 +65,28 @@ const activeSessions = new Map();
 // Essential to prevent "Waiting for this message. This may take a while"
 const messageStore = new Map();
 
+// In-memory conversation state for Smart Guided Shopping Concierge
+// Map<`${storeId}:${remoteJid}`, { timestamp: number, budget: number|null, recipient: string|null }>
+const customerSessions = new Map();
+
+function extractBudget(text) {
+  if (!text) return null;
+  const kMatch = text.match(/(?:under|around|budget|below|less than|within|max|about)?\s*(?:₦|N|NGN)?\s*(\d+(?:\.\d+)?)\s*k\b/i);
+  if (kMatch) return Math.round(parseFloat(kMatch[1]) * 1000);
+  const numMatch = text.match(/(?:under|around|budget|below|less than|within|max|about)?\s*(?:₦|N|NGN)?\s*(\d{4,9})\b/i);
+  if (numMatch) return parseInt(numMatch[1], 10);
+  return null;
+}
+
+function detectRecipient(text) {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  if (/\b(her|girlfriend|wife|woman|women|mom|mother|sister|daughter|babe|lady|queen)\b/i.test(lower)) return 'female';
+  if (/\b(him|boyfriend|husband|man|men|dad|father|brother|son|guy|king)\b/i.test(lower)) return 'male';
+  if (/\b(friend|bestie|colleague|myself|me|self)\b/i.test(lower)) return 'neutral';
+  return null;
+}
+
 /**
  * Safely send message and register in local message store for retry decryption requests
  */
@@ -313,6 +335,77 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
         await sendProductCard(sock, remoteJid, matchedProduct, storeName, storeBaseUrl, storeId);
         continue;
       }
+
+      // ─── SMART GUIDED SHOPPING CONCIERGE & GIFT / BUDGET ASSISTANT ─────────
+      const sessionKey = `${storeId}:${remoteJid}`;
+      const activeConvo = customerSessions.get(sessionKey);
+      const isConvoFresh = activeConvo && (Date.now() - activeConvo.timestamp < 20 * 60 * 1000); // 20 min conversation window
+
+      const detectedBudget = extractBudget(cleanText);
+      const detectedRecipient = detectRecipient(cleanText);
+      const isGuidanceQuery = /\b(gift|gifts|present|surprise|birthday|anniversary|don't know|dont know|not sure|help me|choose|pick|suggest|recommend|confused|ideas?|advice|what should i|looking for something|what to get)\b/i.test(cleanText);
+
+      if (isGuidanceQuery || (isConvoFresh && (detectedBudget || detectedRecipient))) {
+        const effectiveBudget = detectedBudget || (isConvoFresh ? activeConvo?.budget : null);
+        const effectiveRecipient = detectedRecipient || (isConvoFresh ? activeConvo?.recipient : null);
+
+        customerSessions.set(sessionKey, {
+          timestamp: Date.now(),
+          budget: effectiveBudget || null,
+          recipient: effectiveRecipient || null,
+        });
+
+        // If customer provided a budget or a recipient, filter catalog and recommend!
+        if (effectiveBudget || effectiveRecipient) {
+          let candidates = currentCatalog.filter((p) => p.inStock);
+
+          if (effectiveBudget) {
+            candidates = candidates.filter((p) => Number(p.price) <= effectiveBudget * 1.25);
+          }
+          if (effectiveRecipient === 'female') {
+            candidates = candidates.filter((p) => !/\b(men|men's|him|cologne)\b/i.test(p.name + ' ' + (p.category || '')));
+          } else if (effectiveRecipient === 'male') {
+            candidates = candidates.filter((p) => !/\b(dress|skirt|wig|earring|heels)\b/i.test(p.name + ' ' + (p.category || '')));
+          }
+
+          // Sort by highest relevance/closest to budget
+          candidates.sort((a, b) => Number(b.price) - Number(a.price));
+
+          if (candidates.length > 0) {
+            const top = candidates.slice(0, 4);
+            const listText = top
+              .map((p) => `• *#${p.uid}* - ${p.name} (₦${Number(p.price).toLocaleString()}) ✨`)
+              .join('\n');
+
+            const budgetLine = effectiveBudget ? ` within *₦${effectiveBudget.toLocaleString()}*` : '';
+            const recipientLine = effectiveRecipient === 'female' ? ' for her' : effectiveRecipient === 'male' ? ' for him' : '';
+
+            const reply =
+              `🎯 *Personal Shopper Recommendations*${recipientLine}${budgetLine} at *${storeName}*:\n\n` +
+              `${listText}\n\n` +
+              `Reply with any *#Item Code* (e.g. *#${top[0].uid}*) for full photos & options, or tap to checkout:\n${storeBaseUrl}\n\n` +
+              `_Want a different price? Reply with e.g. "budget 15k"!_`;
+
+            // Send photo card of the #1 match first
+            await sendProductCard(sock, remoteJid, top[0], storeName, storeBaseUrl, storeId);
+            await safeSendMessage(sock, remoteJid, { text: reply });
+            continue;
+          }
+        }
+
+        // If neither budget nor recipient is specified yet, ask the smart questions!
+        const questionReply =
+          `👋 I'd love to help you find the perfect match at *${storeName}*! 🎁✨\n\n` +
+          `To give you our best recommendations, tell me:\n` +
+          `1️⃣ *Who is this for?* (e.g. Yourself, Partner/Spouse, Mom, Friend?)\n` +
+          `2️⃣ *What is your budget range?* (e.g. "under 20k", "50,000", or "no limit")\n` +
+          `3️⃣ *Any specific style or category?*\n\n` +
+          `💡 _Or simply reply with e.g. "gift for my girlfriend under 25k" and I'll find our best items immediately!_`;
+
+        await safeSendMessage(sock, remoteJid, { text: questionReply });
+        continue;
+      }
+      // ─────────────────────────────────────────────────────────────────────────
 
       // Category search (e.g. "show me bags", "do you have shoes")
       const categoryKeywords = ['show me', 'do you have', 'looking for', 'i need', 'any'];

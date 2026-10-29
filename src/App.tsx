@@ -46,6 +46,7 @@ import {
 import {
   dbFetchStores,
   dbFetchProducts,
+  dbFetchReviews,
   dbFetchAllProducts,
   dbFetchAllOrders,
   dbFetchStoreBySlug,
@@ -321,6 +322,14 @@ export default function App() {
 
       setStoreInquiries(inqs);
       setStoreReviews(revs);
+
+      // Fetch live cloud reviews from Supabase
+      try {
+        const liveRevs = await dbFetchReviews(targetStore.id);
+        if (liveRevs && liveRevs.length > 0) {
+          setStoreReviews(liveRevs);
+        }
+      } catch (e) {}
     }
   };
 
@@ -413,11 +422,19 @@ export default function App() {
     setStoreInquiries(getInquiriesByStore(store.id));
     setStoreReviews(getReviewsByStore(store.id));
 
-    // Also fetch latest live products from Supabase
+    // Also fetch latest live products & reviews from Supabase
     dbFetchProducts(store.id)
       .then((live) => {
         if (live && live.length > 0) {
           setStoreProducts(live);
+        }
+      })
+      .catch(() => {});
+
+    dbFetchReviews(store.id)
+      .then((liveRevs) => {
+        if (liveRevs && liveRevs.length > 0) {
+          setStoreReviews(liveRevs);
         }
       })
       .catch(() => {});
@@ -612,13 +629,7 @@ export default function App() {
             setAuthModalSlug(slug || '');
             setIsAuthModalOpen(true);
           }}
-          onOpenSuperAdmin={() => {
-            if (!superAdminSession) {
-              setIsSuperAdminModalOpen(true);
-            } else {
-              setActiveView('superadmin');
-            }
-          }}
+          onOpenSuperAdmin={handleOpenSuperAdmin}
           onOpenLegal={handleOpenLegal}
         />
         <SellerAuthModal

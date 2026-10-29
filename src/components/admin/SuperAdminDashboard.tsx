@@ -111,7 +111,30 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   onImpersonateStore = () => {},
   onOpenLanding = () => {},
 }) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('stores');
+  const [activeTab, setActiveTabState] = useState<AdminTab>(() => {
+    try {
+      const url = new URL(window.location.href);
+      const urlTab = url.searchParams.get('tab') as AdminTab;
+      if (urlTab && ['stores', 'products', 'orders', 'verifications', 'plans', 'notes', 'settings'].includes(urlTab)) {
+        return urlTab;
+      }
+      const saved = sessionStorage.getItem('ta_superadmin_active_tab') as AdminTab;
+      if (saved && ['stores', 'products', 'orders', 'verifications', 'plans', 'notes', 'settings'].includes(saved)) {
+        return saved;
+      }
+    } catch (e) {}
+    return 'stores';
+  });
+
+  const setActiveTab = (tab: AdminTab) => {
+    setActiveTabState(tab);
+    try {
+      sessionStorage.setItem('ta_superadmin_active_tab', tab);
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState({}, '', url.toString());
+    } catch (e) {}
+  };
 
   // Mobile sidebar drawer
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
