@@ -28,6 +28,7 @@ export function mapStoreFromDB(row: any): Store {
     ownerEmail: row.owner_email || undefined,
     ownerPassword: row.owner_password || undefined,
     featuredOnLanding: Boolean(row.featured_on_landing),
+    customDomain: row.custom_domain || undefined,
     tagline: row.tagline || '',
     description: row.description || '',
     whatsappCountryCode: row.whatsapp_country_code || '+234',
@@ -63,6 +64,7 @@ export function mapStoreToDB(store: Store): any {
     owner_email: store.ownerEmail,
     owner_password: store.ownerPassword,
     featured_on_landing: Boolean(store.featuredOnLanding),
+    custom_domain: store.customDomain || null,
     tagline: store.tagline,
     description: store.description,
     whatsapp_country_code: store.whatsappCountryCode,
@@ -202,6 +204,24 @@ export async function dbFetchStoreBySlug(slug: string): Promise<Store | null> {
 }
 
 /**
+ * Fetch a store by custom domain (e.g. "amakajewelry.com.ng" or "brand.com")
+ */
+export async function dbFetchStoreByCustomDomain(domain: string): Promise<Store | null> {
+  try {
+    const cleanDomain = domain.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    const { data, error } = await supabase
+      .from('stores')
+      .select('*')
+      .eq('custom_domain', cleanDomain)
+      .maybeSingle();
+    if (error || !data) return null;
+    return mapStoreFromDB(data);
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * Fetch a single seller's store by their owner email.
  * Used for login auth so we NEVER load other sellers' store data.
  */
@@ -246,6 +266,7 @@ export async function dbSaveStore(store: Store): Promise<boolean> {
       delete payload.owner_name;
       delete payload.featured_on_landing;
       delete payload.id_verification;
+      delete payload.custom_domain;
       const retry = await supabase.from('stores').upsert(payload, { onConflict: 'id' });
       return !retry.error;
     }

@@ -572,8 +572,14 @@ export const TA_ROOT_DOMAIN = 'ta.shop';
  */
 export function getStoreUrl(
   slug: string,
-  options?: { productId?: string; forceSubdomain?: boolean }
+  options?: { productId?: string; forceSubdomain?: boolean; customDomain?: string }
 ): string {
+  if (options?.customDomain) {
+    const base = `https://${options.customDomain.replace(/^https?:\/\//, '')}`;
+    if (options.productId) return `${base}/?product=${options.productId}`;
+    return base;
+  }
+
   if (typeof window === 'undefined') {
     return `https://${slug}.${TA_ROOT_DOMAIN}`;
   }
@@ -598,7 +604,8 @@ export function getStoreUrl(
 /**
  * Returns a branded display label (e.g., "amaka-perfumes.ta.shop" or "my-app.vercel.app/?store=...")
  */
-export function getStoreDisplayUrl(slug: string): string {
+export function getStoreDisplayUrl(slug: string, customDomain?: string): string {
+  if (customDomain) return customDomain.replace(/^https?:\/\//, '');
   if (typeof window === 'undefined') return `${slug}.${TA_ROOT_DOMAIN}`;
   const host = window.location.hostname;
   if (host.endsWith('ta.shop')) {

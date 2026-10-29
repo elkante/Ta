@@ -39,7 +39,7 @@ import {
   saveStores,
   setCurrentTenantSlug,
 } from './utils/storage';
-import { dbFetchStores, dbFetchProducts, dbFetchStoreBySlug } from './utils/supabase';
+import { dbFetchStores, dbFetchProducts, dbFetchStoreBySlug, dbFetchStoreByCustomDomain } from './utils/supabase';
 
 export default function App() {
   const [allStores, setAllStores] = useState<Store[]>([]);
@@ -159,13 +159,41 @@ export default function App() {
     const subdomainSlug = getSubdomainFromHostname();
 
     // Determine if a specific store was explicitly requested
-    const hasExplicitStore = !!(slug || subdomainSlug || storeParam);
+    let hasExplicitStore = !!(slug || subdomainSlug || storeParam);
     const urlStoreSlug = slug || subdomainSlug || storeParam || '';
 
     // Resolve target store only if a slug was explicitly given in the URL or loadTenantData arg
     let targetStore: Store | null = null;
     if (urlStoreSlug) {
       targetStore = stores.find((s) => s.slug.toLowerCase() === urlStoreSlug.toLowerCase()) || null;
+    }
+
+    // 🌐 CUSTOM DOMAIN RESOLUTION (e.g. amakajewels.com.ng or brand.com)
+    // If visitor accesses via a custom domain, load that specific merchant's storefront directly!
+    const currentHost = window.location.hostname.toLowerCase();
+    const isPaaSOrLocal =
+      currentHost === 'localhost' ||
+      currentHost === '127.0.0.1' ||
+      currentHost.endsWith('vercel.app') ||
+      currentHost.endsWith('netlify.app') ||
+      currentHost.endsWith('ta.shop');
+
+    if (!isPaaSOrLocal && !targetStore) {
+      const matchedByDomain = stores.find((s) => s.customDomain?.toLowerCase() === currentHost) || null;
+      if (matchedByDomain) {
+        targetStore = matchedByDomain;
+        hasExplicitStore = true;
+      } else {
+        try {
+          const liveCustom = await dbFetchStoreByCustomDomain(currentHost);
+          if (liveCustom) {
+            targetStore = liveCustom;
+            hasExplicitStore = true;
+            stores = [...stores.filter(s => s.id !== liveCustom.id), liveCustom];
+            setAllStores(stores);
+          }
+        } catch (e) {}
+      }
     }
 
     if (viewParam === 'landing') {

@@ -75,6 +75,7 @@ import {
 } from '../../utils/storage';
 import { formatPrice } from '../../utils/whatsapp';
 import { getStoreAIUsage } from '../../utils/aiMarketing';
+import { dbSaveStore } from '../../utils/supabase';
 
 interface SuperAdminDashboardProps {
   session: SuperAdminSession;
@@ -143,6 +144,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   // Private note composer modal target
   const [noteTarget, setNoteTarget] = useState<Store | null>(null);
   const [noteText, setNoteText] = useState('');
+
+  // Custom Domain management state
+  const [domainModalStore, setDomainModalStore] = useState<Store | null>(null);
+  const [domainInput, setDomainInput] = useState('');
+  const [isSavingDomain, setIsSavingDomain] = useState(false);
 
   // Modals / Action states
   const [storeToDelete, setStoreToDelete] = useState<Store | null>(null);
@@ -246,6 +252,27 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     updateStore(updated);
     onRefreshData();
     triggerToast(`AI Studio quota for "${store.name}" reset to 0 used today.`);
+  };
+
+  const handleOpenDomainModal = (store: Store) => {
+    setDomainModalStore(store);
+    setDomainInput(store.customDomain || '');
+  };
+
+  const handleSaveCustomDomain = async (store: Store, domainValue: string) => {
+    setIsSavingDomain(true);
+    const clean = domainValue.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    const updated: Store = { ...store, customDomain: clean || undefined };
+    updateStore(updated);
+    try {
+      await dbSaveStore(updated);
+    } catch (e) {
+      console.warn('Live save custom domain error:', e);
+    }
+    setIsSavingDomain(false);
+    setDomainModalStore(null);
+    onRefreshData();
+    triggerToast(clean ? `🌐 Custom domain "${clean}" linked to "${store.name}"!` : `Custom domain removed from "${store.name}".`);
   };
 
   const handleToggleSuspended = (store: Store) => {
@@ -818,6 +845,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
                                 <span className="font-mono text-slate-700 font-semibold">{store.slug}.ta.shop</span>
+                                {store.customDomain && (
+                                  <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-md font-mono text-[10px] font-bold">
+                                    <Globe className="w-2.5 h-2.5 text-emerald-600" />
+                                    {store.customDomain}
+                                  </span>
+                                )}
                                 <span>•</span>
                                 <span className="font-semibold text-slate-900">Owner: {store.ownerName || 'Not specified'}</span>
                                 <span>•</span>
@@ -893,6 +926,22 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                               />
                               <span className="text-[11px] hidden sm:inline">
                                 {store.featuredOnLanding ? 'On Landing' : '+ Landing'}
+                              </span>
+                            </button>
+
+                            {/* Custom Domain Management */}
+                            <button
+                              onClick={() => handleOpenDomainModal(store)}
+                              className={`p-2 px-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
+                                store.customDomain
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold shadow-2xs'
+                                  : 'border-slate-200 hover:bg-slate-100 text-slate-600'
+                              }`}
+                              title={store.customDomain ? `Custom Domain: ${store.customDomain} (Click to edit)` : 'Assign Custom Web Domain'}
+                            >
+                              <Globe className={`w-3.5 h-3.5 ${store.customDomain ? 'text-emerald-600' : 'text-slate-400'}`} />
+                              <span className="text-[11px] hidden sm:inline">
+                                {store.customDomain ? 'Domain' : '+ Domain'}
                               </span>
                             </button>
 
@@ -2406,6 +2455,126 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               >
                 <Check className="w-3.5 h-3.5" />
                 <span>Apply Plan Override</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── CUSTOM DOMAIN MANAGER MODAL (Super Admin Only) ───────────────── */}
+      {domainModalStore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="fixed inset-0" onClick={() => !isSavingDomain && setDomainModalStore(null)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 space-y-4 border border-slate-200 z-10">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
+                  <Globe className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">Assign Custom Web Domain</h3>
+                  <p className="text-xs text-slate-500 truncate">
+                    {domainModalStore.name} ({domainModalStore.slug}.ta.shop)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDomainModalStore(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Current Default URL vs Custom Domain */}
+            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 text-xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500">
+                <span>Default Platform Handle:</span>
+                <span className="font-mono font-semibold text-slate-800">{domainModalStore.slug}.ta.shop</span>
+              </div>
+              {domainModalStore.customDomain && (
+                <div className="flex items-center justify-between text-emerald-700 font-semibold pt-1 border-t border-slate-200/60">
+                  <span>Active Custom Domain:</span>
+                  <span className="font-mono bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md">
+                    {domainModalStore.customDomain}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Domain Input */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">
+                Custom Domain Name (e.g. .com, .com.ng, .ng, .store)
+              </label>
+              <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2.5 bg-white focus-within:ring-2 focus-within:ring-emerald-600 focus-within:border-emerald-600">
+                <Globe className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-xs text-slate-400 font-mono select-none">https://</span>
+                <input
+                  type="text"
+                  value={domainInput}
+                  onChange={(e) => setDomainInput(e.target.value.toLowerCase().trim())}
+                  placeholder="amakajewelry.com.ng"
+                  className="flex-1 text-xs font-mono font-semibold text-slate-900 focus:outline-none placeholder:text-slate-300"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 leading-tight">
+                Enter without "https://" or slashes. Example: <code className="text-slate-600">amakajewels.com.ng</code> or <code className="text-slate-600">brand.com</code>
+              </p>
+            </div>
+
+            {/* Quick DNS Setup Guide Box */}
+            <div className="bg-indigo-50/70 border border-indigo-200 rounded-2xl p-3 text-xs space-y-2">
+              <div className="flex items-center gap-1.5 font-bold text-indigo-950">
+                <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span>DNS Settings for Whogohost / Namecheap / QServers:</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                <div className="bg-white p-2 rounded-lg border border-indigo-100">
+                  <span className="text-[10px] text-slate-400 block font-sans">Apex/Root Record:</span>
+                  <strong className="text-slate-800">A @ ➔ 76.76.21.21</strong>
+                </div>
+                <div className="bg-white p-2 rounded-lg border border-indigo-100">
+                  <span className="text-[10px] text-slate-400 block font-sans">WWW Subdomain:</span>
+                  <strong className="text-slate-800">CNAME www ➔ cname.vercel-dns.com</strong>
+                </div>
+              </div>
+              <p className="text-[10px] text-indigo-800/80 leading-relaxed font-sans">
+                💡 Tip: Add the domain to your Vercel Project Domains to auto-generate the free SSL padlock (takes 60s).
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 pt-2">
+              {domainModalStore.customDomain && (
+                <button
+                  type="button"
+                  disabled={isSavingDomain}
+                  onClick={() => handleSaveCustomDomain(domainModalStore, '')}
+                  className="px-3 py-2.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition cursor-pointer"
+                  title="Disconnect and remove custom domain"
+                >
+                  Remove Domain
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={isSavingDomain}
+                onClick={() => setDomainModalStore(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSavingDomain}
+                onClick={() => handleSaveCustomDomain(domainModalStore, domainInput)}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition cursor-pointer shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{isSavingDomain ? 'Saving to Cloud...' : 'Save & Link Domain'}</span>
               </button>
             </div>
           </div>

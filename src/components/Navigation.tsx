@@ -210,7 +210,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   )}
                 </div>
                 <div className="text-[10px] text-slate-400 font-mono truncate">
-                  {currentStore.slug}.ta.shop
+                  {currentStore.customDomain || `${currentStore.slug}.ta.shop`}
                 </div>
               </div>
             </div>

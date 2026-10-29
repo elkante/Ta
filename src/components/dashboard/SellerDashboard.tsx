@@ -14,6 +14,7 @@ import {
   Edit3,
   ExternalLink,
   Eye,
+  Globe,
   Filter,
   Image as ImageIcon,
   Layers,
@@ -607,13 +608,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   };
 
   const handleCopyStoreLink = () => {
-    const url = getStoreUrl(store.slug);
+    const url = getStoreUrl(store.slug, { customDomain: store.customDomain });
     navigator.clipboard.writeText(url);
     setCopiedStoreLink(true);
     setTimeout(() => setCopiedStoreLink(false), 2000);
   };
 
-  const storeCatalogUrl = getStoreUrl(store.slug);
+  const storeCatalogUrl = getStoreUrl(store.slug, { customDomain: store.customDomain });
   const qrSvg = generateQRCodeSVG(storeCatalogUrl, 260, store.accentColor || '#111827', '#ffffff');
 
   const handleDownloadStoreQR_PNG = () => {
@@ -2617,6 +2618,23 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               </div>
 
               <div className="space-y-3">
+                {store.customDomain && (
+                  <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-800">
+                        <Globe className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">Personal Web Domain</span>
+                        <strong className="text-emerald-950 font-mono">{store.customDomain}</strong>
+                      </div>
+                    </div>
+                    <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      Live & Verified
+                    </span>
+                  </div>
+                )}
+
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
                     Instagram / TikTok Bio Link

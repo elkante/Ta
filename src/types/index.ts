@@ -85,6 +85,7 @@ export interface Store {
   hasVerifiedBadgeAddon?: boolean; // Standalone ₦2,000/mo verification add-on
   verifiedBadgeExpiresAt?: string;
   featuredOnLanding?: boolean; // Exclusively controlled by Super Admin for landing page Live Storefronts
+  customDomain?: string; // Custom domain linked by Super Admin (e.g. "amakajewelry.com.ng" or "brand.com")
   aiDailyUsage?: {
     date: string; // YYYY-MM-DD
     count: number; // Generations used today
