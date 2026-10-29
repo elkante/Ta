@@ -1,0 +1,109 @@
+<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e1e2f" />
+      <stop offset="100%" stop-color="#090d16" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1080" height="1080" fill="url(#bg4)" />
+
+  
+    <g transform="translate(60, 50) scale(1.1)">
+      <rect width="180" height="46" rx="23" fill="#1e293b" stroke="#334155" stroke-width="1.5" />
+      <circle cx="28" cy="23" r="14" fill="#f59e0b" />
+      <text x="28" y="29" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="18" fill="#0f172a" text-anchor="middle">T</text>
+      <text x="50" y="30" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="24" fill="#ffffff" letter-spacing="1">T<tspan fill="#f59e0b">aaa</tspan></text>
+      <rect x="122" y="14" width="46" height="18" rx="9" fill="#10b981" />
+      <text x="145" y="26.5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="9" fill="#ffffff" text-anchor="middle">.COM.NG</text>
+    </g>
+  
+  <g transform="translate(770, 55)">
+    <rect width="250" height="42" rx="21" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" stroke-width="1.5" />
+    <text x="125" y="27" font-family="system-ui, sans-serif" font-weight="800" font-size="13" fill="#fca5a5" text-anchor="middle">⚠️ REPUTATION ALERT</text>
+  </g>
+
+  <!-- Headline -->
+  <text x="60" y="175" font-family="system-ui, sans-serif" font-weight="900" font-size="52" fill="#ffffff" letter-spacing="-1">
+    Customers HATE
+  </text>
+  <text x="60" y="240" font-family="system-ui, sans-serif" font-weight="900" font-size="52" fill="#ef4444" letter-spacing="-1">
+    "Check DM For Price" 🤬
+  </text>
+  <text x="60" y="290" font-family="system-ui, sans-serif" font-weight="500" font-size="22" fill="#94a3b8">
+    83% of Nigerian shoppers skip vendors who hide prices. Show them upfront with Taaa!
+  </text>
+
+  <!-- Visual Proof Graph & Contrast -->
+  <g transform="translate(60, 335)">
+    <!-- Stat Box 1 -->
+    <g transform="translate(0, 0)">
+      <rect width="460" height="260" rx="24" fill="#181216" stroke="#ef4444" stroke-width="2" />
+      <text x="35" y="55" font-family="system-ui, sans-serif" font-weight="900" font-size="64" fill="#ef4444">83%</text>
+      <text x="35" y="105" font-family="system-ui, sans-serif" font-weight="800" font-size="22" fill="#ffffff">Drop-Off Rate</text>
+      <text x="35" y="145" font-family="system-ui, sans-serif" font-size="16" fill="#fca5a5" line-height="24">
+        Shoppers assume your price is too high or you change prices based on who is asking.
+      </text>
+      <rect x="35" y="195" width="220" height="36" rx="10" fill="rgba(239, 68, 68, 0.2)" />
+      <text x="145" y="219" font-family="system-ui, sans-serif" font-weight="700" font-size="13" fill="#f87171" text-anchor="middle">❌ Kills Brand Credibility</text>
+    </g>
+
+    <!-- Stat Box 2 -->
+    <g transform="translate(500, 0)">
+      <rect width="460" height="260" rx="24" fill="#0c1d1a" stroke="#10b981" stroke-width="2" />
+      <text x="35" y="55" font-family="system-ui, sans-serif" font-weight="900" font-size="64" fill="#10b981">+340%</text>
+      <text x="35" y="105" font-family="system-ui, sans-serif" font-weight="800" font-size="22" fill="#ffffff">Orders With Taaa Link</text>
+      <text x="35" y="145" font-family="system-ui, sans-serif" font-size="16" fill="#a7f3d0">
+        Transparent prices + Item UIDs build instant trust. Customers order in 2 clicks.
+      </text>
+      <rect x="35" y="195" width="220" height="36" rx="10" fill="rgba(16, 185, 129, 0.2)" />
+      <text x="145" y="219" font-family="system-ui, sans-serif" font-weight="700" font-size="13" fill="#34d399" text-anchor="middle">✅ Instant Customer Trust</text>
+    </g>
+
+    <!-- Big Solution Banner Below -->
+    <g transform="translate(0, 290)">
+      <rect width="960" height="280" rx="24" fill="#1e293b" stroke="#f59e0b" stroke-width="2" />
+      <g transform="translate(40, 40)">
+        <circle cx="35" cy="35" r="35" fill="#f59e0b" />
+        <text x="35" y="47" font-size="34" text-anchor="middle">⭐</text>
+        <text x="95" y="32" font-family="system-ui, sans-serif" font-weight="900" font-size="26" fill="#ffffff">Put 1 Link In Your Instagram &amp; TikTok Bio</text>
+        <text x="95" y="65" font-family="monospace" font-weight="700" font-size="20" fill="#f59e0b">taaa.com.ng/?store=yourname</text>
+      </g>
+
+      <g transform="translate(40, 140)">
+        <g transform="translate(0, 0)">
+          <text x="0" y="20" font-size="18">🔵</text>
+          <text x="30" y="20" font-family="system-ui, sans-serif" font-weight="700" font-size="17" fill="#ffffff">Verified Merchant Blue Badge on your store</text>
+        </g>
+        <g transform="translate(0, 50)">
+          <text x="0" y="20" font-size="18">🏷️</text>
+          <text x="30" y="20" font-family="system-ui, sans-serif" font-weight="700" font-size="17" fill="#ffffff">Item UIDs (#TA-101) so buyers know exact items</text>
+        </g>
+        <g transform="translate(480, 0)">
+          <text x="0" y="20" font-size="18">📱</text>
+          <text x="30" y="20" font-family="system-ui, sans-serif" font-weight="700" font-size="17" fill="#ffffff">Works seamlessly on any phone</text>
+        </g>
+        <g transform="translate(480, 50)">
+          <text x="0" y="20" font-size="18">⚡</text>
+          <text x="30" y="20" font-family="system-ui, sans-serif" font-weight="700" font-size="17" fill="#ffffff">Zero coding or website maintenance</text>
+        </g>
+      </g>
+    </g>
+  </g>
+
+  
+    <g transform="translate(60, 950)">
+      <rect width="960" height="74" rx="20" fill="#0f172a" stroke="#f59e0b" stroke-width="2" />
+      <circle cx="45" cy="37" r="14" fill="#f59e0b" />
+      <path d="M40 37 L43 41 L50 33" stroke="#0f172a" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="75" y="44" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="24" fill="#ffffff">
+        Stop Losing Sales • Switch to taaa.com.ng
+      </text>
+      <rect x="760" y="14" width="180" height="46" rx="14" fill="#f59e0b" />
+      <text x="850" y="43" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="19" fill="#0f172a" text-anchor="middle">
+        FREE SETUP
+      </text>
+    </g>
+  
+</svg>

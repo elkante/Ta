@@ -1,0 +1,137 @@
+<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#022c22" />
+      <stop offset="50%" stop-color="#064e3b" />
+      <stop offset="100%" stop-color="#021f18" />
+    </linearGradient>
+    <radialGradient id="glow2" cx="0.5" cy="0.4" r="0.6">
+      <stop offset="0%" stop-color="rgba(16, 185, 129, 0.3)" />
+      <stop offset="100%" stop-color="transparent" />
+    </radialGradient>
+    <linearGradient id="phoneGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1080" height="1080" fill="url(#bg2)" />
+  <rect width="1080" height="1080" fill="url(#glow2)" />
+
+  
+    <g transform="translate(60, 50) scale(1.1)">
+      <rect width="180" height="46" rx="23" fill="#1e293b" stroke="#334155" stroke-width="1.5" />
+      <circle cx="28" cy="23" r="14" fill="#f59e0b" />
+      <text x="28" y="29" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="18" fill="#0f172a" text-anchor="middle">T</text>
+      <text x="50" y="30" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="24" fill="#ffffff" letter-spacing="1">T<tspan fill="#f59e0b">aaa</tspan></text>
+      <rect x="122" y="14" width="46" height="18" rx="9" fill="#10b981" />
+      <text x="145" y="26.5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="9" fill="#ffffff" text-anchor="middle">.COM.NG</text>
+    </g>
+  
+  <g transform="translate(800, 55)">
+    <rect width="220" height="42" rx="21" fill="rgba(245, 158, 11, 0.2)" stroke="#f59e0b" stroke-width="1.5" />
+    <text x="110" y="27" font-family="system-ui, sans-serif" font-weight="800" font-size="13" fill="#fcd34d" text-anchor="middle">⭐ 100% FREE SETUP</text>
+  </g>
+
+  <!-- Headline -->
+  <text x="60" y="175" font-family="system-ui, sans-serif" font-weight="900" font-size="52" fill="#ffffff" letter-spacing="-1">
+    Turn Your <tspan fill="#25D366">WhatsApp</tspan> Into A
+  </text>
+  <text x="60" y="240" font-family="system-ui, sans-serif" font-weight="900" font-size="52" fill="#f59e0b" letter-spacing="-1">
+    24/7 Automated Online Store
+  </text>
+  <text x="60" y="290" font-family="system-ui, sans-serif" font-weight="500" font-size="22" fill="#a7f3d0">
+    Sell clothes, perfumes, shoes, wigs, food &amp; gadgets directly to buyers.
+  </text>
+
+  <!-- 3 Big Benefit Pillars on Left -->
+  <g transform="translate(60, 340)">
+    <!-- Pill 1 -->
+    <g transform="translate(0, 0)">
+      <rect width="460" height="150" rx="20" fill="rgba(15, 23, 42, 0.8)" stroke="#10b981" stroke-width="1.5" />
+      <circle cx="50" cy="50" r="24" fill="#10b981" fill-opacity="0.2" />
+      <text x="50" y="58" font-size="24" text-anchor="middle">🛍️</text>
+      <text x="90" y="45" font-family="system-ui, sans-serif" font-weight="800" font-size="20" fill="#ffffff">Clean Interactive Catalog</text>
+      <text x="90" y="75" font-family="system-ui, sans-serif" font-size="15" fill="#94a3b8">Products with Item UIDs, stock levels, variants &amp; prices in Naira.</text>
+    </g>
+
+    <!-- Pill 2 -->
+    <g transform="translate(0, 175)">
+      <rect width="460" height="150" rx="20" fill="rgba(15, 23, 42, 0.8)" stroke="#f59e0b" stroke-width="1.5" />
+      <circle cx="50" cy="50" r="24" fill="#f59e0b" fill-opacity="0.2" />
+      <text x="50" y="58" font-size="24" text-anchor="middle">💬</text>
+      <text x="90" y="45" font-family="system-ui, sans-serif" font-weight="800" font-size="20" fill="#ffffff">Instant WhatsApp Checkout</text>
+      <text x="90" y="75" font-family="system-ui, sans-serif" font-size="15" fill="#94a3b8">Orders drop straight into your WhatsApp with delivery address ready.</text>
+    </g>
+
+    <!-- Pill 3 -->
+    <g transform="translate(0, 350)">
+      <rect width="460" height="150" rx="20" fill="rgba(15, 23, 42, 0.8)" stroke="#38bdf8" stroke-width="1.5" />
+      <circle cx="50" cy="50" r="24" fill="#38bdf8" fill-opacity="0.2" />
+      <text x="50" y="58" font-size="24" text-anchor="middle">💰</text>
+      <text x="90" y="45" font-family="system-ui, sans-serif" font-weight="800" font-size="20" fill="#ffffff">0% Commission Fees</text>
+      <text x="90" y="75" font-family="system-ui, sans-serif" font-size="15" fill="#94a3b8">Direct payment to your Nigerian bank account or Paystack. 100% yours.</text>
+    </g>
+  </g>
+
+  <!-- Right: Phone Graphic Mockup -->
+  <g transform="translate(580, 330)">
+    <!-- Outer Phone -->
+    <rect width="440" height="570" rx="40" fill="#090d16" stroke="#475569" stroke-width="4" />
+    <rect x="15" y="15" width="410" height="540" rx="30" fill="url(#phoneGrad)" />
+
+    <!-- Notch / Header -->
+    <rect x="150" y="25" width="110" height="20" rx="10" fill="#1e293b" />
+    
+    <!-- Store Header Inside Phone -->
+    <g transform="translate(35, 65)">
+      <circle cx="25" cy="25" r="25" fill="#f59e0b" />
+      <text x="25" y="33" font-family="system-ui, sans-serif" font-weight="900" font-size="18" fill="#0f172a" text-anchor="middle">AJ</text>
+      <text x="65" y="24" font-family="system-ui, sans-serif" font-weight="800" font-size="18" fill="#ffffff">Amaka Jewels 💎</text>
+      <text x="65" y="44" font-family="monospace" font-size="12" fill="#10b981">amaka-jewels.taaa.com.ng</text>
+    </g>
+
+    <!-- Product Card 1 Inside Phone -->
+    <g transform="translate(35, 140)">
+      <rect width="370" height="170" rx="18" fill="#1e293b" stroke="#334155" stroke-width="1.5" />
+      <rect x="15" y="15" width="140" height="140" rx="14" fill="#0f172a" />
+      <text x="85" y="90" font-size="50" text-anchor="middle">💍</text>
+      <rect x="25" y="25" width="70" height="20" rx="5" fill="#020617" />
+      <text x="60" y="38" font-family="monospace" font-weight="800" font-size="10" fill="#f59e0b" text-anchor="middle">#AJ-902</text>
+      
+      <text x="170" y="45" font-family="system-ui, sans-serif" font-weight="700" font-size="16" fill="#ffffff">Gold Cuban Chain</text>
+      <text x="170" y="75" font-family="system-ui, sans-serif" font-weight="900" font-size="22" fill="#f59e0b">₦48,500</text>
+      <rect x="170" y="100" width="180" height="38" rx="12" fill="#25D366" />
+      <text x="260" y="125" font-family="system-ui, sans-serif" font-weight="800" font-size="14" fill="#0f172a" text-anchor="middle">💬 Order on WhatsApp</text>
+    </g>
+
+    <!-- Product Card 2 Inside Phone -->
+    <g transform="translate(35, 330)">
+      <rect width="370" height="170" rx="18" fill="#1e293b" stroke="#334155" stroke-width="1.5" />
+      <rect x="15" y="15" width="140" height="140" rx="14" fill="#0f172a" />
+      <text x="85" y="90" font-size="50" text-anchor="middle">⌚</text>
+      <rect x="25" y="25" width="70" height="20" rx="5" fill="#020617" />
+      <text x="60" y="38" font-family="monospace" font-weight="800" font-size="10" fill="#f59e0b" text-anchor="middle">#AJ-411</text>
+      
+      <text x="170" y="45" font-family="system-ui, sans-serif" font-weight="700" font-size="16" fill="#ffffff">Diamond Bezel Watch</text>
+      <text x="170" y="75" font-family="system-ui, sans-serif" font-weight="900" font-size="22" fill="#f59e0b">₦120,000</text>
+      <rect x="170" y="100" width="180" height="38" rx="12" fill="#25D366" />
+      <text x="260" y="125" font-family="system-ui, sans-serif" font-weight="800" font-size="14" fill="#0f172a" text-anchor="middle">💬 Order on WhatsApp</text>
+    </g>
+  </g>
+
+  
+    <g transform="translate(60, 950)">
+      <rect width="960" height="74" rx="20" fill="#0f172a" stroke="#f59e0b" stroke-width="2" />
+      <circle cx="45" cy="37" r="14" fill="#f59e0b" />
+      <path d="M40 37 L43 41 L50 33" stroke="#0f172a" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="75" y="44" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="24" fill="#ffffff">
+        Launch Your WhatsApp Store Now → taaa.com.ng
+      </text>
+      <rect x="760" y="14" width="180" height="46" rx="14" fill="#f59e0b" />
+      <text x="850" y="43" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="19" fill="#0f172a" text-anchor="middle">
+        FREE SETUP
+      </text>
+    </g>
+  
+</svg>
