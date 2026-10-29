@@ -6,6 +6,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock,
   Copy,
@@ -715,6 +716,59 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     { id: 'settings',  label: 'Store Settings',   icon: Settings },
     { id: 'billing',   label: 'Subscription',     icon: CreditCard },
   ];
+
+  interface NavCategory {
+    id: string;
+    label: string;
+    icon: React.ElementType;
+    tabs: TabId[];
+  }
+
+  const navCategories: NavCategory[] = [
+    {
+      id: 'commerce',
+      label: 'Orders & Catalog',
+      icon: ShoppingBag,
+      tabs: ['orders', 'products', 'analytics'],
+    },
+    {
+      id: 'marketing',
+      label: 'Marketing & Bot',
+      icon: Sparkles,
+      tabs: ['uid-bot', 'marketing', 'inquiries'],
+    },
+    {
+      id: 'finance',
+      label: 'Finance & Tools',
+      icon: Wallet,
+      tabs: ['expenses', 'calculator', 'notes'],
+    },
+    {
+      id: 'settings',
+      label: 'Store & Settings',
+      icon: Settings,
+      tabs: ['settings', 'billing'],
+    },
+  ];
+
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = sessionStorage.getItem(`ta_collapsed_cats_${store.id}`);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {};
+  });
+
+  const toggleCategory = (catId: string) => {
+    setCollapsedCategories((prev) => {
+      const next = { ...prev, [catId]: !prev[catId] };
+      try {
+        sessionStorage.setItem(`ta_collapsed_cats_${store.id}`, JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
   // Bottom 5 for mobile notched nav (FAB is center — index 2 slot)
   const bottomTabs: TabId[] = ['orders', 'products', 'marketing', 'settings'];
 
@@ -884,19 +938,21 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       <button
         key={tab.id}
         onClick={() => { setActiveTab(tab.id); setIsSidebarOpen(false); }}
-        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all cursor-pointer ${
           active
-            ? 'bg-white/15 text-white font-semibold'
+            ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
             : 'text-slate-400 hover:text-white hover:bg-white/8 font-medium'
         }`}
       >
-        <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-amber-400' : ''}`} />
-        {!compact && <span className="text-sm flex-1 truncate">{tab.label}</span>}
+        <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-slate-950' : 'text-slate-400'}`} />
+        {!compact && <span className="text-xs flex-1 truncate">{tab.label}</span>}
         {!compact && tab.badge && (
-          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+          <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${
             tab.id === 'orders' && pendingOrdersCount > 0
               ? 'bg-rose-500 text-white animate-pulse'
-              : 'bg-white/20 text-white/70'
+              : active
+              ? 'bg-slate-950/20 text-slate-950 font-extrabold'
+              : 'bg-white/15 text-white/70'
           }`}>
             {tab.badge}
           </span>
@@ -904,6 +960,54 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       </button>
     );
   };
+
+  const renderCategorizedNav = () => (
+    <div className="space-y-3">
+      {navCategories.map((category) => {
+        const isCollapsed = Boolean(collapsedCategories[category.id]);
+        const hasActiveTab = category.tabs.includes(activeTab);
+        const CategoryIcon = category.icon;
+        const hasPendingAlert = category.tabs.some((t) => t === 'orders' && pendingOrdersCount > 0);
+
+        return (
+          <div key={category.id} className="space-y-1">
+            {/* Category Dropdown Header */}
+            <button
+              type="button"
+              onClick={() => toggleCategory(category.id)}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 text-slate-400 hover:text-slate-200 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-white/5 transition-colors cursor-pointer group select-none"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <CategoryIcon className={`w-3.5 h-3.5 transition-colors ${hasActiveTab ? 'text-amber-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                <span className="truncate">{category.label}</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {hasPendingAlert && (
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                )}
+                {isCollapsed ? (
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-transform" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-200 transition-transform" />
+                )}
+              </div>
+            </button>
+
+            {/* Category Tabs (Collapsible Dropdown Content) */}
+            {!isCollapsed && (
+              <div className="space-y-0.5 pl-2 border-l border-white/10 ml-2.5 animate-in fade-in duration-150">
+                {category.tabs.map((tabId) => {
+                  const tab = allTabs.find((t) => t.id === tabId);
+                  if (!tab) return null;
+                  return <NavItem key={tab.id} tab={tab} />;
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 overflow-x-hidden w-full max-w-full">
@@ -933,9 +1037,9 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           </div>
         </div>
 
-        {/* Nav items */}
-        <nav className="flex-1 p-3 space-y-1">
-          {allTabs.map(tab => <NavItem key={tab.id} tab={tab} />)}
+        {/* Categorized Collapsible Dropdown Navigation */}
+        <nav className="flex-1 p-3 overflow-y-auto">
+          {renderCategorizedNav()}
         </nav>
 
         {/* Sidebar bottom actions */}
@@ -995,8 +1099,8 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <nav className="flex-1 p-3 space-y-1">
-              {allTabs.map(tab => <NavItem key={tab.id} tab={tab} />)}
+            <nav className="flex-1 p-3 overflow-y-auto">
+              {renderCategorizedNav()}
             </nav>
             <div className="p-3 border-t border-white/10 space-y-2">
               <button onClick={onOpenStorefront} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition text-sm cursor-pointer">
