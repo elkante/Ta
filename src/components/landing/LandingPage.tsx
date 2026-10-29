@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Eye,
   Hash,
+  LayoutDashboard,
   Lock,
   LogIn,
   MessageCircle,
@@ -20,23 +21,27 @@ import {
   Store as StoreIcon,
   Zap,
 } from 'lucide-react';
-import { Store } from '../../types';
+import { SellerSession, Store } from '../../types';
 import { validateSlug } from '../../utils/storage';
 
 interface LandingPageProps {
   stores: Store[];
+  sellerSession?: SellerSession | null;
   onOpenStore: (slug: string) => void;
   onOpenLogin: () => void;
   onOpenSignup: (initialSlug?: string) => void;
+  onOpenDashboard?: () => void;
   onOpenSuperAdmin?: () => void;
   onOpenLegal?: (tab: 'terms' | 'privacy' | 'cookies') => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   stores,
+  sellerSession,
   onOpenStore,
   onOpenLogin,
   onOpenSignup,
+  onOpenDashboard,
   onOpenSuperAdmin,
   onOpenLegal,
 }) => {
@@ -160,13 +165,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </button>
             )}
 
-            <button
-              onClick={onOpenLogin}
-              className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer flex items-center gap-1.5"
-            >
-              <LogIn className="w-3.5 h-3.5 text-slate-500" />
-              <span>Seller Login</span>
-            </button>
+            {sellerSession ? (
+              <button
+                type="button"
+                onClick={onOpenDashboard}
+                className="px-3.5 py-2 text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5 text-slate-900" />
+                <span>Dashboard ({sellerSession.storeName})</span>
+              </button>
+            ) : (
+              <button
+                onClick={onOpenLogin}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer flex items-center gap-1.5"
+              >
+                <LogIn className="w-3.5 h-3.5 text-slate-500" />
+                <span>Seller Login</span>
+              </button>
+            )}
 
             <button
               onClick={() => onOpenSignup()}

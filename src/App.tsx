@@ -365,50 +365,52 @@ export default function App() {
       {/* App Splash Screen on Initial Load */}
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
 
-      {/* Top Multi-Tenant Navigation Header */}
-      <Navigation
-        currentStore={currentStore}
-        allStores={allStores}
-        activeView={activeView}
-        sellerSession={sellerSession}
-        superAdminSession={superAdminSession}
-        onViewChange={(view) => {
-          setActiveView(view);
-          const url = new URL(window.location.href);
-          if (view === 'landing') {
-            url.searchParams.set('view', 'landing');
-          } else if (view === 'superadmin') {
-            url.searchParams.set('view', 'admin');
-          } else {
-            url.searchParams.delete('view');
-            url.searchParams.set('store', currentStore.slug);
-          }
-          window.history.replaceState({}, '', url.toString());
-        }}
-        onSelectStore={handleSelectStore}
-        onOpenCreateStore={() => {
-          setAuthModalMode('signup');
-          setIsAuthModalOpen(true);
-        }}
-        onOpenShareModal={() => setIsShareModalOpen(true)}
-        onOpenLogin={() => {
-          setAuthModalMode('login');
-          setIsAuthModalOpen(true);
-        }}
-        onOpenSuperAdmin={() => {
-          if (!superAdminSession) {
-            setIsSuperAdminModalOpen(true);
-          } else {
-            setActiveView('superadmin');
+      {/* Top Multi-Tenant Navigation Header — shown on storefront, dashboard & admin; Landing page has its own dedicated navbar */}
+      {activeView !== 'landing' && (
+        <Navigation
+          currentStore={currentStore}
+          allStores={allStores}
+          activeView={activeView}
+          sellerSession={sellerSession}
+          superAdminSession={superAdminSession}
+          onViewChange={(view) => {
+            setActiveView(view);
             const url = new URL(window.location.href);
-            url.searchParams.set('view', 'admin');
+            if (view === 'landing') {
+              url.searchParams.set('view', 'landing');
+            } else if (view === 'superadmin') {
+              url.searchParams.set('view', 'admin');
+            } else {
+              url.searchParams.delete('view');
+              url.searchParams.set('store', currentStore.slug);
+            }
             window.history.replaceState({}, '', url.toString());
-          }
-        }}
-        onLogout={handleLogout}
-        isMobileDeviceFrame={isMobileDeviceFrame}
-        onToggleMobileDeviceFrame={() => setIsMobileDeviceFrame(!isMobileDeviceFrame)}
-      />
+          }}
+          onSelectStore={handleSelectStore}
+          onOpenCreateStore={() => {
+            setAuthModalMode('signup');
+            setIsAuthModalOpen(true);
+          }}
+          onOpenShareModal={() => setIsShareModalOpen(true)}
+          onOpenLogin={() => {
+            setAuthModalMode('login');
+            setIsAuthModalOpen(true);
+          }}
+          onOpenSuperAdmin={() => {
+            if (!superAdminSession) {
+              setIsSuperAdminModalOpen(true);
+            } else {
+              setActiveView('superadmin');
+              const url = new URL(window.location.href);
+              url.searchParams.set('view', 'admin');
+              window.history.replaceState({}, '', url.toString());
+            }
+          }}
+          onLogout={handleLogout}
+          isMobileDeviceFrame={isMobileDeviceFrame}
+          onToggleMobileDeviceFrame={() => setIsMobileDeviceFrame(!isMobileDeviceFrame)}
+        />
+      )}
 
       {/* Main View Area */}
       <div className="flex-1">
@@ -434,6 +436,8 @@ export default function App() {
           /* PLATFORM LANDING PAGE */
           <LandingPage
             stores={allStores}
+            sellerSession={sellerSession}
+            onOpenDashboard={() => setActiveView('dashboard')}
             onOpenStore={(slug) => {
               const target = allStores.find((s) => s.slug === slug);
               if (target) {
