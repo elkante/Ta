@@ -240,7 +240,15 @@ export async function dbFetchStoreByPhone(phoneDigits: string): Promise<Store | 
 export async function dbSaveStore(store: Store): Promise<boolean> {
   try {
     const payload = mapStoreToDB(store);
-    const { error } = await supabase.from('stores').upsert(payload, { onConflict: 'id' });
+    let { error } = await supabase.from('stores').upsert(payload, { onConflict: 'id' });
+    if (error && error.message?.includes('schema cache')) {
+      // If new columns (owner_name, featured_on_landing) don't exist in the database yet, strip them and retry
+      delete payload.owner_name;
+      delete payload.featured_on_landing;
+      delete payload.id_verification;
+      const retry = await supabase.from('stores').upsert(payload, { onConflict: 'id' });
+      return !retry.error;
+    }
     return !error;
   } catch (e) {
     return false;
