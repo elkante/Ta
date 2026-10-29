@@ -15,6 +15,7 @@ import { Product, Store } from '../../types';
 import { formatPrice } from '../../utils/whatsapp';
 import { generateQRCodeSVG } from '../../utils/qrCode';
 import { getStoreUrl } from '../../utils/storage';
+import { generateLocalMarketingContent } from '../../utils/aiMarketing';
 
 interface StatusStudioModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export const StatusStudioModal: React.FC<StatusStudioModalProps> = ({
   );
   const [theme, setTheme] = useState<CardTheme>('luxury-dark');
   const [copiedCaption, setCopiedCaption] = useState(false);
+  const [customAiCaption, setCustomAiCaption] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
   if (!isOpen || !selectedProduct) return null;
@@ -53,10 +55,17 @@ Price: ${formatPrice(selectedProduct.price, store.currencySymbol)}
 👉 Reply with #${selectedProduct.uid} to order or tap:
 ${productUrl}`;
 
+  const currentActiveCaption = customAiCaption || statusCaption;
+
   const handleCopyCaption = () => {
-    navigator.clipboard.writeText(statusCaption);
+    navigator.clipboard.writeText(currentActiveCaption);
     setCopiedCaption(true);
     setTimeout(() => setCopiedCaption(false), 2000);
+  };
+
+  const handleAiRewriteCaption = () => {
+    const aiContent = generateLocalMarketingContent(selectedProduct, store, 'viral');
+    setCustomAiCaption(`${aiContent.whatsappCaption}\n\n${aiContent.hashtags.slice(0, 6).join(' ')}`);
   };
 
   // High-Resolution 9:16 Canvas PNG Exporter with uploaded logo and no website link text
@@ -479,25 +488,36 @@ ${productUrl}`;
               </div>
             </div>
 
-            {/* Ready-to-Paste Caption */}
+            {/* Ready-to-Paste Caption + AI Rewrite */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-700">
-                  Status Caption Pitch
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <span>Status Caption & Hashtags</span>
                 </label>
-                <button
-                  onClick={handleCopyCaption}
-                  className="text-xs text-emerald-600 hover:text-emerald-700 font-bold inline-flex items-center gap-1 cursor-pointer"
-                >
-                  {copiedCaption ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedCaption ? 'Copied!' : 'Copy Text'}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAiRewriteCaption}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-bold inline-flex items-center gap-1 cursor-pointer bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200"
+                    title="Generate viral marketing copy using AI"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>AI Rewrite</span>
+                  </button>
+                  <button
+                    onClick={handleCopyCaption}
+                    className="text-xs text-emerald-600 hover:text-emerald-700 font-bold inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    {copiedCaption ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedCaption ? 'Copied!' : 'Copy Text'}</span>
+                  </button>
+                </div>
               </div>
               <textarea
                 readOnly
-                rows={3}
-                value={statusCaption}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 font-mono"
+                rows={4}
+                value={currentActiveCaption}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 font-mono resize-none leading-relaxed"
               />
             </div>
           </div>
