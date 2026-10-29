@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -43,14 +43,40 @@ import { dbFetchStores, dbFetchProducts, dbFetchStoreBySlug } from './utils/supa
 
 export default function App() {
   const [allStores, setAllStores] = useState<Store[]>([]);
-  const [currentStore, setCurrentStore] = useState<Store | null>(null);
+  const [currentStore, setCurrentStore] = useState<Store | null>(() => {
+    try {
+      const session = getSellerSession();
+      const stores = getStoredStores();
+      if (session) {
+        return stores.find((s) => s.id === session.storeId || s.slug === session.storeSlug) || null;
+      }
+      const savedSlug = sessionStorage.getItem('ta_last_store_slug');
+      if (savedSlug) {
+        return stores.find((s) => s.slug.toLowerCase() === savedSlug.toLowerCase()) || null;
+      }
+    } catch (e) {}
+    return null;
+  });
   const [storeProducts, setStoreProducts] = useState<Product[]>([]);
   const [storeInquiries, setStoreInquiries] = useState<WhatsAppInquiryLog[]>([]);
   const [storeReviews, setStoreReviews] = useState<StoreReview[]>([]);
 
-  const [activeView, setActiveView] = useState<'landing' | 'storefront' | 'dashboard' | 'superadmin'>('landing');
-  const [sellerSession, setSellerSession] = useState<SellerSession | null>(null);
-  const [superAdminSession, setSuperAdminSessionState] = useState<SuperAdminSession | null>(null);
+  const [activeView, setActiveView] = useState<'landing' | 'storefront' | 'dashboard' | 'superadmin'>(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      if (viewParam === 'dashboard' || viewParam === 'storefront' || viewParam === 'superadmin' || viewParam === 'landing') {
+        return viewParam as 'landing' | 'storefront' | 'dashboard' | 'superadmin';
+      }
+      const savedView = sessionStorage.getItem('ta_last_view');
+      const session = getSellerSession();
+      if (savedView === 'dashboard' && session) return 'dashboard';
+      if (savedView === 'storefront') return 'storefront';
+    } catch (e) {}
+    return 'landing';
+  });
+  const [sellerSession, setSellerSession] = useState<SellerSession | null>(() => getSellerSession());
+  const [superAdminSession, setSuperAdminSessionState] = useState<SuperAdminSession | null>(() => getSuperAdminSession());
 
   const [isMobileDeviceFrame, setIsMobileDeviceFrame] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
