@@ -521,6 +521,40 @@ export default function App() {
     setIsLegalModalOpen(true);
   };
 
+  // ── /sys-hq bypass ────────────────────────────────────────────────────────
+  // Must come BEFORE the !currentStore guard so the superadmin page renders
+  // even when no store is selected (e.g. direct navigation to /sys-hq).
+  if (activeView === 'superadmin') {
+    return (
+      <>
+        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+        <SysHqPage
+          session={superAdminSession}
+          allStores={allStores}
+          onLoginSuccess={handleSuperAdminLoginSuccess}
+          onLogout={handleSuperAdminLogout}
+          onRefreshData={handleRefreshData}
+          onSelectStore={handleSelectStore}
+          onOpenStorefront={(slug) => {
+            const target = allStores.find((s) => s.slug === slug);
+            if (target) {
+              handleSelectStore(target);
+              setActiveView('storefront');
+            }
+          }}
+          onImpersonateStore={handleImpersonateStore}
+          onOpenLanding={() => {
+            const url = new URL(window.location.href);
+            url.pathname = '/';
+            url.searchParams.delete('view');
+            window.history.pushState({}, '', url.toString());
+            setActiveView('landing');
+          }}
+        />
+      </>
+    );
+  }
+
   if (!currentStore) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-900 text-white font-sans">
@@ -574,8 +608,8 @@ export default function App() {
       {/* App Splash Screen on Initial Load */}
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
 
-      {/* Top Multi-Tenant Navigation Header — shown on storefront & dashboard; hidden on /sys-hq & landing */}
-      {activeView !== 'landing' && activeView !== 'superadmin' && (
+      {/* Top Multi-Tenant Navigation Header — shown on storefront & dashboard; hidden on landing */}
+      {activeView !== 'landing' && (
         <Navigation
           currentStore={currentStore}
           allStores={allStores}
@@ -615,32 +649,7 @@ export default function App() {
 
       {/* Main View Area */}
       <div className="flex-1">
-        {activeView === 'superadmin' ? (
-          /* PLATFORM SUPER ADMIN PORTAL (/sys-hq) — Standalone dedicated page */
-          <SysHqPage
-            session={superAdminSession}
-            allStores={allStores}
-            onLoginSuccess={handleSuperAdminLoginSuccess}
-            onLogout={handleSuperAdminLogout}
-            onRefreshData={handleRefreshData}
-            onSelectStore={handleSelectStore}
-            onOpenStorefront={(slug) => {
-              const target = allStores.find((s) => s.slug === slug);
-              if (target) {
-                handleSelectStore(target);
-                setActiveView('storefront');
-              }
-            }}
-            onImpersonateStore={handleImpersonateStore}
-            onOpenLanding={() => {
-              const url = new URL(window.location.href);
-              url.pathname = '/';
-              url.searchParams.delete('view');
-              window.history.pushState({}, '', url.toString());
-              setActiveView('landing');
-            }}
-          />
-        ) : activeView === 'landing' ? (
+        {activeView === 'landing' ? (
           /* PLATFORM LANDING PAGE */
           <LandingPage
             stores={allStores}

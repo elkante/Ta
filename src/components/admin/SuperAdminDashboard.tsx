@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -70,6 +70,7 @@ import {
   resetPlatformToSeedData,
   savePlatformSettings,
   saveProducts,
+  saveOrders,
   saveStores,
   updateStore,
   getRootDomain,
@@ -83,11 +84,11 @@ interface SuperAdminDashboardProps {
   session: SuperAdminSession;
   allStores: Store[];
   onLogout: () => void;
-  onRefreshData: () => void;
-  onSelectStore: (store: Store) => void;
-  onOpenStorefront: (slug: string) => void;
-  onImpersonateStore: (session: SellerSession) => void;
-  onOpenLanding: () => void;
+  onRefreshData?: () => void;
+  onSelectStore?: (store: Store) => void;
+  onOpenStorefront?: (slug: string) => void;
+  onImpersonateStore?: (session: SellerSession) => void;
+  onOpenLanding?: () => void;
 }
 
 type AdminTab = 'stores' | 'products' | 'orders' | 'verifications' | 'plans' | 'notes' | 'settings';
@@ -104,11 +105,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   session,
   allStores,
   onLogout,
-  onRefreshData,
-  onSelectStore,
-  onOpenStorefront,
-  onImpersonateStore,
-  onOpenLanding,
+  onRefreshData = () => {},
+  onSelectStore = () => {},
+  onOpenStorefront = () => {},
+  onImpersonateStore = () => {},
+  onOpenLanding = () => {},
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stores');
 
