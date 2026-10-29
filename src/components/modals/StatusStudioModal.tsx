@@ -14,7 +14,7 @@ import {
 import { Product, Store } from '../../types';
 import { formatPrice } from '../../utils/whatsapp';
 import { generateQRCodeSVG } from '../../utils/qrCode';
-import { getStoreUrl } from '../../utils/storage';
+import { getStoreUrl, getRootDomain } from '../../utils/storage';
 import { generateLocalMarketingContent } from '../../utils/aiMarketing';
 
 interface StatusStudioModalProps {
@@ -281,7 +281,7 @@ ${productUrl}`;
         socialParts.push(`FB: @${store.socialLinks.facebook.replace(/^@/, '')}`);
       }
       socialParts.push(`WhatsApp: ${store.whatsappCountryCode || '+234'} ${store.whatsappNumber}`);
-      socialParts.push(`${store.slug}.ta.shop`);
+      socialParts.push(store.customDomain || `${store.slug}.${getRootDomain()}`);
 
       const socialText = socialParts.join('   â€¢   ');
       const socialY = 1810;

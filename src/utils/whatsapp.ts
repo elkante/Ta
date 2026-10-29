@@ -1,4 +1,5 @@
 import { CartItem, Product, ProductVariant, Store } from '../types';
+import { getPlatformBrandName } from './storage';
 
 /**
  * Clean phone number for wa.me format
@@ -40,7 +41,7 @@ export function createProductInquiryMessage(options: {
 
   const lines = [
     `👋 Hello *${store.name}*!`,
-    `I saw your Tá.shop catalog and would like to order:`,
+    `I saw your ${getPlatformBrandName()} catalog and would like to order:`,
     ``,
     `🛍️ *${product.name}*`,
     `• Item UID: *#${product.uid || product.id}*`,

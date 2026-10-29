@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
+import { getRootDomain, getPlatformBrandName } from '../../utils/storage';
 
 export type LegalTab = 'terms' | 'privacy' | 'cookies';
 
@@ -139,7 +140,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
                   Tá.shop is a multi-tenant software-as-a-service (SaaS) catalog platform designed to streamline social commerce across WhatsApp, Instagram, and other channels. Tá.shop provides:
                 </p>
                 <ul className="list-disc pl-5 mt-1.5 space-y-1 text-slate-600">
-                  <li>Custom digital storefronts accessible via subdomains or web paths (e.g., <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">brand.ta.shop</code>).</li>
+                  <li>Custom digital storefronts accessible via subdomains or web paths (e.g., <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">brand.{getRootDomain()}</code>).</li>
                   <li>Automated product cataloging, Item Unique Identifiers (Item UIDs), and barcode generator tools.</li>
                   <li>Pre-formatted 1-click WhatsApp order message routing.</li>
                   <li>Optional automated WhatsApp bot assistant tooling.</li>
@@ -269,7 +270,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
               <div>
                 <h4 className="font-bold text-slate-900 text-sm mb-1">6. Contacting the Privacy Officer</h4>
                 <p className="text-slate-600">
-                  If you have inquiries regarding this Privacy Policy or wish to request data removal, please contact our team at <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded font-semibold text-slate-900">privacy@ta.shop</code>.
+                  If you have inquiries regarding this Privacy Policy or wish to request data removal, please contact our team at <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded font-semibold text-slate-900">privacy@{getRootDomain()}</code>.
                 </p>
               </div>
             </div>

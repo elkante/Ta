@@ -58,6 +58,80 @@ async function safeSendMessage(sock, jid, content, options) {
 }
 
 /**
+ * Sends a rich WhatsApp product card with high-resolution image
+ * Supports base64 data URLs, remote HTTP URLs, and graceful text fallback.
+ */
+async function sendProductCard(sock, remoteJid, product, storeName, storeBaseUrl, storeId) {
+  const reply =
+    `👋 Hello! Here is the item you requested from *${storeName}*:\n\n` +
+    `🏷️ *${product.name}*\n` +
+    `💰 *Price:* ₦${Number(product.price).toLocaleString()}\n` +
+    `📦 *Status:* ${product.inStock ? '✅ In Stock (Ready to dispatch)' : '❌ Sold Out'}\n` +
+    `🔑 *Item Code:* #${product.uid}\n\n` +
+    `👉 *Tap here to view photos & complete order:*\n` +
+    `${storeBaseUrl}/?product=${product.id}`;
+
+  const images = Array.isArray(product.images) ? product.images : [];
+  const rawImg = images[0] || product.image || null;
+
+  if (rawImg && typeof rawImg === 'string') {
+    // 1. Data URL (Base64 from local device uploads)
+    if (rawImg.startsWith('data:image/')) {
+      try {
+        const base64Data = rawImg.split(',')[1];
+        if (base64Data) {
+          const buffer = Buffer.from(base64Data, 'base64');
+          await safeSendMessage(sock, remoteJid, {
+            image: buffer,
+            caption: reply,
+          });
+          return true;
+        }
+      } catch (err) {
+        console.warn(`[Store: ${storeId}] Failed sending base64 product image:`, err?.message);
+      }
+    }
+
+    // 2. HTTP/HTTPS URL (Unsplash, Cloudinary, Supabase storage)
+    let url = rawImg.trim();
+    if (url.startsWith('//')) url = 'https:' + url;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          const arrayBuf = await res.arrayBuffer();
+          const buffer = Buffer.from(arrayBuf);
+          await safeSendMessage(sock, remoteJid, {
+            image: buffer,
+            caption: reply,
+          });
+          return true;
+        }
+      } catch (fetchErr) {
+        console.warn(`[Store: ${storeId}] Buffer download failed, trying direct URL:`, fetchErr?.message);
+        try {
+          await safeSendMessage(sock, remoteJid, {
+            image: { url },
+            caption: reply,
+          });
+          return true;
+        } catch (baileysErr) {
+          console.warn(`[Store: ${storeId}] Direct image URL failed:`, baileysErr?.message);
+        }
+      }
+    }
+  }
+
+  // Fallback to text message if no image or image sending failed
+  await safeSendMessage(sock, remoteJid, { text: reply });
+  return false;
+}
+
+/**
  * Initializes or retrieves an isolated WhatsApp socket for a specific store.
  */
 async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
@@ -185,7 +259,10 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
       const info = sessionData.storeInfo || {};
       const storeName = info.name || 'our store';
       const storeSlug = info.slug || storeId;
-      const storeBaseUrl = `https://${storeSlug}.ta.shop`;
+      const rootDomain = process.env.ROOT_DOMAIN || 'taaa.com.ng';
+      const storeBaseUrl = info.customDomain
+        ? `https://${info.customDomain.replace(/^https?:\/\//, '')}`
+        : `https://${storeSlug}.${rootDomain}`;
 
       const matchedProduct = currentCatalog.find(
         (p) =>
@@ -194,17 +271,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
       );
 
       if (matchedProduct) {
-        // Send automated product card & instant checkout link
-        const reply =
-          `👋 Hello! Here is the item you requested from *${storeName}*:\\n\\n` +
-          `🏷️ *${matchedProduct.name}*\\n` +
-          `💰 *Price:* ₦${Number(matchedProduct.price).toLocaleString()}\\n` +
-          `📦 *Status:* ${matchedProduct.inStock ? '✅ In Stock (Ready to dispatch)' : '❌ Sold Out'}\\n` +
-          `🔑 *Item Code:* #${matchedProduct.uid}\\n\\n` +
-          `👉 *Tap here to view photos & complete order:*\\n` +
-          `${storeBaseUrl}/?product=${matchedProduct.id}`;
-
-        await safeSendMessage(sock, remoteJid, { text: reply });
+        await sendProductCard(sock, remoteJid, matchedProduct, storeName, storeBaseUrl, storeId);
         continue;
       }
 
@@ -222,15 +289,19 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
             (p.category && p.category.toLowerCase().includes(searchTerm)) ||
             (p.description && p.description.toLowerCase().includes(searchTerm))
         );
-        if (matches.length > 0) {
+        if (matches.length === 1) {
+          await sendProductCard(sock, remoteJid, matches[0], storeName, storeBaseUrl, storeId);
+          continue;
+        }
+        if (matches.length > 1) {
           const listText = matches
             .slice(0, 5)
             .map((p) => `• *#${p.uid}* - ${p.name} (₦${Number(p.price).toLocaleString()}) ${p.inStock ? '✅' : '❌'}`)
             .join('\n');
           const reply =
-            `🔍 Here's what we found at *${storeName}* for "*${searchTerm}*":\\n\\n` +
-            `${listText}\\n\\n` +
-            `Reply with any *#Item Code* for full details, or visit:\\n${storeBaseUrl}`;
+            `🔍 Here's what we found at *${storeName}* for "*${searchTerm}*":\n\n` +
+            `${listText}\n\n` +
+            `Reply with any *#Item Code* for full details & photos, or visit:\n${storeBaseUrl}`;
           await safeSendMessage(sock, remoteJid, { text: reply });
           continue;
         }
@@ -244,8 +315,8 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
         const locationText = info.location ? `\n\n📍 *We're located at:* ${info.location}` : '';
         const hoursText = info.openHours ? `\n\n🕐 *Opening Hours:* ${info.openHours}` : '';
         const reply =
-          `👋 Hi! Thanks for reaching out to *${storeName}*.\\n\\n` +
-          `${deliveryText}${locationText}${hoursText}\\n\\n` +
+          `👋 Hi! Thanks for reaching out to *${storeName}*.\n\n` +
+          `${deliveryText}${locationText}${hoursText}\n\n` +
           `Shop our full catalog: ${storeBaseUrl}`;
         await safeSendMessage(sock, remoteJid, { text: reply });
         continue;
@@ -259,9 +330,9 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
             .map((p) => `• *#${p.uid}* - ${p.name}: ₦${Number(p.price).toLocaleString()}`)
             .join('\n');
           const reply =
-            `💰 *Price List — ${storeName}*\\n\\n` +
-            `${listText}\\n\\n` +
-            `Reply with an *#Item Code* for full details, or view all: ${storeBaseUrl}`;
+            `💰 *Price List — ${storeName}*\n\n` +
+            `${listText}\n\n` +
+            `Reply with an *#Item Code* for full details & photos, or view all: ${storeBaseUrl}`;
           await safeSendMessage(sock, remoteJid, { text: reply });
           continue;
         }
@@ -277,11 +348,11 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
         const locationLine = info.location ? `\n📍 *Location:* ${info.location}` : '';
 
         const reply =
-          `👋 Welcome to *${storeName}*! 🛍️${openHoursLine}${locationLine}\\n\\n` +
-          `Here are some popular items:\\n${listText}\\n\\n` +
-          `👉 *Browse our full catalog:* ${storeBaseUrl}\\n` +
-          `Reply with any *#Item Code* (e.g. #${topProducts[0]?.uid || 'TA-ITEM'}) for details!\\n\\n` +
-          `You can also ask me:\\n• "Do you have bags?" — category search\\n• "Delivery info" — shipping & location\\n• "Price list" — current prices`;
+          `👋 Welcome to *${storeName}*! 🛍️${openHoursLine}${locationLine}\n\n` +
+          `Here are some popular items:\n${listText}\n\n` +
+          `👉 *Browse our full catalog:* ${storeBaseUrl}\n` +
+          `Reply with any *#Item Code* (e.g. #${topProducts[0]?.uid || 'TA-ITEM'}) for details & photos!\n\n` +
+          `You can also ask me:\n• "Do you have bags?" — category search\n• "Delivery info" — shipping & location\n• "Price list" — current prices`;
 
         await safeSendMessage(sock, remoteJid, { text: reply });
       }
@@ -299,7 +370,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
-    service: 'Tá.shop Multi-Tenant Baileys WhatsApp Engine',
+    service: 'Táaaa.shop Multi-Tenant Baileys WhatsApp Engine',
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     activeSessions: activeSessions.size,

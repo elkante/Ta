@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AlertCircle, CheckCircle2, Globe, Palette, Sparkles, Store as StoreIcon, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CurrencyCode, Product, Store } from '../../types';
-import { getStoredProducts, getStoredStores, saveProducts, saveStores, validateSlug } from '../../utils/storage';
+import { getStoredProducts, getStoredStores, saveProducts, saveStores, validateSlug, getRootDomain } from '../../utils/storage';
 import { dbSaveStore, dbSaveProduct, dbFetchStoreBySlug } from '../../utils/supabase';
 
 interface CreateStoreModalProps {
@@ -115,7 +115,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
     try {
       const existingLive = await dbFetchStoreBySlug(slugCheck.cleanSlug);
       if (existingLive) {
-        setValidationError(`The store handle "${slugCheck.cleanSlug}.ta.shop" is already registered. Please choose another.`);
+        setValidationError(`The store handle "${slugCheck.cleanSlug}.${getRootDomain()}" is already registered. Please choose another.`);
         setIsSubmitting(false);
         return;
       }
@@ -323,7 +323,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
             <div className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-600">
               <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span>Store Link:</span>
-              <span className="font-bold text-slate-900 truncate">tá.shop/{slug}</span>
+              <span className="font-bold text-slate-900 truncate">{slug}.{getRootDomain()}</span>
               <span className="ml-auto text-emerald-600 text-[10px] font-sans font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" /> Auto-assigned
               </span>

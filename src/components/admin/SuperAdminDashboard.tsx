@@ -72,6 +72,8 @@ import {
   saveProducts,
   saveStores,
   updateStore,
+  getRootDomain,
+  getPlatformBrandName,
 } from '../../utils/storage';
 import { formatPrice } from '../../utils/whatsapp';
 import { getStoreAIUsage } from '../../utils/aiMarketing';
@@ -498,7 +500,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-white text-base tracking-tight">Tá.shop</span>
+                <span className="font-extrabold text-white text-base tracking-tight">Táaaa.shop</span>
                 <span className="bg-amber-400/20 text-amber-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-amber-400/30">
                   ROOT
                 </span>
@@ -575,7 +577,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="font-extrabold text-white text-sm">Tá.shop Admin</span>
+                  <span className="font-extrabold text-white text-sm">Táaaa.shop Admin</span>
                   <span className="text-[10px] text-amber-300 font-mono block">ROOT</span>
                 </div>
               </div>
@@ -844,7 +846,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                               </div>
 
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
-                                <span className="font-mono text-slate-700 font-semibold">{store.slug}.ta.shop</span>
+                                <span className="font-mono text-slate-700 font-semibold">{store.slug}.{getRootDomain()}</span>
                                 {store.customDomain && (
                                   <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-md font-mono text-[10px] font-bold">
                                     <Globe className="w-2.5 h-2.5 text-emerald-600" />
@@ -1374,7 +1376,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                 <div>
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <h4 className="font-bold text-slate-900 text-sm sm:text-base">{st.name}</h4>
-                                    <span className="text-xs font-mono text-slate-400">({st.slug}.ta.shop)</span>
+                                    <span className="text-xs font-mono text-slate-400">({st.slug}.{getRootDomain()})</span>
                                     <span
                                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                                         st.tier === 'business'
@@ -1667,7 +1669,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-slate-900 text-sm truncate">{store.name}</span>
-                              <span className="font-mono text-xs text-slate-400">({store.slug}.ta.shop)</span>
+                              <span className="font-mono text-xs text-slate-400">({store.slug}.{getRootDomain()})</span>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                               <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg ${planTime.badgeColor}`}>
@@ -1829,6 +1831,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         onChange={(e) => setPlatformSettings({ ...platformSettings, platformName: e.target.value })}
                         className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-slate-900"
                       />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Root Domain</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. taaa.com.ng or ta.shop"
+                        value={platformSettings.rootDomain || ''}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, rootDomain: e.target.value.toLowerCase().replace(/^https?:\/\//, '').trim() })}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Stores appear as <span className="font-mono">yourstore.{platformSettings.rootDomain || 'taaa.com.ng'}</span></p>
                     </div>
 
                     <div>
@@ -2089,7 +2103,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             <div className="text-center space-y-1">
               <h3 className="font-bold text-slate-900 text-base">Delete Store Permanently?</h3>
               <p className="text-xs text-slate-500">
-                Are you sure you want to delete <strong>{storeToDelete.name}</strong> (`{storeToDelete.slug}.ta.shop`)? All catalog items and recorded orders will be erased.
+                Are you sure you want to delete <strong>{storeToDelete.name}</strong> (`{storeToDelete.slug}.{getRootDomain()}`)? All catalog items and recorded orders will be erased.
               </p>
             </div>
             <div className="flex gap-2 pt-2">
@@ -2475,7 +2489,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 <div>
                   <h3 className="font-extrabold text-slate-900 text-sm">Assign Custom Web Domain</h3>
                   <p className="text-xs text-slate-500 truncate">
-                    {domainModalStore.name} ({domainModalStore.slug}.ta.shop)
+                    {domainModalStore.name} ({domainModalStore.slug}.{getRootDomain()})
                   </p>
                 </div>
               </div>
@@ -2492,7 +2506,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 text-xs space-y-1">
               <div className="flex items-center justify-between text-slate-500">
                 <span>Default Platform Handle:</span>
-                <span className="font-mono font-semibold text-slate-800">{domainModalStore.slug}.ta.shop</span>
+                <span className="font-mono font-semibold text-slate-800">{domainModalStore.slug}.{getRootDomain()}</span>
               </div>
               {domainModalStore.customDomain && (
                 <div className="flex items-center justify-between text-emerald-700 font-semibold pt-1 border-t border-slate-200/60">

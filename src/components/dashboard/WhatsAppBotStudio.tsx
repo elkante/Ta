@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { Product, Store, StoreAIBotConfig } from '../../types';
 import { formatPrice } from '../../utils/whatsapp';
-import { getStoreDisplayUrl, getStoreUrl, updateStore } from '../../utils/storage';
+import { getStoreDisplayUrl, getStoreUrl, updateStore, getRootDomain } from '../../utils/storage';
 import { generateQRCodeSVG } from '../../utils/qrCode';
 
 interface WhatsAppBotStudioProps {
@@ -50,7 +50,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   onRefreshData,
 }) => {
   const displayUrl = getStoreDisplayUrl(store.slug);
-  const webhookUrl = `https://api.ta.shop/v1/webhook/whatsapp/${store.slug}`;
+  const webhookUrl = `https://api.${getRootDomain()}/v1/webhook/whatsapp/${store.slug}`;
   const webhookSecret = `ta_live_whsec_${store.id.replace('store_', '')}_9921`;
 
   const [copiedWebhook, setCopiedWebhook] = useState(false);

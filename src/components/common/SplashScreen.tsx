@@ -84,13 +84,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             <line x1="112" y1="54" x2="113" y2="98" stroke="#475569" strokeWidth="1.5" strokeOpacity="0.4" />
             <line x1="47" y1="74" x2="133" y2="74" stroke="#475569" strokeWidth="1.5" strokeOpacity="0.4" />
 
-            {/* "Tá" Badge / Monogram on the Cart Basket */}
-            <g transform="translate(62, 57)">
+            {/* "Táaaa" Badge / Monogram on the Cart Basket */}
+            <g transform="translate(56, 57)">
               {/* Badge backdrop */}
               <rect
                 x="0"
                 y="0"
-                width="48"
+                width="60"
                 height="32"
                 rx="10"
                 fill="#0f172a"
@@ -98,18 +98,18 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                 strokeWidth="1.5"
                 filter="url(#badgeShadow)"
               />
-              {/* "Tá" Text */}
+              {/* "Táaaa" Text */}
               <text
-                x="24"
+                x="30"
                 y="22"
                 textAnchor="middle"
                 fill="#ffffff"
                 fontFamily="system-ui, -apple-system, sans-serif"
-                fontSize="20"
+                fontSize="15"
                 fontWeight="900"
                 letterSpacing="-0.5px"
               >
-                T<tspan fill="#f59e0b">á</tspan>
+                T<tspan fill="#f59e0b">áaaa</tspan>
               </text>
             </g>
 
@@ -151,7 +151,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         <div className="text-center space-y-1">
           <div className="flex items-center justify-center gap-1">
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-              T<span className="text-amber-400">á</span>
+              T<span className="text-amber-400">áaaa</span>
             </h1>
             <span className="text-3xl sm:text-4xl font-extrabold text-amber-500">.shop</span>
           </div>

@@ -38,6 +38,7 @@ import {
   getSubdomainFromHostname,
   saveStores,
   setCurrentTenantSlug,
+  getRootDomain,
 } from './utils/storage';
 import { dbFetchStores, dbFetchProducts, dbFetchStoreBySlug, dbFetchStoreByCustomDomain } from './utils/supabase';
 
@@ -171,11 +172,13 @@ export default function App() {
     // 🌐 CUSTOM DOMAIN RESOLUTION (e.g. amakajewels.com.ng or brand.com)
     // If visitor accesses via a custom domain, load that specific merchant's storefront directly!
     const currentHost = window.location.hostname.toLowerCase();
+    const root = getRootDomain();
     const isPaaSOrLocal =
       currentHost === 'localhost' ||
       currentHost === '127.0.0.1' ||
       currentHost.endsWith('vercel.app') ||
       currentHost.endsWith('netlify.app') ||
+      currentHost.endsWith(root) ||
       currentHost.endsWith('ta.shop');
 
     if (!isPaaSOrLocal && !targetStore) {
@@ -632,7 +635,7 @@ export default function App() {
                 {/* In-app Browser URL bar */}
                 <div className="bg-slate-900 text-slate-300 text-[11px] font-mono py-1.5 px-3 rounded-full mt-3 mb-2 mx-2 text-center truncate flex items-center justify-center gap-1.5 border border-slate-800 z-20">
                   <span className="text-emerald-400">ðŸ”’</span>
-                  <span>{currentStore.slug}.ta.shop</span>
+                  <span>{currentStore.customDomain || `${currentStore.slug}.${getRootDomain()}`}</span>
                 </div>
 
                 {/* Inner Screen */}

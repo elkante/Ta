@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AlertCircle, BadgeCheck, Bot, Check, CheckCircle2, CreditCard, Lock, ShieldCheck, Sparkles, Upload, X, Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Store, StoreIdVerification } from '../../types';
-import { getStoredStores, saveStores } from '../../utils/storage';
+import { getStoredStores, saveStores, getRootDomain } from '../../utils/storage';
 
 const PAYSTACK_LIVE_KEY = 'pk_live_9a7abd38ef91afffaf83a4d550f0c6e597eb22a1';
 
@@ -170,7 +170,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
       try {
         const handler = (window as any).PaystackPop.setup({
           key: PAYSTACK_LIVE_KEY,
-          email: store.ownerEmail || `${store.slug}@ta.shop`,
+          email: store.ownerEmail || `${store.slug}@${getRootDomain()}`,
           amount: activeAmount * 100, // Paystack amount is in Kobo
           currency: 'NGN',
           ref: `tashop_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,

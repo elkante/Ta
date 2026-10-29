@@ -5,6 +5,7 @@
 
 import { Product, Store } from '../types';
 import { formatPrice } from './whatsapp';
+import { getRootDomain } from './storage';
 
 // API key is stored by the seller in localStorage via the AI Studio settings panel.
 // Never hardcode API keys in source — sellers paste their own free Google AI Studio key.
@@ -114,7 +115,7 @@ export function generateLocalMarketingContent(
   const priceStr = formatPrice(product.price || 0, store.currencySymbol || '₦');
   const uid = product.uid || 'TA-DROP';
   const category = product.category || 'Collection';
-  const storeLink = `${store.slug}.ta.shop`;
+  const storeLink = store.customDomain || `${store.slug}.${getRootDomain()}`;
 
   const categoryTags: Record<string, string[]> = {
     jewelry: ['#NaijaJewelry', '#GoldJewelryNigeria', '#LagosJewelryVendor', '#LuxuryJewelryNG', '#JewelryInLagos'],
@@ -210,7 +211,7 @@ Price: ${store.currencySymbol || '₦'}${product.price}
 Item Code: #${product.uid || 'TA-ITEM'}
 Category: ${product.category || 'General'}
 Store Name: ${store.name}
-Store Link: ${store.slug}.ta.shop
+Store Link: ${store.customDomain || `${store.slug}.${getRootDomain()}`}
 Tone: ${tone}
 
 Return a valid JSON object ONLY with this exact structure:

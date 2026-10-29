@@ -441,13 +441,17 @@ export const SUPER_ADMIN_SESSION_KEY = 'tashop_super_admin_session';
 export const PLATFORM_SETTINGS_KEY = 'tashop_platform_settings';
 export const SUPER_ADMIN_DEFAULT_KEY = 'admin123';
 
+export const DEFAULT_ROOT_DOMAIN = 'taaa.com.ng';
+export const DEFAULT_PLATFORM_BRAND = 'Táaaa.shop';
+
 const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
-  platformName: 'Tá.shop',
+  platformName: 'Táaaa.shop',
+  rootDomain: 'taaa.com.ng',
   supportWhatsApp: '+2348039874521',
   defaultCurrency: 'NGN',
   starterPriceMonthly: 500,
   proPriceMonthly: 3500,
-  globalAnnouncement: '⚡ Welcome to Tá.shop - The multi-tenant social commerce platform for WhatsApp & Instagram sellers.',
+  globalAnnouncement: '⚡ Welcome to Táaaa.shop - The multi-tenant social commerce platform for WhatsApp & Instagram sellers.',
   allowRegistrations: true,
   maintenanceMode: false,
   featuredStoreSlugs: ['amaka-perfumes', 'zainab-couture', 'gadget-plug-ng'],
@@ -554,21 +558,64 @@ export function resetPlatformToSeedData(): void {
 }
 
 // ----------------------------------------------------
-// Subdomain / URL Helpers
+// Subdomain / URL Helpers & Dynamic Domain System
 // ----------------------------------------------------
 
-/** The production root domain (store-first subdomain format). */
-export const TA_ROOT_DOMAIN = 'ta.shop';
+/**
+ * Dynamically resolves the platform root domain.
+ * Priority:
+ * 1. Super Admin platform settings (stored in DB/localStorage)
+ * 2. Vite environment variable VITE_ROOT_DOMAIN
+ * 3. Default: 'taaa.com.ng'
+ * 
+ * Never hardcoded — admins can update domain in settings without code edits.
+ */
+export function getRootDomain(): string {
+  try {
+    const raw = localStorage.getItem(PLATFORM_SETTINGS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.rootDomain && typeof parsed.rootDomain === 'string' && parsed.rootDomain.trim()) {
+        return parsed.rootDomain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      }
+    }
+  } catch (e) {
+    // fallback
+  }
+
+  // Vite environment variable if set
+  if (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env as any).VITE_ROOT_DOMAIN) {
+    return String((import.meta.env as any).VITE_ROOT_DOMAIN).trim().toLowerCase();
+  }
+
+  return DEFAULT_ROOT_DOMAIN;
+}
+
+/**
+ * Dynamically resolves the brand platform name (e.g. 'Táaaa.shop' or 'Táaaa').
+ */
+export function getPlatformBrandName(): string {
+  try {
+    const settings = getPlatformSettings();
+    if (settings.platformName && settings.platformName.trim()) {
+      return settings.platformName.trim();
+    }
+  } catch (e) {
+    // fallback
+  }
+  return DEFAULT_PLATFORM_BRAND;
+}
+
+/** The production root domain (dynamically resolved). */
+export const TA_ROOT_DOMAIN = DEFAULT_ROOT_DOMAIN;
 
 /**
  * Returns the active shareable URL for a store.
  * Automatically adapts to the current environment:
+ * - If merchant has a verified customDomain: uses https://customdomain
+ * - If running on root domain (*.taaa.com.ng or *.ta.shop): uses https://{slug}.{rootDomain}
  * - If running on Vercel / Netlify / custom host: uses current origin + ?store={slug}
- * - If running on *.ta.shop: uses https://{slug}.ta.shop
  * - If running on local dev / Wi-Fi IP: uses current origin + ?store={slug}
- *
- * This guarantees QR codes and share links ALWAYS open the live deployed app
- * regardless of whether you are hosted on Vercel or a custom domain.
  */
 export function getStoreUrl(
   slug: string,
@@ -580,16 +627,19 @@ export function getStoreUrl(
     return base;
   }
 
+  const root = getRootDomain();
+
   if (typeof window === 'undefined') {
-    return `https://${slug}.${TA_ROOT_DOMAIN}`;
+    return `https://${slug}.${root}`;
   }
 
-  const host = window.location.hostname;
+  const host = window.location.hostname.toLowerCase();
   const origin = window.location.origin;
 
-  // If deployed on the official ta.shop domain
-  if (host.endsWith('ta.shop')) {
-    const base = `https://${slug}.${TA_ROOT_DOMAIN}`;
+  // If deployed on the configured root domain or legacy ta.shop
+  if (host.endsWith(root) || host.endsWith('ta.shop')) {
+    const activeDomain = host.endsWith(root) ? root : 'ta.shop';
+    const base = `https://${slug}.${activeDomain}`;
     if (options?.productId) return `${base}?product=${options.productId}`;
     return base;
   }
@@ -602,29 +652,28 @@ export function getStoreUrl(
 }
 
 /**
- * Returns a branded display label (e.g., "amaka-perfumes.ta.shop" or "my-app.vercel.app/?store=...")
+ * Returns a branded display label (e.g., "amaka-perfumes.taaa.com.ng" or "my-app.vercel.app/?store=...")
  */
 export function getStoreDisplayUrl(slug: string, customDomain?: string): string {
   if (customDomain) return customDomain.replace(/^https?:\/\//, '');
-  if (typeof window === 'undefined') return `${slug}.${TA_ROOT_DOMAIN}`;
-  const host = window.location.hostname;
-  if (host.endsWith('ta.shop')) {
-    return `${slug}.${TA_ROOT_DOMAIN}`;
+  const root = getRootDomain();
+  if (typeof window === 'undefined') return `${slug}.${root}`;
+  const host = window.location.hostname.toLowerCase();
+  if (host.endsWith(root) || host.endsWith('ta.shop')) {
+    const activeDomain = host.endsWith(root) ? root : 'ta.shop';
+    return `${slug}.${activeDomain}`;
   }
   if (host.includes('vercel.app') || host.includes('netlify.app')) {
     return `${host}/?store=${slug}`;
   }
-  return `${slug}.${TA_ROOT_DOMAIN}`;
+  return `${slug}.${root}`;
 }
 
 /**
  * Reads the subdomain from the current hostname to determine which
  * store to load automatically in production.
  *
- * Examples:
- *   amaka-perfumes.ta.shop  →  "amaka-perfumes"
- *   ta.shop                 →  null  (root domain, show landing)
- *   localhost               →  null  (dev, use ?store= param)
+ * Supports multi-part TLDs (e.g. amaka.taaa.com.ng -> "amaka").
  */
 export function getSubdomainFromHostname(): string | null {
   if (typeof window === 'undefined') return null;
@@ -637,25 +686,47 @@ export function getSubdomainFromHostname(): string | null {
 
   // Common PaaS deployment domains where the 3rd-level domain is the app itself (e.g. ta-ruby-five.vercel.app)
   const PAAS_ROOTS = ['vercel.app', 'netlify.app', 'pages.dev', 'github.io', 'render.com', 'railway.app', 'onrender.com'];
-  for (const root of PAAS_ROOTS) {
-    if (host.endsWith(root)) {
+  for (const paas of PAAS_ROOTS) {
+    if (host.endsWith(paas)) {
       const parts = host.split('.');
-      // e.g. ["ta-ruby-five", "vercel", "app"] -> 3 parts, this is the main deployment root! Not a tenant store subdomain.
       if (parts.length <= 3) return null;
-      // Only 4+ parts could be a sub-tenant (e.g. amaka.ta-ruby-five.vercel.app)
       const sub = parts[0];
       const EXCLUDED = ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp'];
       return EXCLUDED.includes(sub) ? null : sub;
     }
   }
 
+  const configuredRoot = getRootDomain();
+
+  // If host is the root domain itself (e.g. taaa.com.ng or www.taaa.com.ng or ta.shop)
+  if (host === configuredRoot || host === `www.${configuredRoot}` || host === 'ta.shop' || host === 'www.ta.shop') {
+    return null;
+  }
+
+  // If host ends with the configured root domain (e.g. amaka.taaa.com.ng)
+  if (host.endsWith(`.${configuredRoot}`)) {
+    const prefix = host.slice(0, -(configuredRoot.length + 1));
+    const parts = prefix.split('.');
+    const sub = parts[parts.length - 1];
+    const EXCLUDED = ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp'];
+    return EXCLUDED.includes(sub) ? null : sub;
+  }
+
+  // Check legacy ta.shop
+  if (host.endsWith('.ta.shop')) {
+    const sub = host.replace('.ta.shop', '');
+    const EXCLUDED = ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp'];
+    return EXCLUDED.includes(sub) ? null : sub;
+  }
+
+  // General 3-part custom domain fallback (e.g. amaka.domain.com)
   const parts = host.split('.');
-  // Standard custom domain: e.g. amaka.ta.shop (3 parts -> "amaka")
   if (parts.length >= 3) {
     const sub = parts[0];
     const EXCLUDED = ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp'];
     if (!EXCLUDED.includes(sub)) return sub;
   }
+
   return null;
 }
 

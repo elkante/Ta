@@ -88,6 +88,7 @@ import {
   saveStoreNotes,
   getStoreExpenses,
   saveStoreExpenses,
+  getRootDomain,
 } from '../../utils/storage';
 
 const COVER_PRESETS = [
@@ -976,7 +977,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             </button>
             <div>
               <p className="font-bold text-slate-900 text-sm leading-tight">{store.name}</p>
-              <p className="text-[11px] text-slate-400 hidden sm:block font-mono">{store.slug}.ta.shop</p>
+              <p className="text-[11px] text-slate-400 hidden sm:block font-mono">{store.customDomain || `${store.slug}.${getRootDomain()}`}</p>
             </div>
           </div>
 
@@ -2568,7 +2569,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   dangerouslySetInnerHTML={{ __html: qrSvg }}
                 />
                 <span className="mt-3 text-xs font-mono text-slate-600 font-semibold">
-                  {store.slug}.ta.shop
+                  {store.customDomain || `${store.slug}.${getRootDomain()}`}
                 </span>
               </div>
 

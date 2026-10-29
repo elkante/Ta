@@ -22,7 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { SellerSession, Store } from '../../types';
-import { validateSlug } from '../../utils/storage';
+import { validateSlug, getRootDomain, getPlatformBrandName } from '../../utils/storage';
 
 interface LandingPageProps {
   stores: Store[];
@@ -127,11 +127,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             onClick={handleLogoTap}
             className="flex items-center gap-2 cursor-pointer text-left relative"
           >
-            <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs">
-              Tá
+            <div className="min-w-8 h-8 px-1.5 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xs tracking-tighter shadow-xs">
+              Táaaa
             </div>
             <div className="flex items-baseline">
-              <span className="font-extrabold text-base tracking-tight text-slate-900">Tá</span>
+              <span className="font-extrabold text-base tracking-tight text-slate-900">Táaaa</span>
               <span className="font-extrabold text-base tracking-tight text-amber-500">.shop</span>
             </div>
             <span className="hidden sm:inline-block ml-2 text-[10px] font-semibold text-slate-400 border border-slate-200 rounded-md px-1.5 py-0.5">
@@ -211,7 +211,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </h1>
 
           <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            Every seller gets their own branded store at <strong className="text-slate-900 font-mono">yourbrand.ta.shop</strong>.
+            Every seller gets their own branded store at <strong className="text-slate-900 font-mono">yourbrand.{getRootDomain()}</strong>.
             Customers search by <strong>Item UID</strong> and order in 1 click without ever needing to log in.
           </p>
 
@@ -229,7 +229,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   }}
                   className="w-full py-2 text-xs sm:text-sm font-mono font-semibold text-slate-900 focus:outline-none bg-transparent min-w-0"
                 />
-                <span className="text-xs font-mono font-bold text-slate-400 select-none shrink-0 ml-1">.ta.shop</span>
+                <span className="text-xs font-mono font-bold text-slate-400 select-none shrink-0 ml-1">.{getRootDomain()}</span>
               </div>
               <button
                 type="submit"
@@ -376,7 +376,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                       <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-xs text-slate-900 font-mono text-[10px] font-bold px-2.5 py-1 rounded-full shadow-xs">
-                        {s.slug}.ta.shop
+                        {s.customDomain || `${s.slug}.${getRootDomain()}`}
                       </span>
                     </div>
 
@@ -495,7 +495,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                 <ul className="mt-6 space-y-2.5 text-xs text-slate-700">
                   <li className="flex items-center gap-2">✓ Up to 10 products with variants</li>
-                  <li className="flex items-center gap-2">✓ Custom link: <strong>yourbrand.ta.shop</strong></li>
+                  <li className="flex items-center gap-2">✓ Custom link: <strong>yourbrand.{getRootDomain()}</strong></li>
                   <li className="flex items-center gap-2">✓ Item UID search & WhatsApp checkout</li>
                   <li className="flex items-center gap-2">✓ Loud audio order alerts & dashboard logging</li>
                   <li className="flex items-center gap-2">✓ Printable store QR code</li>
@@ -517,7 +517,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </span>
               <div>
                 <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
-                  <span>Tá.shop Pro</span>
+                  <span>{getPlatformBrandName()} Pro</span>
                   <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">For growing brands on WhatsApp & Instagram.</p>
@@ -528,7 +528,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
                   <li className="flex items-center gap-2 font-medium">✓ <strong>Unlimited products & variants</strong></li>
                   <li className="flex items-center gap-2 font-medium">✓ <strong>Verified Blue Tick</strong> for high trust</li>
-                  <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by Tá.shop"</strong></li>
+                  <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by {getPlatformBrandName()}"</strong></li>
                   <li className="flex items-center gap-2 font-medium">✓ Customer inquiry analytics & history</li>
                   <li className="flex items-center gap-2 font-medium">✓ Custom domain support ready</li>
                 </ul>
@@ -548,12 +548,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Footer */}
       <footer className="border-t border-slate-200 py-10 px-4 sm:px-6 text-center text-xs text-slate-400 space-y-3 bg-slate-50">
         <div className="flex items-center justify-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-slate-900 text-white flex items-center justify-center font-black text-xs">
-            Tá
+          <div className="min-w-6 h-6 px-1 rounded-lg bg-slate-900 text-white flex items-center justify-center font-black text-[10px]">
+            Táaaa
           </div>
-          <span className="font-extrabold text-slate-900">Tá.shop</span>
+          <span className="font-extrabold text-slate-900">Táaaa.shop</span>
         </div>
-        <p>© {new Date().getFullYear()} Tá.shop. The multi-tenant social commerce catalog platform.</p>
+        <p>© {new Date().getFullYear()} Táaaa.shop. The multi-tenant social commerce catalog platform.</p>
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-1 text-[11px] text-slate-500">
           <a href="#featured" className="hover:text-slate-800 transition cursor-pointer font-medium">
             Explore Stores

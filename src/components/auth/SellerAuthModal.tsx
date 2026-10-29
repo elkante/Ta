@@ -33,6 +33,8 @@ import {
   saveStores,
   setSellerSession,
   validateSlug,
+  getRootDomain,
+  getPlatformBrandName,
 } from '../../utils/storage';
 import { dbSaveStore, dbSaveProduct, dbFetchStoreBySlug } from '../../utils/supabase';
 
@@ -236,7 +238,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     try {
       const existingSlugStore = await dbFetchStoreBySlug(slugCheck.cleanSlug);
       if (existingSlugStore) {
-        setError(`The store address "${slugCheck.cleanSlug}.ta.shop" is already taken. Please choose another.`);
+        setError(`The store address "${slugCheck.cleanSlug}.${getRootDomain()}" is already taken. Please choose another.`);
         setIsSigningUp(false);
         return;
       }
@@ -378,15 +380,15 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
         {/* Modal Header */}
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter">
-              Tá
+            <div className="min-w-10 h-10 px-2 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-xs tracking-tighter">
+              Táaaa
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-base leading-tight">
-                {mode === 'login' ? 'Seller Merchant Portal' : 'Launch Your Tá.shop Store'}
+                {mode === 'login' ? 'Seller Merchant Portal' : `Launch Your ${getPlatformBrandName()} Store`}
               </h3>
               <p className="text-xs text-slate-500">
-                {mode === 'login' ? 'Manage your WhatsApp catalog & orders' : 'Claim your handle — yourbrand.ta.shop'}
+                {mode === 'login' ? 'Manage your WhatsApp catalog & orders' : `Claim your handle — yourbrand.${getRootDomain()}`}
               </p>
             </div>
           </div>
@@ -534,7 +536,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                 <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 font-mono">
                   <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span>Store Link:</span>
-                  <span className="font-bold text-slate-900 truncate">{signupSlug}.ta.shop</span>
+                  <span className="font-bold text-slate-900 truncate">{signupSlug}.{getRootDomain()}</span>
                   <span className="ml-auto text-emerald-600 text-[10px] font-sans font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
                     Auto-assigned
                   </span>

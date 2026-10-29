@@ -16,6 +16,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { SellerSession, Store, SuperAdminSession } from '../types';
+import { getRootDomain, getPlatformBrandName } from '../utils/storage';
 interface NavigationProps {
   currentStore: Store;
   allStores: Store[];
@@ -84,14 +85,14 @@ export const Navigation: React.FC<NavigationProps> = ({
           <button
             onClick={handleLogoTap}
             className="flex items-center gap-2 cursor-pointer group text-left shrink-0 select-none"
-            title="Tá.shop"
+            title={getPlatformBrandName()}
           >
-            <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-xs group-hover:scale-105 transition-transform">
-              Tá
+            <div className="min-w-8 h-8 px-1.5 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xs tracking-tighter shadow-xs group-hover:scale-105 transition-transform">
+              Táaaa
             </div>
             <div className="hidden sm:block">
               <div className="flex items-baseline">
-                <span className="font-extrabold text-sm tracking-tight text-slate-900">Tá</span>
+                <span className="font-extrabold text-sm tracking-tight text-slate-900">Táaaa</span>
                 <span className="font-extrabold text-sm tracking-tight text-amber-500">.shop</span>
               </div>
               <span className="text-[10px] text-slate-400 block -mt-1 font-mono">social catalog</span>
@@ -119,7 +120,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                     <span className="text-[9px] bg-amber-200 text-amber-900 px-1 rounded font-mono font-bold">ADMIN</span>
                   </div>
                   <div className="text-[10px] text-slate-500 font-mono truncate hidden xs:block">
-                    {currentStore.slug}.ta.shop
+                    {currentStore.slug}.{getRootDomain()}
                   </div>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition shrink-0 ml-auto" />
@@ -166,7 +167,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                                   s.id === currentStore.id ? 'text-slate-300' : 'text-slate-400'
                                 }`}
                               >
-                                {s.slug}.ta.shop
+                                {s.slug}.{getRootDomain()}
                               </div>
                             </div>
                           </div>
@@ -210,7 +211,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   )}
                 </div>
                 <div className="text-[10px] text-slate-400 font-mono truncate">
-                  {currentStore.customDomain || `${currentStore.slug}.ta.shop`}
+                  {currentStore.customDomain || `${currentStore.slug}.${getRootDomain()}`}
                 </div>
               </div>
             </div>
@@ -345,12 +346,12 @@ export const Navigation: React.FC<NavigationProps> = ({
             {/* Top Bar with brand and Close X button */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm">
-                  Tá
+                <div className="min-w-8 h-8 px-1.5 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xs tracking-tighter">
+                  Táaaa
                 </div>
                 <div>
                   <div className="flex items-baseline">
-                    <span className="font-extrabold text-sm text-slate-900">Tá</span>
+                    <span className="font-extrabold text-sm text-slate-900">Táaaa</span>
                     <span className="font-extrabold text-sm text-amber-500">.shop</span>
                   </div>
                   <span className="text-[10px] text-slate-400 block -mt-1 font-mono">social catalog</span>

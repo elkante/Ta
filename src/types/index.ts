@@ -220,6 +220,7 @@ export interface StoreExpense {
 
 export interface PlatformSettings {
   platformName: string;
+  rootDomain?: string;
   supportWhatsApp: string;
   defaultCurrency: CurrencyCode;
   starterPriceMonthly: number;
