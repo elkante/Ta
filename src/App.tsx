@@ -76,7 +76,15 @@ export default function App() {
     try {
       if (typeof window !== 'undefined') {
         const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
-        if (pathname === '/sys-hq') return 'superadmin';
+        const hash = window.location.hash.toLowerCase();
+        if (
+          pathname === '/sys-hq' ||
+          pathname.endsWith('/sys-hq') ||
+          hash === '#/sys-hq' ||
+          hash === '#sys-hq'
+        ) {
+          return 'superadmin';
+        }
       }
       const urlParams = new URLSearchParams(window.location.search);
       const viewParam = urlParams.get('view');
@@ -227,7 +235,16 @@ export default function App() {
     }
 
     const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
-    if (pathname === '/sys-hq' || viewParam === 'sys-hq' || viewParam === 'admin' || viewParam === 'superadmin') {
+    const hash = window.location.hash.toLowerCase();
+    if (
+      pathname === '/sys-hq' ||
+      pathname.endsWith('/sys-hq') ||
+      hash === '#/sys-hq' ||
+      hash === '#sys-hq' ||
+      viewParam === 'sys-hq' ||
+      viewParam === 'admin' ||
+      viewParam === 'superadmin'
+    ) {
       setActiveView('superadmin');
       return;
     }
