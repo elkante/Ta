@@ -48,11 +48,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [handleInput, setHandleInput] = useState('');
   const [handleError, setHandleError] = useState<string | null>(null);
 
-  // ─── 6-tap Easter egg on logo → opens Super Admin ───────────────────────
+  // ─── PC-ONLY 6-click easter egg on logo → opens /sys-hq ─────────────────
+  // Disabled completely on mobile phones; only triggers on desktop/PC
   const [logoTapCount, setLogoTapCount] = useState(0);
   const logoTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLogoTap = () => {
+    const isMobile =
+      typeof window !== 'undefined' &&
+      (window.innerWidth < 768 ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+
+    // On Mobile: Never count taps for Super Admin. Normal scroll to top only.
+    if (isMobile) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    // On PC: 6 clicks trigger Super Admin (/sys-hq)
     const next = logoTapCount + 1;
     setLogoTapCount(next);
 

@@ -13,6 +13,7 @@ import { CreateStoreModal } from './components/modals/CreateStoreModal';
 import { SocialShareModal } from './components/modals/SocialShareModal';
 import { SuperAdminDashboard } from './components/admin/SuperAdminDashboard';
 import { SuperAdminLoginModal } from './components/admin/SuperAdminLoginModal';
+import { SysHqPage } from './components/admin/SysHqPage';
 import { SplashScreen } from './components/common/SplashScreen';
 import { OnboardingGuide } from './components/onboarding/OnboardingGuide';
 import { LegalModal, LegalTab } from './components/legal/LegalModal';
@@ -73,9 +74,16 @@ export default function App() {
 
   const [activeView, setActiveView] = useState<'landing' | 'storefront' | 'dashboard' | 'superadmin'>(() => {
     try {
+      if (typeof window !== 'undefined') {
+        const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+        if (pathname === '/sys-hq') return 'superadmin';
+      }
       const urlParams = new URLSearchParams(window.location.search);
       const viewParam = urlParams.get('view');
-      if (viewParam === 'dashboard' || viewParam === 'storefront' || viewParam === 'superadmin' || viewParam === 'landing') {
+      if (viewParam === 'sys-hq' || viewParam === 'superadmin' || viewParam === 'admin') {
+        return 'superadmin';
+      }
+      if (viewParam === 'dashboard' || viewParam === 'storefront' || viewParam === 'landing') {
         return viewParam as 'landing' | 'storefront' | 'dashboard' | 'superadmin';
       }
       const savedView = sessionStorage.getItem('ta_last_view');
@@ -218,24 +226,15 @@ export default function App() {
       }
     }
 
+    const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+    if (pathname === '/sys-hq' || viewParam === 'sys-hq' || viewParam === 'admin' || viewParam === 'superadmin') {
+      setActiveView('superadmin');
+      return;
+    }
+
     if (viewParam === 'landing') {
-      // Explicit landing request â†’ show landing page
+      // Explicit landing request → show landing page
       setActiveView('landing');
-    } else if (viewParam === 'admin' || viewParam === 'superadmin') {
-      // Secret key check: ?view=superadmin&key=ta_root_9921 (set your own in storage.ts)
-      const SECRET_ADMIN_KEY = 'ta_root_9921';
-      if (adminSession) {
-        setActiveView('superadmin');
-      } else if (keyParam === SECRET_ADMIN_KEY) {
-        // Auto-open login modal when correct key is in URL
-        setIsSuperAdminModalOpen(true);
-        // Clear key from URL so it's not visible in browser history
-        const cleanUrl = new URL(window.location.href);
-        cleanUrl.searchParams.delete('key');
-        window.history.replaceState({}, '', cleanUrl.toString());
-      } else {
-        setIsSuperAdminModalOpen(true);
-      }
     } else if (viewParam === 'dashboard' && session) {
       setActiveView('dashboard');
       sessionStorage.setItem('ta_last_view', 'dashboard');
@@ -315,19 +314,29 @@ export default function App() {
   useEffect(() => {
     try {
       const url = new URL(window.location.href);
-      if (activeView === 'dashboard' && currentStore) {
+      if (activeView === 'superadmin') {
+        if (url.pathname !== '/sys-hq') {
+          url.pathname = '/sys-hq';
+          url.searchParams.delete('store');
+          url.searchParams.delete('view');
+          window.history.replaceState({}, '', url.toString());
+        }
+      } else if (activeView === 'dashboard' && currentStore) {
+        if (url.pathname === '/sys-hq') url.pathname = '/';
         sessionStorage.setItem('ta_last_view', 'dashboard');
         sessionStorage.setItem('ta_last_store_slug', currentStore.slug);
         url.searchParams.set('store', currentStore.slug);
         url.searchParams.set('view', 'dashboard');
         window.history.replaceState({}, '', url.toString());
       } else if (activeView === 'storefront' && currentStore) {
+        if (url.pathname === '/sys-hq') url.pathname = '/';
         sessionStorage.setItem('ta_last_view', 'storefront');
         sessionStorage.setItem('ta_last_store_slug', currentStore.slug);
         url.searchParams.set('store', currentStore.slug);
         url.searchParams.delete('view');
         window.history.replaceState({}, '', url.toString());
       } else if (activeView === 'landing') {
+        if (url.pathname === '/sys-hq') url.pathname = '/';
         sessionStorage.removeItem('ta_last_view');
         sessionStorage.removeItem('ta_last_store_slug');
         url.searchParams.delete('store');
@@ -444,19 +453,30 @@ export default function App() {
     }
   };
 
+  const handleOpenSuperAdmin = () => {
+    setActiveView('superadmin');
+    const url = new URL(window.location.href);
+    url.pathname = '/sys-hq';
+    url.searchParams.delete('store');
+    url.searchParams.delete('view');
+    window.history.pushState({}, '', url.toString());
+  };
+
   const handleSuperAdminLoginSuccess = (session: SuperAdminSession) => {
     setSuperAdminSessionState(session);
     setActiveView('superadmin');
     const url = new URL(window.location.href);
-    url.searchParams.set('view', 'admin');
+    url.pathname = '/sys-hq';
+    url.searchParams.delete('view');
     window.history.replaceState({}, '', url.toString());
   };
 
   const handleSuperAdminLogout = () => {
     clearSuperAdminSession();
     setSuperAdminSessionState(null);
-    setActiveView('landing');
+    setActiveView('superadmin');
     const url = new URL(window.location.href);
+    url.pathname = '/sys-hq';
     url.searchParams.delete('view');
     window.history.replaceState({}, '', url.toString());
   };
@@ -537,8 +557,8 @@ export default function App() {
       {/* App Splash Screen on Initial Load */}
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
 
-      {/* Top Multi-Tenant Navigation Header â€” shown on storefront, dashboard & admin; Landing page has its own dedicated navbar */}
-      {activeView !== 'landing' && (
+      {/* Top Multi-Tenant Navigation Header — shown on storefront & dashboard; hidden on /sys-hq & landing */}
+      {activeView !== 'landing' && activeView !== 'superadmin' && (
         <Navigation
           currentStore={currentStore}
           allStores={allStores}
@@ -551,7 +571,8 @@ export default function App() {
             if (view === 'landing') {
               url.searchParams.set('view', 'landing');
             } else if (view === 'superadmin') {
-              url.searchParams.set('view', 'admin');
+              handleOpenSuperAdmin();
+              return;
             } else {
               url.searchParams.delete('view');
               url.searchParams.set('store', currentStore.slug);
@@ -568,16 +589,7 @@ export default function App() {
             setAuthModalMode('login');
             setIsAuthModalOpen(true);
           }}
-          onOpenSuperAdmin={() => {
-            if (!superAdminSession) {
-              setIsSuperAdminModalOpen(true);
-            } else {
-              setActiveView('superadmin');
-              const url = new URL(window.location.href);
-              url.searchParams.set('view', 'admin');
-              window.history.replaceState({}, '', url.toString());
-            }
-          }}
+          onOpenSuperAdmin={handleOpenSuperAdmin}
           onLogout={handleLogout}
           isMobileDeviceFrame={isMobileDeviceFrame}
           onToggleMobileDeviceFrame={() => setIsMobileDeviceFrame(!isMobileDeviceFrame)}
@@ -586,11 +598,12 @@ export default function App() {
 
       {/* Main View Area */}
       <div className="flex-1">
-        {activeView === 'superadmin' && superAdminSession ? (
-          /* PLATFORM SUPER ADMIN PORTAL */
-          <SuperAdminDashboard
+        {activeView === 'superadmin' ? (
+          /* PLATFORM SUPER ADMIN PORTAL (/sys-hq) — Standalone dedicated page */
+          <SysHqPage
             session={superAdminSession}
             allStores={allStores}
+            onLoginSuccess={handleSuperAdminLoginSuccess}
             onLogout={handleSuperAdminLogout}
             onRefreshData={handleRefreshData}
             onSelectStore={handleSelectStore}
@@ -602,7 +615,13 @@ export default function App() {
               }
             }}
             onImpersonateStore={handleImpersonateStore}
-            onOpenLanding={() => setActiveView('landing')}
+            onOpenLanding={() => {
+              const url = new URL(window.location.href);
+              url.pathname = '/';
+              url.searchParams.delete('view');
+              window.history.pushState({}, '', url.toString());
+              setActiveView('landing');
+            }}
           />
         ) : activeView === 'landing' ? (
           /* PLATFORM LANDING PAGE */
@@ -626,13 +645,7 @@ export default function App() {
               setAuthModalSlug(slug || '');
               setIsAuthModalOpen(true);
             }}
-            onOpenSuperAdmin={() => {
-              if (!superAdminSession) {
-                setIsSuperAdminModalOpen(true);
-              } else {
-                setActiveView('superadmin');
-              }
-            }}
+            onOpenSuperAdmin={handleOpenSuperAdmin}
             onOpenLegal={handleOpenLegal}
           />
         ) : activeView === 'storefront' ? (

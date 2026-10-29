@@ -53,8 +53,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // ─── Silent 6-tap easter egg on logo → opens Super Admin ─────────────────
-  // Instant touch response on mobile (no zoom delay), rolling 3s window & haptic feedback
+  // ─── PC-ONLY 6-click easter egg on logo → opens /sys-hq ─────────────────
+  // Disabled completely on mobile phones; only triggers on desktop/PC
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -63,40 +63,39 @@ export const Navigation: React.FC<NavigationProps> = ({
       e.stopPropagation();
     }
 
+    const isMobile =
+      typeof window !== 'undefined' &&
+      (window.innerWidth < 768 ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+
+    // On Mobile: Never count taps for Super Admin. Normal single-tap navigation only.
+    if (isMobile) {
+      setMobileMenuOpen(false);
+      onViewChange('landing');
+      return;
+    }
+
+    // On PC: 6 clicks trigger Super Admin (/sys-hq)
     if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
 
     tapCountRef.current += 1;
     const currentTaps = tapCountRef.current;
 
-    // Mobile haptic vibration feedback
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      try {
-        navigator.vibrate(25);
-      } catch (err) {}
-    }
-
     if (currentTaps >= 6) {
       tapCountRef.current = 0;
       if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
       setMobileMenuOpen(false);
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        try {
-          navigator.vibrate([40, 80, 40]);
-        } catch (err) {}
-      }
       onOpenSuperAdmin();
       return;
     }
 
-    // Keep window open for 3 seconds so user doesn't have to tap frantically
     tapTimerRef.current = setTimeout(() => {
-      // If exactly 1 single tap and stopped, go to landing page
       if (tapCountRef.current === 1) {
         setMobileMenuOpen(false);
         onViewChange('landing');
       }
       tapCountRef.current = 0;
-    }, 2800);
+    }, 2500);
   }, [onOpenSuperAdmin, onViewChange]);
   // ─────────────────────────────────────────────────────────────────────────
 
