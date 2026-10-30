@@ -196,6 +196,9 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   useEffect(() => {
     if (baileysStatus !== 'waiting_scan') return;
     let es: EventSource | null = null;
+    // Auto-reset timeout: if stuck in "confirming" for >25s, go back to fresh QR request
+    let confirmingTimeout: ReturnType<typeof setTimeout> | null = null;
+
     try {
       es = new EventSource(`${serverEndpoint}/api/whatsapp/events/${store.id}`);
 
@@ -203,29 +206,47 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         try {
           const data = JSON.parse(evt.data);
           if (data.status === 'connected') {
+            if (confirmingTimeout) clearTimeout(confirmingTimeout);
             handleConnectedEvent(data.phone || '');
           } else if (data.status === 'waiting_scan' && data.qrDataUrl) {
+            // New QR arrived (after a failed scan attempt) — reset confirming state
+            if (confirmingTimeout) clearTimeout(confirmingTimeout);
             setBaileysQr(data.qrDataUrl);
             setQrScannedConfirming(false);
-            setServerMessage('');
+            setServerMessage('New QR ready — scan this one with WhatsApp.');
             setServerStatus('online');
           } else if (data.event === 'reconnecting') {
-            // QR was scanned — WhatsApp is confirming — show intermediate state
+            // QR was scanned — WhatsApp is confirming — start 25s safety timeout
             setQrScannedConfirming(true);
             setServerMessage('QR scanned! Confirming pairing with WhatsApp...');
+            if (confirmingTimeout) clearTimeout(confirmingTimeout);
+            confirmingTimeout = setTimeout(() => {
+              // Timed out — pairing failed. Auto-request a fresh QR.
+              setQrScannedConfirming(false);
+              setBaileysQr(null);
+              setServerMessage('Pairing timed out. A fresh QR is being generated — try again.');
+              handleStartBaileysPairing();
+            }, 25000);
+          } else if (data.event === 'connecting') {
+            // Plain reconnect (not scan-related) — just show loading state
+            setQrScannedConfirming(false);
+            setBaileysQr(null);
+            setServerMessage('Reconnecting to WhatsApp gateway...');
           }
         } catch (e) {}
       };
 
       es.onerror = () => {
-        // SSE error — fallback polling will cover it
         es?.close();
       };
     } catch (e) {
-      // Browser doesn't support SSE or CORS issue — polling covers it
+      // Browser doesn't support SSE — polling covers it
     }
 
-    return () => { es?.close(); };
+    return () => {
+      es?.close();
+      if (confirmingTimeout) clearTimeout(confirmingTimeout);
+    };
   }, [baileysStatus, serverEndpoint, store.id, handleConnectedEvent]);
 
   // Fast fallback polling (every 1.2s) when waiting for scan — covers SSE gaps
@@ -264,11 +285,12 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     return () => { if (interval) clearInterval(interval); };
   }, [baileysStatus, serverEndpoint, store.id, baileysQr, handleConnectedEvent]);
 
-  const handleStartBaileysPairing = async () => {
+  const handleStartBaileysPairing = async (forceRefresh = false) => {
     setIsPairingLoading(true);
     setPairingError(null);
     setBaileysStatus('waiting_scan');
     setBaileysQr(null);
+    setQrScannedConfirming(false);
     setServerMessage('Connecting to WhatsApp gateway...');
 
     try {
@@ -276,6 +298,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          forceRefresh,
           catalog: products,
           storeInfo: {
             name: store.name,
@@ -983,13 +1006,23 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                   <div className="shrink-0 flex flex-col items-center p-3.5 bg-white rounded-2xl border-2 border-amber-400 shadow-md">
                     {qrScannedConfirming ? (
                       <div className="w-48 h-48 flex flex-col items-center justify-center text-center p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center mb-2">
-                          <RefreshCw className="w-5 h-5 text-emerald-600 animate-spin" />
+                        <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center mb-1.5">
+                          <RefreshCw className="w-4 h-4 text-emerald-600 animate-spin" />
                         </div>
                         <span className="text-xs font-bold text-emerald-900">QR Scanned! ✅</span>
                         <p className="text-[10px] text-emerald-700 mt-1 leading-snug">
-                          Confirming pairing with WhatsApp... This may take 5–15 seconds.
+                          Confirming pairing with WhatsApp...
                         </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQrScannedConfirming(false);
+                            handleStartBaileysPairing(true);
+                          }}
+                          className="mt-2 text-[10px] font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-md hover:bg-slate-100 cursor-pointer shadow-2xs"
+                        >
+                          Cancel / New QR
+                        </button>
                       </div>
                     ) : baileysQr && baileysQr.startsWith('data:image') ? (
                       <div className="space-y-2 text-center">
@@ -1000,7 +1033,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                         />
                         <button
                           type="button"
-                          onClick={handleStartBaileysPairing}
+                          onClick={() => handleStartBaileysPairing(true)}
                           disabled={isPairingLoading}
                           className="w-full text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 py-1.5 rounded-lg transition flex items-center justify-center gap-1 cursor-pointer"
                         >

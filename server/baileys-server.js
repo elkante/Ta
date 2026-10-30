@@ -195,17 +195,39 @@ async function getBaileysVersion() {
 /**
  * Initializes or retrieves an isolated WhatsApp socket for a specific store.
  */
-async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
+async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, options = {}) {
+  const { forceRefresh = false } = options;
+
   if (activeSessions.has(storeId)) {
     const existing = activeSessions.get(storeId);
-    if (existing.status === 'connected' || existing.status === 'connecting') {
+    // If already connected and not forcing refresh, reuse it
+    if (existing.status === 'connected' && existing.sock && !forceRefresh) {
       if (storeCatalog && storeCatalog.length > 0) existing.catalog = storeCatalog;
       if (storeInfo && Object.keys(storeInfo).length > 0) existing.storeInfo = storeInfo;
       return existing;
     }
+    // If waiting for scan and QR is still fresh (< 45s old) and not forcing refresh, reuse it
+    if (existing.status === 'waiting_scan' && existing.qrDataUrl && !forceRefresh) {
+      const age = existing.qrGeneratedAt ? (Date.now() - existing.qrGeneratedAt) : 0;
+      if (age < 45_000) {
+        return existing;
+      }
+    }
+    // Clean up previous socket before starting a new one
+    try {
+      if (existing.sock) {
+        existing.sock.ev.removeAllListeners('connection.update');
+        existing.sock.ev.removeAllListeners('creds.update');
+        existing.sock.end?.();
+      }
+    } catch (e) {}
+    activeSessions.delete(storeId);
   }
 
   const storeSessionDir = path.join(SESSIONS_DIR, storeId);
+  if (!fs.existsSync(storeSessionDir)) {
+    fs.mkdirSync(storeSessionDir, { recursive: true });
+  }
   const { state, saveCreds } = await useMultiFileAuthState(storeSessionDir);
 
   const sessionData = {
@@ -226,8 +248,12 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
     auth: state,
     logger: pino({ level: 'silent' }), // suppress verbose protocol logs
     printQRInTerminal: false,
-    browser: Browsers.ubuntu('Chrome'),
+    browser: Browsers.macOS('Desktop'),
     syncFullHistory: false,
+    connectTimeoutMs: 60000,
+    defaultQueryTimeoutMs: 60000,
+    keepAliveIntervalMs: 30000,
+    generateHighQualityLinkPreview: false,
     getMessage: async (key) => {
       if (key?.id && messageStore.has(key.id)) {
         const stored = messageStore.get(key.id);
@@ -262,6 +288,8 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
     if (connection === 'open') {
       sessionData.status = 'connected';
       sessionData.qrDataUrl = null;
+      sessionData.qrRaw = null;
+      sessionData.qrGeneratedAt = null;
       const userJid = sock.user?.id || '';
       sessionData.phone = userJid.split(':')[0] || userJid.split('@')[0];
       console.log(`[Store: ${storeId}] WhatsApp connected successfully! Phone: ${sessionData.phone}`);
@@ -283,18 +311,34 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
     if (connection === 'close') {
       const statusCode = (lastDisconnect?.error instanceof Boom)
         ? lastDisconnect.error.output.statusCode
+        : (lastDisconnect?.error && typeof lastDisconnect.error === 'object' && 'statusCode' in lastDisconnect.error)
+        ? lastDisconnect.error.statusCode
         : null;
 
       const isLoggedOut = statusCode === DisconnectReason.loggedOut;
       sessionData.qrDataUrl = null;
 
       if (!isLoggedOut) {
+        // WhatsApp protocol code 515 (restartRequired) signals QR was scanned and accepted!
+        // We MUST reconnect quickly (500ms) with the saved auth credentials intact.
+        const isRestart = statusCode === DisconnectReason.restartRequired;
+        console.log(`[Store: ${storeId}] Connection closed (code: ${statusCode})${isRestart ? ' — restartRequired (QR scan accepted, re-opening socket...)' : ', reconnecting...'}`);
+
         sessionData.status = 'connecting';
-        console.log(`[Store: ${storeId}] Connection dropped (code: ${statusCode}), reconnecting in 3s...`);
-        pushSSEEvent(storeId, { event: 'reconnecting', status: 'connecting' });
-        setTimeout(() => {
-          initStoreSession(storeId, sessionData.catalog, sessionData.storeInfo);
-        }, 3000);
+        pushSSEEvent(storeId, {
+          event: isRestart ? 'reconnecting' : 'connecting',
+          status: 'connecting',
+          statusCode,
+        });
+
+        const reconnectDelay = isRestart ? 500 : 2500;
+        setTimeout(async () => {
+          try {
+            await initStoreSession(storeId, sessionData.catalog, sessionData.storeInfo, { forceRefresh: true });
+          } catch (e) {
+            console.error(`[Store: ${storeId}] Failed to reconnect session:`, e?.message);
+          }
+        }, reconnectDelay);
       } else {
         sessionData.status = 'disconnected';
         console.log(`[Store: ${storeId}] Logged out. Cleaned session credentials.`);
@@ -610,10 +654,10 @@ app.get('/api/whatsapp/status/:storeId', async (req, res) => {
  */
 app.post('/api/whatsapp/connect/:storeId', async (req, res) => {
   const { storeId } = req.params;
-  const { catalog = [], storeInfo = {} } = req.body;
+  const { catalog = [], storeInfo = {}, forceRefresh = false } = req.body;
 
   try {
-    const session = await initStoreSession(storeId, catalog, storeInfo);
+    const session = await initStoreSession(storeId, catalog, storeInfo, { forceRefresh });
 
     // If waiting for QR code to be generated, wait up to 3.5s so client gets QR immediately
     if (session.status !== 'connected' && !session.qrDataUrl) {
