@@ -225,6 +225,12 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
   }
 
   const storeSessionDir = path.join(SESSIONS_DIR, storeId);
+  if (forceRefresh) {
+    try {
+      fs.rmSync(storeSessionDir, { recursive: true, force: true });
+      console.log(`[Store: ${storeId}] Force refresh: wiped auth state directory for fresh pairing.`);
+    } catch (e) {}
+  }
   if (!fs.existsSync(storeSessionDir)) {
     fs.mkdirSync(storeSessionDir, { recursive: true });
   }
@@ -248,7 +254,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
     auth: state,
     logger: pino({ level: 'silent' }), // suppress verbose protocol logs
     printQRInTerminal: false,
-    browser: Browsers.macOS('Desktop'),
+    browser: Browsers.macOS('Chrome'),
     syncFullHistory: false,
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
