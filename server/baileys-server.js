@@ -262,6 +262,8 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
     printQRInTerminal: false,
     browser: Browsers.ubuntu('Chrome'),
     syncFullHistory: false,
+    markOnlineOnConnect: false,
+    fireInitQueries: false,
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
     keepAliveIntervalMs: 30000,
@@ -709,7 +711,12 @@ app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
     return res.status(400).json({ error: 'Phone number is required' });
   }
 
-  const cleanPhone = String(phoneNumber).replace(/\D/g, '');
+  let cleanPhone = String(phoneNumber).replace(/\D/g, '');
+  if (cleanPhone.startsWith('0')) {
+    cleanPhone = '234' + cleanPhone.slice(1);
+  } else if (!cleanPhone.startsWith('234') && cleanPhone.length === 10) {
+    cleanPhone = '234' + cleanPhone;
+  }
   if (cleanPhone.length < 8) {
     return res.status(400).json({ error: 'Valid international phone number required (e.g. 2348012345678)' });
   }

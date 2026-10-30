@@ -102,9 +102,14 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   );
   const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'waking' | 'offline'>('checking');
   const [pairingMethod, setPairingMethod] = useState<'qr' | 'code'>('qr');
-  const [pairingPhone, setPairingPhone] = useState<string>(
-    `${store.whatsappCountryCode || '+234'}${store.whatsappNumber || ''}`.replace(/\s+/g, '')
-  );
+  const [pairingPhone, setPairingPhone] = useState<string>(() => {
+    const raw = (store.whatsappNumber || '').replace(/\D/g, '');
+    if (!raw) return '';
+    if (raw.startsWith('234')) return raw;
+    if (raw.startsWith('0')) return '234' + raw.slice(1);
+    const country = (store.whatsappCountryCode || '234').replace(/\D/g, '');
+    return `${country}${raw}`;
+  });
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [pairingCodeLoading, setPairingCodeLoading] = useState(false);
   const [pairingError, setPairingError] = useState<string | null>(null);
@@ -363,22 +368,30 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   };
 
   const handleRequestPairingCode = async () => {
-    if (!pairingPhone.trim()) {
-      setPairingError('Please enter your business WhatsApp phone number.');
+    let clean = pairingPhone.replace(/\D/g, '');
+    if (clean.startsWith('0')) {
+      clean = '234' + clean.slice(1);
+    } else if (!clean.startsWith('234') && clean.length === 10) {
+      clean = '234' + clean;
+    }
+
+    if (!clean || clean.length < 9) {
+      setPairingError('Please enter a valid WhatsApp phone number with country code (e.g. 2348012345678).');
       return;
     }
+    setPairingPhone(clean);
     setPairingCodeLoading(true);
     setPairingError(null);
     setPairingCode(null);
     setBaileysStatus('waiting_scan');
-    setServerMessage('Requesting 8-digit WhatsApp pairing code...');
+    setServerMessage(`Requesting 8-digit WhatsApp pairing code for +${clean}...`);
 
     try {
       const res = await fetch(`${serverEndpoint}/api/whatsapp/pairing-code/${store.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phoneNumber: pairingPhone.trim(),
+          phoneNumber: clean,
         }),
       });
 
@@ -924,6 +937,9 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                           {pairingCodeLoading ? 'Generating...' : 'Get Code'}
                         </button>
                       </div>
+                      <span className="text-[10px] text-slate-500 block">
+                        Format: International digits without '+' (e.g. <strong>2348031234567</strong> for Nigeria)
+                      </span>
 
                       {pairingError && (
                         <p className="text-xs text-rose-600 font-medium">{pairingError}</p>
