@@ -269,6 +269,10 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
           // QR was scanned — Baileys is reconnecting to confirm it
           setQrScannedConfirming(true);
           setServerMessage('QR scanned! Confirming pairing with WhatsApp...');
+        } else if (!data.connected && data.status === 'disconnected' && baileysStatus === 'connected') {
+          setBaileysStatus('disconnected');
+          setConnectedPhone(null);
+          try { localStorage.removeItem(`ta_wa_conn_${store.id}`); } catch (e) {}
         }
       } catch (e) {
         // server asleep or not reachable
@@ -383,7 +387,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         setPairingCode(data.pairingCode);
         setServerMessage('Enter this code in WhatsApp -> Linked Devices -> Link with phone number');
       } else if (data.connected) {
-        handleSimulateConnected();
+        handleConnectedEvent(data.phone || `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || ''}`);
       } else if (data.error) {
         setPairingError(data.error);
       }
@@ -400,30 +404,6 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       setCopiedPairingCode(true);
       setTimeout(() => setCopiedPairingCode(false), 2000);
     }
-  };
-
-  const handleSimulateConnected = () => {
-    setBaileysStatus('connected');
-    setBaileysQr(null);
-    setPairingCode(null);
-    const phone = `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || '8012345678'}`;
-    setConnectedPhone(phone);
-    try {
-      localStorage.setItem(`ta_wa_conn_${store.id}`, '1');
-    } catch (e) {}
-    const updatedConfig: StoreAIBotConfig = {
-      ...(store.aiBotConfig || existingConfig),
-      whatsappConnected: true,
-      whatsappPhone: phone,
-      lastConnectedAt: new Date().toISOString(),
-    };
-    updateStore({
-      ...store,
-      aiBotConfig: updatedConfig,
-      whatsappBotConnected: true,
-      whatsappBotPhone: phone,
-    });
-    if (onRefreshData) onRefreshData();
   };
 
   const handleDisconnectBaileys = async () => {
@@ -986,15 +966,8 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
 
                   <div className="flex flex-wrap items-center gap-2 pt-2">
                     <button
-                      onClick={handleSimulateConnected}
-                      className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Simulate Successful Scan</span>
-                    </button>
-                    <button
                       onClick={handleDisconnectBaileys}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-medium cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-medium cursor-pointer"
                     >
                       Cancel
                     </button>
