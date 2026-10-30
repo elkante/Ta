@@ -85,6 +85,9 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     (typeof localStorage !== 'undefined' && localStorage.getItem(`ta_wa_conn_${store.id}`) === '1')
   );
 
+  const PRIMARY_RENDER_ENDPOINT = 'https://ta-whatsapp-bot.onrender.com';
+  const LOCAL_ENDPOINT = 'http://localhost:3001';
+
   const [baileysStatus, setBaileysStatus] = useState<'disconnected' | 'waiting_scan' | 'connected'>(
     isPreviouslyConnected ? 'connected' : 'disconnected'
   );
@@ -93,12 +96,78 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   const [connectedPhone, setConnectedPhone] = useState<string | null>(
     store.aiBotConfig?.whatsappPhone || store.whatsappBotPhone || null
   );
-  const [serverEndpoint, setServerEndpoint] = useState(
-    (import.meta as any).env?.VITE_BAILEYS_SERVER_URL ||
-      (typeof window !== 'undefined' && window.location.hostname === 'localhost'
-        ? 'http://localhost:3001'
-        : 'https://ta-whatsapp-bot.onrender.com')
+  const [serverEndpoint, setServerEndpoint] = useState<string>(
+    (import.meta as any).env?.VITE_BAILEYS_SERVER_URL || PRIMARY_RENDER_ENDPOINT
   );
+  const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'waking' | 'offline'>('checking');
+  const [pairingMethod, setPairingMethod] = useState<'qr' | 'code'>('qr');
+  const [pairingPhone, setPairingPhone] = useState<string>(
+    `${store.whatsappCountryCode || '+234'}${store.whatsappNumber || ''}`.replace(/\s+/g, '')
+  );
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [pairingCodeLoading, setPairingCodeLoading] = useState(false);
+  const [pairingError, setPairingError] = useState<string | null>(null);
+  const [serverMessage, setServerMessage] = useState<string>('');
+  const [copiedPairingCode, setCopiedPairingCode] = useState(false);
+
+  // Auto-detect whether local server or Render is responsive
+  useEffect(() => {
+    let isMounted = true;
+    const detectEndpoint = async () => {
+      const explicitEnv = (import.meta as any).env?.VITE_BAILEYS_SERVER_URL;
+      if (explicitEnv) {
+        setServerEndpoint(explicitEnv);
+        setServerStatus('online');
+        return;
+      }
+
+      const isLocalHost =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+      if (isLocalHost) {
+        try {
+          const ctrl = new AbortController();
+          const t = setTimeout(() => ctrl.abort(), 1200);
+          const localRes = await fetch(`${LOCAL_ENDPOINT}/health`, { signal: ctrl.signal });
+          clearTimeout(t);
+          if (localRes.ok && isMounted) {
+            setServerEndpoint(LOCAL_ENDPOINT);
+            setServerStatus('online');
+            return;
+          }
+        } catch (e) {
+          // local server not running, continue to Render
+        }
+      }
+
+      // Check Render endpoint
+      try {
+        setServerStatus('checking');
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 3500);
+        const renderRes = await fetch(`${PRIMARY_RENDER_ENDPOINT}/health`, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (renderRes.ok && isMounted) {
+          setServerEndpoint(PRIMARY_RENDER_ENDPOINT);
+          setServerStatus('online');
+        } else if (isMounted) {
+          setServerEndpoint(PRIMARY_RENDER_ENDPOINT);
+          setServerStatus('waking');
+        }
+      } catch (e) {
+        if (isMounted) {
+          setServerEndpoint(PRIMARY_RENDER_ENDPOINT);
+          setServerStatus('waking');
+        }
+      }
+    };
+
+    detectEndpoint();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Poll status when pairing and check status on mount
   useEffect(() => {
@@ -112,8 +181,10 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         if (data.connected || data.status === 'connected') {
           setBaileysStatus('connected');
           setBaileysQr(null);
+          setPairingCode(null);
           const phone = data.phone || `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || ''}`;
           setConnectedPhone(phone);
+          setServerStatus('online');
           try {
             localStorage.setItem(`ta_wa_conn_${store.id}`, '1');
           } catch (e) {}
@@ -135,6 +206,8 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
           }
         } else if (data.qrDataUrl && baileysStatus === 'waiting_scan') {
           setBaileysQr(data.qrDataUrl);
+          setServerMessage('');
+          setServerStatus('online');
         }
       } catch (e) {
         // server asleep or not reachable
@@ -144,7 +217,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     checkStatus();
 
     if (baileysStatus === 'waiting_scan') {
-      interval = setInterval(checkStatus, 3000);
+      interval = setInterval(checkStatus, 2500);
     }
 
     return () => {
@@ -154,7 +227,10 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
 
   const handleStartBaileysPairing = async () => {
     setIsPairingLoading(true);
+    setPairingError(null);
     setBaileysStatus('waiting_scan');
+    setBaileysQr(null);
+    setServerMessage('Connecting to WhatsApp gateway...');
 
     try {
       const res = await fetch(`${serverEndpoint}/api/whatsapp/connect/${store.id}`, {
@@ -171,10 +247,17 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
           },
         }),
       });
+
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`);
+      }
+
       const data = await res.json();
+      setServerStatus('online');
       if (data.connected) {
         setBaileysStatus('connected');
         setBaileysQr(null);
+        setPairingCode(null);
         const phone = data.phone || `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || ''}`;
         setConnectedPhone(phone);
         try {
@@ -195,22 +278,72 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         if (onRefreshData) onRefreshData();
       } else if (data.qrDataUrl) {
         setBaileysQr(data.qrDataUrl);
+        setServerMessage('Scan this QR code with WhatsApp on your phone!');
       } else {
-        const fallbackSvg = generateQRCodeSVG(`2@${store.id},${Date.now()},ta_shop_pair`, 220);
-        setBaileysQr(fallbackSvg);
+        setServerMessage('Generating live WhatsApp pairing QR code...');
       }
-    } catch (e) {
-      // Offline fallback: generate client SVG pairing QR code
-      const fallbackSvg = generateQRCodeSVG(`2@${store.id},${Date.now()},ta_shop_pair`, 220);
-      setBaileysQr(fallbackSvg);
+    } catch (e: any) {
+      console.warn('Pairing error:', e?.message);
+      setServerStatus('waking');
+      setServerMessage('WhatsApp bot server is warming up on Render (free tier takes ~20s)... retrying automatically');
+      setTimeout(() => {
+        if (baileysStatus === 'waiting_scan') {
+          handleStartBaileysPairing();
+        }
+      }, 4000);
     } finally {
       setIsPairingLoading(false);
+    }
+  };
+
+  const handleRequestPairingCode = async () => {
+    if (!pairingPhone.trim()) {
+      setPairingError('Please enter your business WhatsApp phone number.');
+      return;
+    }
+    setPairingCodeLoading(true);
+    setPairingError(null);
+    setPairingCode(null);
+    setBaileysStatus('waiting_scan');
+    setServerMessage('Requesting 8-digit WhatsApp pairing code...');
+
+    try {
+      const res = await fetch(`${serverEndpoint}/api/whatsapp/pairing-code/${store.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: pairingPhone.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.pairingCode) {
+        setPairingCode(data.pairingCode);
+        setServerMessage('Enter this code in WhatsApp -> Linked Devices -> Link with phone number');
+      } else if (data.connected) {
+        handleSimulateConnected();
+      } else if (data.error) {
+        setPairingError(data.error);
+      }
+    } catch (e: any) {
+      setPairingError('Failed to generate pairing code. Please ensure WhatsApp server is reachable or try scanning the QR code.');
+    } finally {
+      setPairingCodeLoading(false);
+    }
+  };
+
+  const handleCopyPairingCode = () => {
+    if (pairingCode) {
+      navigator.clipboard.writeText(pairingCode.replace(/-/g, ''));
+      setCopiedPairingCode(true);
+      setTimeout(() => setCopiedPairingCode(false), 2000);
     }
   };
 
   const handleSimulateConnected = () => {
     setBaileysStatus('connected');
     setBaileysQr(null);
+    setPairingCode(null);
     const phone = `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || '8012345678'}`;
     setConnectedPhone(phone);
     try {
@@ -240,6 +373,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     } catch (e) {}
     setBaileysStatus('disconnected');
     setBaileysQr(null);
+    setPairingCode(null);
     setConnectedPhone(null);
     const updatedConfig: StoreAIBotConfig = {
       ...(store.aiBotConfig || existingConfig),
@@ -603,18 +737,19 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
               {/* Status Pill */}
               <div className="flex items-center gap-1.5 self-start sm:self-auto">
                 {baileysStatus === 'connected' ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span>Connected ({connectedPhone || `${store.whatsappCountryCode} ${store.whatsappNumber}`})</span>
                   </span>
                 ) : baileysStatus === 'waiting_scan' ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
                     <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                    <span>Scan with WhatsApp Phone</span>
+                    <span>Pairing Active</span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                    <span>Not Connected</span>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                    <span className={`w-2 h-2 rounded-full ${serverStatus === 'online' ? 'bg-emerald-400' : serverStatus === 'waking' ? 'bg-amber-400 animate-pulse' : 'bg-slate-300'}`} />
+                    <span>{serverStatus === 'waking' ? 'Engine Waking Up...' : serverStatus === 'online' ? 'Gateway Ready' : 'Not Connected'}</span>
                   </span>
                 )}
               </div>
@@ -630,42 +765,164 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                   <p className="text-xs text-slate-600 max-w-md leading-relaxed">
                     Link your phone in 20 seconds. Once connected, your WhatsApp automatically answers customer Item UID searches like <code className="font-mono bg-white px-1.5 py-0.5 rounded border">#{products[0]?.uid || 'TA-BR540'}</code> and sends instant product links.
                   </p>
+                  {serverStatus === 'waking' && (
+                    <p className="text-[11px] text-amber-700 font-medium flex items-center gap-1 pt-1">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>Cloud gateway is waking up on Render (free tier takes ~20s on first load).</span>
+                    </p>
+                  )}
                 </div>
 
-                <button
-                  onClick={handleStartBaileysPairing}
-                  disabled={isPairingLoading}
-                  className="px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition flex items-center gap-2 shrink-0 cursor-pointer active:scale-95"
-                >
-                  <QrCode className="w-4 h-4 text-amber-400" />
-                  <span>{isPairingLoading ? 'Generating QR...' : 'Connect WhatsApp (Scan QR)'}</span>
-                </button>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setPairingMethod('qr');
+                      handleStartBaileysPairing();
+                    }}
+                    disabled={isPairingLoading}
+                    className="px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 shrink-0 cursor-pointer active:scale-95 disabled:opacity-50"
+                  >
+                    <QrCode className="w-4 h-4 text-amber-400" />
+                    <span>{isPairingLoading ? 'Connecting...' : 'Connect WhatsApp (Scan QR)'}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPairingMethod('code');
+                      setBaileysStatus('waiting_scan');
+                    }}
+                    className="px-4 py-3 rounded-2xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer active:scale-95"
+                    title="Link using an 8-digit code instead of camera"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Use Phone Code</span>
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Content when Waiting for Scan */}
+            {/* Content when Waiting for Scan or Pairing Code */}
             {baileysStatus === 'waiting_scan' && (
-              <div className="p-5 rounded-2xl bg-amber-50/50 border border-amber-200 flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in duration-200">
-                <div className="space-y-3 flex-1 text-left">
-                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black uppercase tracking-wider">
-                    Step-by-Step Instructions
-                  </span>
-                  <ol className="space-y-2 text-xs text-slate-700">
-                    <li className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">1</span>
-                      <span>Open <strong>WhatsApp</strong> on your business phone ({store.whatsappCountryCode} {store.whatsappNumber}).</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">2</span>
-                      <span>Go to <strong>Settings</strong> → <strong>Linked Devices</strong> → tap <strong>Link a Device</strong>.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">3</span>
-                      <span>Point your camera at this QR code to complete pairing.</span>
-                    </li>
-                  </ol>
+              <div className="p-5 rounded-2xl bg-amber-50/50 border border-amber-200 flex flex-col md:flex-row items-start justify-between gap-6 animate-in fade-in duration-200">
+                <div className="space-y-4 flex-1 text-left w-full">
+                  {/* Pairing Method Switcher */}
+                  <div className="flex items-center justify-between">
+                    <div className="inline-flex p-1 bg-amber-100/80 rounded-xl border border-amber-200/60">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPairingMethod('qr');
+                          if (!baileysQr && !isPairingLoading) handleStartBaileysPairing();
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                          pairingMethod === 'qr'
+                            ? 'bg-white text-slate-900 shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                        <span>Scan QR Code</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPairingMethod('code')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                          pairingMethod === 'code'
+                            ? 'bg-white text-slate-900 shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Smartphone className="w-3.5 h-3.5" />
+                        <span>Link with Phone Number</span>
+                      </button>
+                    </div>
 
-                  <div className="flex items-center gap-2 pt-2">
+                    <span className="text-[10px] text-amber-800 font-mono hidden sm:inline-block">
+                      {serverStatus === 'online' ? '🟢 Gateway Live' : '🟡 Connecting...'}
+                    </span>
+                  </div>
+
+                  {/* Method 1: QR Code Instructions */}
+                  {pairingMethod === 'qr' && (
+                    <ol className="space-y-2 text-xs text-slate-700">
+                      <li className="flex items-start gap-2">
+                        <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">1</span>
+                        <span>Open <strong>WhatsApp</strong> on your business phone ({store.whatsappCountryCode} {store.whatsappNumber}).</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">2</span>
+                        <span>Go to <strong>Settings</strong> → <strong>Linked Devices</strong> → tap <strong>Link a Device</strong>.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">3</span>
+                        <span>Point your camera at this QR code to complete pairing.</span>
+                      </li>
+                    </ol>
+                  )}
+
+                  {/* Method 2: Pairing Code (Phone Number) */}
+                  {pairingMethod === 'code' && (
+                    <div className="space-y-3">
+                      <p className="text-xs text-slate-600">
+                        Don&apos;t have a second phone or camera? Enter your WhatsApp business phone number to get an 8-character pairing code to type directly into WhatsApp:
+                      </p>
+                      <div className="flex gap-2 max-w-sm">
+                        <input
+                          type="text"
+                          value={pairingPhone}
+                          onChange={(e) => setPairingPhone(e.target.value)}
+                          placeholder="e.g. 2348012345678"
+                          className="flex-1 px-3 py-2 bg-white border border-amber-300 rounded-xl text-xs font-mono text-slate-800"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRequestPairingCode}
+                          disabled={pairingCodeLoading}
+                          className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 transition shrink-0"
+                        >
+                          {pairingCodeLoading ? 'Generating...' : 'Get Code'}
+                        </button>
+                      </div>
+
+                      {pairingError && (
+                        <p className="text-xs text-rose-600 font-medium">{pairingError}</p>
+                      )}
+
+                      {pairingCode && (
+                        <div className="p-4 bg-white rounded-xl border-2 border-emerald-500/80 shadow-xs space-y-2">
+                          <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">
+                            Your WhatsApp 8-Digit Pairing Code:
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono text-2xl font-black text-slate-900 tracking-wider">
+                              {pairingCode}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleCopyPairingCode}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer"
+                            >
+                              {copiedPairingCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                              <span>{copiedPairingCode ? 'Copied' : 'Copy'}</span>
+                            </button>
+                          </div>
+                          <ol className="text-[11px] text-slate-600 space-y-1 pt-1 list-decimal list-inside">
+                            <li>Open WhatsApp on <strong>{pairingPhone}</strong></li>
+                            <li>Go to <strong>Settings</strong> → <strong>Linked Devices</strong> → <strong>Link a Device</strong></li>
+                            <li>Tap <strong>&ldquo;Link with phone number instead&rdquo;</strong> at the bottom</li>
+                            <li>Type in code <strong>{pairingCode}</strong></li>
+                          </ol>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {serverMessage && (
+                    <p className="text-[11px] text-amber-800 font-medium bg-amber-100/70 p-2 rounded-lg">
+                      {serverMessage}
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2 pt-2">
                     <button
                       onClick={handleSimulateConnected}
                       className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
@@ -683,23 +940,48 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                 </div>
 
                 {/* QR Display */}
-                <div className="shrink-0 flex flex-col items-center p-3 bg-white rounded-2xl border-2 border-amber-400 shadow-md">
-                  {baileysQr && baileysQr.startsWith('data:image') ? (
-                    <img src={baileysQr} alt="WhatsApp Pairing QR" className="w-48 h-48 rounded-xl object-contain" />
-                  ) : baileysQr ? (
-                    <div
-                      className="w-48 h-48 flex items-center justify-center"
-                      dangerouslySetInnerHTML={{ __html: baileysQr }}
-                    />
-                  ) : (
-                    <div className="w-48 h-48 flex items-center justify-center text-slate-400 text-xs">
-                      Loading QR...
-                    </div>
-                  )}
-                  <span className="text-[10px] text-slate-500 font-mono mt-2">
-                    Auto-refreshes every 45s
-                  </span>
-                </div>
+                {pairingMethod === 'qr' && (
+                  <div className="shrink-0 flex flex-col items-center p-3.5 bg-white rounded-2xl border-2 border-amber-400 shadow-md">
+                    {baileysQr && baileysQr.startsWith('data:image') ? (
+                      <div className="space-y-2 text-center">
+                        <img
+                          src={baileysQr}
+                          alt="WhatsApp Pairing QR"
+                          className="w-48 h-48 rounded-xl object-contain border border-slate-100 shadow-2xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleStartBaileysPairing}
+                          disabled={isPairingLoading}
+                          className="w-full text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 py-1.5 rounded-lg transition flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isPairingLoading ? 'animate-spin' : ''}`} />
+                          <span>Refresh QR Code</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-48 h-48 flex flex-col items-center justify-center text-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <RefreshCw className="w-6 h-6 text-amber-500 animate-spin mb-2" />
+                        <span className="text-xs font-bold text-slate-800">
+                          {isPairingLoading ? 'Connecting...' : 'Generating QR...'}
+                        </span>
+                        <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                          {serverMessage || 'Establishing live WhatsApp session...'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleStartBaileysPairing}
+                          className="mt-3 text-[10px] font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-md hover:bg-slate-100 cursor-pointer"
+                        >
+                          Retry Connect
+                        </button>
+                      </div>
+                    )}
+                    <span className="text-[10px] text-slate-400 font-mono mt-2">
+                      Live Baileys Gateway
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 

@@ -20,6 +20,8 @@ import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
   jidNormalizedUser,
+  fetchLatestBaileysVersion,
+  Browsers,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 
@@ -176,6 +178,20 @@ async function sendProductCard(sock, remoteJid, product, storeName, storeBaseUrl
   return false;
 }
 
+let cachedBaileysVersion = null;
+async function getBaileysVersion() {
+  if (cachedBaileysVersion) return cachedBaileysVersion;
+  try {
+    const { version } = await fetchLatestBaileysVersion();
+    cachedBaileysVersion = version;
+    console.log('[Baileys] Resolved latest WhatsApp Web protocol version:', version.join('.'));
+    return version;
+  } catch (err) {
+    console.warn('[Baileys] Could not fetch remote version, using verified default:', err.message);
+    return [2, 3000, 1043857760];
+  }
+}
+
 /**
  * Initializes or retrieves an isolated WhatsApp socket for a specific store.
  */
@@ -196,17 +212,21 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
     sock: null,
     status: 'connecting',
     qrDataUrl: null,
+    qrRaw: null,
+    qrGeneratedAt: null,
     phone: null,
     catalog: storeCatalog,
     storeInfo: storeInfo || {},
   };
   activeSessions.set(storeId, sessionData);
 
+  const version = await getBaileysVersion();
   const sock = makeWASocket({
+    version,
     auth: state,
     logger: pino({ level: 'silent' }), // suppress verbose protocol logs
     printQRInTerminal: false,
-    browser: ['Ubuntu', 'Chrome', '20.0.04'],
+    browser: Browsers.ubuntu('Chrome'),
     syncFullHistory: false,
     getMessage: async (key) => {
       if (key?.id && messageStore.has(key.id)) {
@@ -228,8 +248,10 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
       try {
         const qrDataUrl = await QRCode.toDataURL(qr, { margin: 2, scale: 8 });
         sessionData.qrDataUrl = qrDataUrl;
+        sessionData.qrRaw = qr;
+        sessionData.qrGeneratedAt = Date.now();
         sessionData.status = 'waiting_scan';
-        console.log(`[Store: ${storeId}] QR code generated. Waiting for merchant to scan.`);
+        console.log(`[Store: ${storeId}] Fresh valid WhatsApp pairing QR generated. Waiting for merchant to scan.`);
       } catch (err) {
         console.error('Failed to convert QR to DataURL:', err);
       }
@@ -559,6 +581,7 @@ app.get('/api/whatsapp/status/:storeId', async (req, res) => {
     connected: session.status === 'connected',
     qrDataUrl: session.qrDataUrl,
     phone: session.phone,
+    qrGeneratedAt: session.qrGeneratedAt || null,
   });
 });
 
@@ -571,16 +594,88 @@ app.post('/api/whatsapp/connect/:storeId', async (req, res) => {
 
   try {
     const session = await initStoreSession(storeId, catalog, storeInfo);
+
+    // If waiting for QR code to be generated, wait up to 3.5s so client gets QR immediately
+    if (session.status !== 'connected' && !session.qrDataUrl) {
+      await new Promise((resolve) => {
+        const startTime = Date.now();
+        const interval = setInterval(() => {
+          if (session.qrDataUrl || session.status === 'connected' || Date.now() - startTime > 3500) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, 120);
+      });
+    }
+
     res.json({
       success: true,
       status: session.status,
       connected: session.status === 'connected',
       qrDataUrl: session.qrDataUrl,
       phone: session.phone,
+      qrGeneratedAt: session.qrGeneratedAt || Date.now(),
     });
   } catch (error) {
     console.error(`Failed to initialize session for ${storeId}:`, error);
     res.status(500).json({ error: 'Failed to start WhatsApp socket' });
+  }
+});
+
+/**
+ * Request an 8-character Pairing Code to link WhatsApp using Phone Number (no camera needed)
+ */
+app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
+  const { storeId } = req.params;
+  const { phoneNumber } = req.body;
+
+  if (!phoneNumber) {
+    return res.status(400).json({ error: 'Phone number is required' });
+  }
+
+  const cleanPhone = String(phoneNumber).replace(/\D/g, '');
+  if (cleanPhone.length < 8) {
+    return res.status(400).json({ error: 'Valid international phone number required (e.g. 2348012345678)' });
+  }
+
+  try {
+    let session = activeSessions.get(storeId);
+    if (!session || !session.sock) {
+      session = await initStoreSession(storeId);
+    }
+
+    if (session.status === 'connected') {
+      return res.json({
+        success: true,
+        connected: true,
+        phone: session.phone,
+        message: 'Already connected!',
+      });
+    }
+
+    // Wait if socket is newly booting
+    if (!session.sock) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+
+    let code = '';
+    try {
+      code = await session.sock.requestPairingCode(cleanPhone);
+    } catch (pairErr) {
+      // Retry once after brief pause
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      code = await session.sock.requestPairingCode(cleanPhone);
+    }
+
+    const formattedCode = code ? (code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code) : code;
+
+    res.json({
+      success: true,
+      pairingCode: formattedCode,
+    });
+  } catch (err) {
+    console.error(`[Store: ${storeId}] Failed requesting pairing code:`, err?.message);
+    res.status(500).json({ error: err.message || 'Failed to generate WhatsApp pairing code' });
   }
 });
 
