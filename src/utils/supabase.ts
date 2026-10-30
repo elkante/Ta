@@ -343,13 +343,28 @@ export async function dbDeleteProduct(productId: string): Promise<boolean> {
   }
 }
 
+/**
+ * Full purge of a store from the system:
+ * Deletes products, orders, reviews, and the store record itself from Supabase.
+ * After this, the seller's email/phone will no longer match any store → login denied.
+ */
 export async function dbDeleteStore(storeId: string): Promise<boolean> {
   try {
+    // Delete all child records first (foreign key safety order)
     await supabase.from('products').delete().eq('store_id', storeId);
     await supabase.from('store_orders').delete().eq('store_id', storeId);
+    // Delete reviews if table exists (ignore error if table missing)
+    try { await supabase.from('store_reviews').delete().eq('store_id', storeId); } catch (e) {}
+    // Finally delete the store itself — this kills all login ability (auth is store-row based)
     const { error } = await supabase.from('stores').delete().eq('id', storeId);
-    return !error;
-  } catch (e) {
+    if (error) {
+      console.error('[dbDeleteStore] Failed to delete store row:', error.message);
+      return false;
+    }
+    console.log(`[dbDeleteStore] Store ${storeId} fully purged from Supabase.`);
+    return true;
+  } catch (e: any) {
+    console.error('[dbDeleteStore] Unexpected error:', e?.message);
     return false;
   }
 }

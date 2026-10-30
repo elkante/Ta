@@ -397,6 +397,7 @@ export async function authenticateSellerAsync(
   const cleanDigits = cleanInput.replace(/\D/g, '');
 
   let matched: Store | null = null;
+  let supabaseReachable = false;
 
   // 1. PRIMARY: Query LIVE Supabase directly for strict cross-device authentication
   try {
@@ -409,19 +410,26 @@ export async function authenticateSellerAsync(
     if (!matched) {
       matched = await dbFetchStoreBySlug(cleanInput);
     }
+    supabaseReachable = true; // query completed (even if store not found → that's intentional)
   } catch (e) {
     console.warn('Live database auth query error, trying local fallback:', e);
+    supabaseReachable = false;
   }
 
-  // 2. Offline fallback ONLY if network failed
+  // 2. STRICT offline fallback ONLY if the network actually failed (not just "store not found")
+  // Do NOT use localStorage fallback if Supabase returned cleanly (store was deleted → correct denial)
   if (!matched) {
-    const stores = getStoredStores();
-    matched = stores.find(
-      (s) =>
-        s.ownerEmail?.toLowerCase() === cleanInput ||
-        (cleanDigits && s.whatsappNumber.includes(cleanDigits)) ||
-        s.slug.toLowerCase() === cleanInput
-    ) || null;
+    // Only fall back to localStorage if Supabase query itself threw a network/timeout error
+    // We signal this by catching above and setting `supabaseReachable = false`
+    if (!supabaseReachable) {
+      const stores = getStoredStores();
+      matched = stores.find(
+        (s) =>
+          s.ownerEmail?.toLowerCase() === cleanInput ||
+          (cleanDigits && s.whatsappNumber.includes(cleanDigits)) ||
+          s.slug.toLowerCase() === cleanInput
+      ) || null;
+    }
   }
 
   if (!matched) {
@@ -533,24 +541,38 @@ export function updateStore(updatedStore: Store): void {
 }
 
 export function deleteStoreAndData(storeId: string): void {
-  // Remove store
+  // 1. Remove store from local cache
   const stores = getStoredStores().filter((s) => s.id !== storeId);
-  saveStores(stores);
+  localStorage.setItem(STORES_KEY, JSON.stringify(stores)); // direct set — no re-sync to Supabase
 
-  // Remove products belonging to this store
+  // 2. Remove products belonging to this store from local cache only
   const products = getStoredProducts().filter((p) => p.storeId !== storeId);
-  saveProducts(products);
+  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products)); // direct set — no re-sync
 
-  // Remove inquiries belonging to this store
+  // 3. Remove inquiries belonging to this store
   const inqs = getStoredInquiries().filter((i) => i.storeId !== storeId);
   saveInquiries(inqs);
 
-  // Remove orders belonging to this store
+  // 4. Remove orders belonging to this store from local cache only
   const ords = getStoredOrders().filter((o) => o.storeId !== storeId);
-  saveOrders(ords);
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(ords)); // direct set — no re-sync
 
-  // Remove from Supabase cloud
-  dbDeleteStore(storeId).catch((err) => console.warn('Failed deleting store from Supabase:', err));
+  // 5. Wipe any cached WhatsApp bot connection flag for this store
+  try { localStorage.removeItem(`ta_wa_conn_${storeId}`); } catch (e) {}
+
+  // 6. If the deleted store's seller is currently logged in, log them out
+  try {
+    const raw = localStorage.getItem(SELLER_SESSION_KEY);
+    if (raw) {
+      const session = JSON.parse(raw);
+      if (session?.storeId === storeId) {
+        localStorage.removeItem(SELLER_SESSION_KEY);
+      }
+    }
+  } catch (e) {}
+
+  // NOTE: Supabase cloud purge is handled directly by handleDeleteStore in SuperAdminDashboard
+  // using dbDeleteStore — NOT called here to avoid double-delete race conditions.
 }
 
 export function impersonateStoreAsSeller(storeId: string): SellerSession | null {

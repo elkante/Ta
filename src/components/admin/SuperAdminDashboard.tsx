@@ -503,17 +503,33 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   };
 
   const handleDeleteStore = async (store: Store) => {
-    // Remove from local liveStores immediately
+    // 1. Optimistically remove from admin UI immediately
     setLiveStores((prev) => prev.filter((s) => s.id !== store.id));
+    setStoreToDelete(null);
+
+    // 2. Purge ALL local browser traces (localStorage: store, products, orders, session, WA flag)
     deleteStoreAndData(store.id);
+
+    // 3. Hard-purge from Supabase cloud DB:
+    //    deletes store row → seller's email/phone no longer matches any row → login denied instantly
+    //    deletes all products, orders, and reviews belonging to this store
+    let cloudSuccess = false;
     try {
-      await dbDeleteStore(store.id);
+      cloudSuccess = await dbDeleteStore(store.id);
+      if (!cloudSuccess) {
+        console.error(`[Admin] Supabase delete may have partially failed for store ${store.id}`);
+        triggerToast(`⚠️ Store "${store.name}" removed locally but cloud purge had an error — check Supabase.`);
+      }
     } catch (e) {
       console.warn('Supabase delete store error:', e);
+      triggerToast(`⚠️ Store "${store.name}" removed locally. Cloud purge failed — retry may be needed.`);
     }
-    setStoreToDelete(null);
+
+    if (cloudSuccess) {
+      triggerToast(`🗑️ Store "${store.name}" fully purged — store, products, orders & login access deleted.`);
+    }
+
     onRefreshData();
-    triggerToast(`Store "${store.name}" and associated catalog deleted.`);
   };
 
   const handleImpersonate = (store: Store) => {
