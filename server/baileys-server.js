@@ -252,6 +252,8 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
         sessionData.qrGeneratedAt = Date.now();
         sessionData.status = 'waiting_scan';
         console.log(`[Store: ${storeId}] Fresh valid WhatsApp pairing QR generated. Waiting for merchant to scan.`);
+        // Push QR to any open SSE dashboard connections immediately
+        pushSSEEvent(storeId, { event: 'qr', status: 'waiting_scan', qrDataUrl, qrGeneratedAt: sessionData.qrGeneratedAt });
       } catch (err) {
         console.error('Failed to convert QR to DataURL:', err);
       }
@@ -263,6 +265,9 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
       const userJid = sock.user?.id || '';
       sessionData.phone = userJid.split(':')[0] || userJid.split('@')[0];
       console.log(`[Store: ${storeId}] WhatsApp connected successfully! Phone: ${sessionData.phone}`);
+
+      // Push connected event immediately to all SSE dashboard sessions
+      pushSSEEvent(storeId, { event: 'connected', status: 'connected', phone: sessionData.phone });
 
       const registry = loadRegistry();
       registry[storeId] = {
@@ -286,12 +291,14 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
       if (!isLoggedOut) {
         sessionData.status = 'connecting';
         console.log(`[Store: ${storeId}] Connection dropped (code: ${statusCode}), reconnecting in 3s...`);
+        pushSSEEvent(storeId, { event: 'reconnecting', status: 'connecting' });
         setTimeout(() => {
           initStoreSession(storeId, sessionData.catalog, sessionData.storeInfo);
         }, 3000);
       } else {
         sessionData.status = 'disconnected';
         console.log(`[Store: ${storeId}] Logged out. Cleaned session credentials.`);
+        pushSSEEvent(storeId, { event: 'disconnected', status: 'disconnected' });
         try {
           fs.rmSync(storeSessionDir, { recursive: true, force: true });
         } catch (e) {}
@@ -516,6 +523,19 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}) {
   return sessionData;
 }
 
+// ─── SSE: Real-time connection-status push to dashboard ──────────────────────
+// Keeps a Map of { res, storeId } for each open SSE subscriber
+const sseClients = new Map(); // storeId -> Set<res>
+
+function pushSSEEvent(storeId, payload) {
+  const clients = sseClients.get(storeId);
+  if (!clients || clients.size === 0) return;
+  const data = `data: ${JSON.stringify(payload)}\n\n`;
+  for (const res of clients) {
+    try { res.write(data); } catch (e) { /* dead client, will be cleaned on close */ }
+  }
+}
+
 // ─── HTTP API ROUTES FOR THE TÁ.SHOP DASHBOARD ──────────────────────────────
 
 /**
@@ -677,6 +697,54 @@ app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
     console.error(`[Store: ${storeId}] Failed requesting pairing code:`, err?.message);
     res.status(500).json({ error: err.message || 'Failed to generate WhatsApp pairing code' });
   }
+});
+
+/**
+ * SSE: Real-time WhatsApp status stream for the dashboard
+ * Dashboard subscribes here and gets instant push when QR generates or phone links.
+ * GET /api/whatsapp/events/:storeId
+ */
+app.get('/api/whatsapp/events/:storeId', (req, res) => {
+  const { storeId } = req.params;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders();
+
+  // Send current state immediately on connect
+  const session = activeSessions.get(storeId);
+  if (session) {
+    const init = {
+      event: session.status,
+      status: session.status,
+      qrDataUrl: session.qrDataUrl || null,
+      phone: session.phone || null,
+      qrGeneratedAt: session.qrGeneratedAt || null,
+    };
+    res.write(`data: ${JSON.stringify(init)}\n\n`);
+  } else {
+    res.write(`data: ${JSON.stringify({ event: 'disconnected', status: 'disconnected' })}\n\n`);
+  }
+
+  // Register this SSE client
+  if (!sseClients.has(storeId)) sseClients.set(storeId, new Set());
+  sseClients.get(storeId).add(res);
+
+  // Heartbeat every 20s to keep connection alive through proxies
+  const heartbeat = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch (e) { clearInterval(heartbeat); }
+  }, 20000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    const clients = sseClients.get(storeId);
+    if (clients) {
+      clients.delete(res);
+      if (clients.size === 0) sseClients.delete(storeId);
+    }
+  });
 });
 
 /**

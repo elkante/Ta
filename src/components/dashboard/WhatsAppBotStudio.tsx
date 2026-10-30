@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   AlertCircle,
   Bot,
@@ -55,6 +55,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
 
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
+  const [qrScannedConfirming, setQrScannedConfirming] = useState(false);
 
   // Existing bot configuration or defaults
   const existingConfig = store.aiBotConfig || {
@@ -169,7 +170,65 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     };
   }, []);
 
-  // Poll status when pairing and check status on mount
+  // Helper: persist connected state and update store record
+  const handleConnectedEvent = React.useCallback((phone: string) => {
+    setBaileysStatus('connected');
+    setBaileysQr(null);
+    setPairingCode(null);
+    setQrScannedConfirming(false);
+    const resolvedPhone = phone || `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || ''}`;
+    setConnectedPhone(resolvedPhone);
+    setServerStatus('online');
+    try { localStorage.setItem(`ta_wa_conn_${store.id}`, '1'); } catch (e) {}
+    if (!store.aiBotConfig?.whatsappConnected || !store.whatsappBotConnected) {
+      const updatedConfig: StoreAIBotConfig = {
+        ...(store.aiBotConfig || existingConfig),
+        whatsappConnected: true,
+        whatsappPhone: resolvedPhone,
+        lastConnectedAt: new Date().toISOString(),
+      };
+      updateStore({ ...store, aiBotConfig: updatedConfig, whatsappBotConnected: true, whatsappBotPhone: resolvedPhone });
+      if (onRefreshData) onRefreshData();
+    }
+  }, [store, existingConfig, onRefreshData]);
+
+  // SSE: subscribe for instant server push events (QR, connected, reconnecting)
+  useEffect(() => {
+    if (baileysStatus !== 'waiting_scan') return;
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource(`${serverEndpoint}/api/whatsapp/events/${store.id}`);
+
+      es.onmessage = (evt) => {
+        try {
+          const data = JSON.parse(evt.data);
+          if (data.status === 'connected') {
+            handleConnectedEvent(data.phone || '');
+          } else if (data.status === 'waiting_scan' && data.qrDataUrl) {
+            setBaileysQr(data.qrDataUrl);
+            setQrScannedConfirming(false);
+            setServerMessage('');
+            setServerStatus('online');
+          } else if (data.event === 'reconnecting') {
+            // QR was scanned — WhatsApp is confirming — show intermediate state
+            setQrScannedConfirming(true);
+            setServerMessage('QR scanned! Confirming pairing with WhatsApp...');
+          }
+        } catch (e) {}
+      };
+
+      es.onerror = () => {
+        // SSE error — fallback polling will cover it
+        es?.close();
+      };
+    } catch (e) {
+      // Browser doesn't support SSE or CORS issue — polling covers it
+    }
+
+    return () => { es?.close(); };
+  }, [baileysStatus, serverEndpoint, store.id, handleConnectedEvent]);
+
+  // Fast fallback polling (every 1.2s) when waiting for scan — covers SSE gaps
   useEffect(() => {
     let interval: any = null;
 
@@ -179,51 +238,31 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         if (!res.ok) return;
         const data = await res.json();
         if (data.connected || data.status === 'connected') {
-          setBaileysStatus('connected');
-          setBaileysQr(null);
-          setPairingCode(null);
-          const phone = data.phone || `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || ''}`;
-          setConnectedPhone(phone);
-          setServerStatus('online');
-          try {
-            localStorage.setItem(`ta_wa_conn_${store.id}`, '1');
-          } catch (e) {}
-
-          if (!store.aiBotConfig?.whatsappConnected || !store.whatsappBotConnected) {
-            const updatedConfig: StoreAIBotConfig = {
-              ...(store.aiBotConfig || existingConfig),
-              whatsappConnected: true,
-              whatsappPhone: phone,
-              lastConnectedAt: new Date().toISOString(),
-            };
-            updateStore({
-              ...store,
-              aiBotConfig: updatedConfig,
-              whatsappBotConnected: true,
-              whatsappBotPhone: phone,
-            });
-            if (onRefreshData) onRefreshData();
-          }
+          handleConnectedEvent(data.phone || '');
         } else if (data.qrDataUrl && baileysStatus === 'waiting_scan') {
           setBaileysQr(data.qrDataUrl);
+          setQrScannedConfirming(false);
           setServerMessage('');
           setServerStatus('online');
+        } else if ((data.status === 'connecting') && baileysStatus === 'waiting_scan' && baileysQr) {
+          // QR was scanned — Baileys is reconnecting to confirm it
+          setQrScannedConfirming(true);
+          setServerMessage('QR scanned! Confirming pairing with WhatsApp...');
         }
       } catch (e) {
         // server asleep or not reachable
       }
     };
 
+    // Always check once on mount to catch already-connected sessions
     checkStatus();
 
     if (baileysStatus === 'waiting_scan') {
-      interval = setInterval(checkStatus, 2500);
+      interval = setInterval(checkStatus, 1200); // fast poll: every 1.2s
     }
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [baileysStatus, serverEndpoint, store.id]);
+    return () => { if (interval) clearInterval(interval); };
+  }, [baileysStatus, serverEndpoint, store.id, baileysQr, handleConnectedEvent]);
 
   const handleStartBaileysPairing = async () => {
     setIsPairingLoading(true);
@@ -942,7 +981,17 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                 {/* QR Display */}
                 {pairingMethod === 'qr' && (
                   <div className="shrink-0 flex flex-col items-center p-3.5 bg-white rounded-2xl border-2 border-amber-400 shadow-md">
-                    {baileysQr && baileysQr.startsWith('data:image') ? (
+                    {qrScannedConfirming ? (
+                      <div className="w-48 h-48 flex flex-col items-center justify-center text-center p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center mb-2">
+                          <RefreshCw className="w-5 h-5 text-emerald-600 animate-spin" />
+                        </div>
+                        <span className="text-xs font-bold text-emerald-900">QR Scanned! ✅</span>
+                        <p className="text-[10px] text-emerald-700 mt-1 leading-snug">
+                          Confirming pairing with WhatsApp... This may take 5–15 seconds.
+                        </p>
+                      </div>
+                    ) : baileysQr && baileysQr.startsWith('data:image') ? (
                       <div className="space-y-2 text-center">
                         <img
                           src={baileysQr}
