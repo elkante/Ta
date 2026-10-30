@@ -233,8 +233,13 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
   const storeSessionDir = path.join(SESSIONS_DIR, storeId);
   if (forceRefresh) {
     try {
-      fs.rmSync(storeSessionDir, { recursive: true, force: true });
-      console.log(`[Store: ${storeId}] Force refresh: wiped auth state directory for fresh pairing.`);
+      // ONLY wipe if not already registered (i.e. truly unauthenticated)
+      const credsPath = path.join(storeSessionDir, 'creds.json');
+      const hasValidCreds = fs.existsSync(credsPath) && fs.readFileSync(credsPath, 'utf8').includes('"registered":true');
+      if (!hasValidCreds) {
+        fs.rmSync(storeSessionDir, { recursive: true, force: true });
+        console.log(`[Store: ${storeId}] Force refresh: wiped unauthenticated auth state directory for fresh pairing.`);
+      }
     } catch (e) {}
   }
   if (!fs.existsSync(storeSessionDir)) {
@@ -348,7 +353,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
         const reconnectDelay = isRestart ? 500 : 2500;
         setTimeout(async () => {
           try {
-            await initStoreSession(storeId, sessionData.catalog, sessionData.storeInfo, { forceRefresh: true });
+            await initStoreSession(storeId, sessionData.catalog, sessionData.storeInfo, { forceRefresh: false });
           } catch (e) {
             console.error(`[Store: ${storeId}] Failed to reconnect session:`, e?.message);
           }
