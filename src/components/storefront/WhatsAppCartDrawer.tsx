@@ -80,7 +80,7 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
       errors.push('Please enter your full name');
     }
     if (!buyerPhone.trim() || buyerPhone.replace(/\D/g, '').length < 7) {
-      errors.push('Please enter a valid phone number (at least 7 digits)');
+      errors.push('Please enter a valid WhatsApp number — your invoice will be sent to this number');
     }
     if (fulfillmentMethod === 'delivery' && !deliveryAddress.trim()) {
       errors.push('Please enter your delivery street address');
@@ -249,7 +249,7 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
                 Order Received!
               </h2>
               <p className="text-xs text-slate-600 max-w-sm mx-auto">
-                Your order was saved to <strong>{store.name}</strong>'s dashboard. A WhatsApp confirmation has been dispatched to your phone!
+                Your order was saved to <strong>{store.name}</strong>'s dashboard. Your invoice &amp; order confirmation will be sent to your WhatsApp number shortly!
               </p>
             </div>
 
@@ -502,7 +502,7 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
 
                     <div>
                       <label className="text-[11px] font-semibold text-slate-700 block mb-1">
-                        WhatsApp / Phone Number <span className="text-rose-500">*</span>
+                        WhatsApp Number <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="tel"
@@ -511,6 +511,13 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
                         onChange={(e) => setBuyerPhone(e.target.value)}
                         className="w-full px-3 py-2.5 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
+                      <p className="mt-1.5 text-[10px] text-emerald-700 flex items-center gap-1 leading-tight">
+                        <span>📲</span>
+                        <span>
+                          <strong>WhatsApp number only</strong> — your invoice &amp; order
+                          updates will be sent directly to this number on WhatsApp.
+                        </span>
+                      </p>
                     </div>
                   </div>
 
