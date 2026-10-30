@@ -20,7 +20,7 @@ import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
   jidNormalizedUser,
-  fetchLatestBaileysVersion,
+  fetchLatestWaWebVersion,
   Browsers,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
@@ -182,14 +182,20 @@ let cachedBaileysVersion = null;
 async function getBaileysVersion() {
   if (cachedBaileysVersion) return cachedBaileysVersion;
   try {
-    const { version } = await fetchLatestBaileysVersion();
-    cachedBaileysVersion = version;
-    console.log('[Baileys] Resolved latest WhatsApp Web protocol version:', version.join('.'));
-    return version;
+    if (typeof fetchLatestWaWebVersion === 'function') {
+      const res = await fetchLatestWaWebVersion();
+      if (res?.version && Array.isArray(res.version)) {
+        cachedBaileysVersion = res.version;
+        console.log('[Baileys] Resolved current WhatsApp Web production version:', res.version.join('.'));
+        return res.version;
+      }
+    }
   } catch (err) {
-    console.warn('[Baileys] Could not fetch remote version, using verified default:', err.message);
-    return [2, 3000, 1043857760];
+    console.warn('[Baileys] fetchLatestWaWebVersion error, using production fallback:', err.message);
   }
+  // Current verified WhatsApp Web protocol version (prevents "Couldn't link device" rejection)
+  cachedBaileysVersion = [2, 3000, 1052379569];
+  return cachedBaileysVersion;
 }
 
 /**
@@ -254,7 +260,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
     auth: state,
     logger: pino({ level: 'silent' }), // suppress verbose protocol logs
     printQRInTerminal: false,
-    browser: Browsers.macOS('Chrome'),
+    browser: Browsers.ubuntu('Chrome'),
     syncFullHistory: false,
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
