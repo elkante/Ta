@@ -1,12 +1,17 @@
 {
-  "name": "Taaa.shop - Multi-Tenant Social Catalog Platform",
-  "short_name": "Taaa.shop",
-  "description": "Multi-tenant social catalog and 1-click WhatsApp ordering platform for social merchants. Inspired by Tà (Yoruba for 'sell').",
+  "name": "Tá.shop - Social Commerce",
+  "short_name": "Tá.shop",
+  "description": "Your branded WhatsApp store. 1-click ordering, live catalog, instant checkout.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#090d16",
   "theme_color": "#090d16",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "icons": [
     {
       "src": "/favicon.svg",

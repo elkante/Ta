@@ -161,7 +161,14 @@ export default function App() {
   const [isSuperAdminModalOpen, setIsSuperAdminModalOpen] = useState(false);
   const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
   const [legalModalTab, setLegalModalTab] = useState<LegalTab>('terms');
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+      const hasSeenSplash = sessionStorage.getItem('ta_seen_splash');
+      if (isPWA || hasSeenSplash) return false;
+    }
+    return true;
+  });
   const [showOnboarding, setShowOnboarding] = useState(false);
   /** Product ID from ?product= URL param; passed to Storefront to auto-open detail modal */
   const [initialProductId, setInitialProductId] = useState<string | null>(null);
@@ -169,7 +176,14 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const sub = getSubdomainFromHostname();
-      if (urlParams.get('store') || sub) return true;
+      const hasStoreParam = !!(urlParams.get('store') || sub);
+      if (!hasStoreParam) return false;
+      // If we already have stores in local cache, boot instantly without showing loading screen
+      try {
+        const cached = localStorage.getItem('ta_stores_cloud_v2') || localStorage.getItem('ta_stores');
+        if (cached && cached.length > 20) return false;
+      } catch (e) {}
+      return true;
     }
     return false;
   });
@@ -222,12 +236,24 @@ export default function App() {
           saveOrders(liveAllOrders);
         }
       } else if (targetFetchSlug) {
-        const liveStore = await dbFetchStoreBySlug(targetFetchSlug);
-        if (liveStore) {
-          const merged = [...stores.filter(s => s.id !== liveStore.id), liveStore];
-          stores = merged;
-          setAllStores(merged);
-          saveStores(merged);
+        const cachedStore = stores.find(s => s.slug.toLowerCase() === targetFetchSlug.toLowerCase() || s.id === targetFetchSlug);
+        if (!cachedStore) {
+          const liveStore = await dbFetchStoreBySlug(targetFetchSlug);
+          if (liveStore) {
+            const merged = [...stores.filter(s => s.id !== liveStore.id), liveStore];
+            stores = merged;
+            setAllStores(merged);
+            saveStores(merged);
+          }
+        } else {
+          // If already in local cache, background fetch so UI displays instantly
+          dbFetchStoreBySlug(targetFetchSlug).then((liveStore) => {
+            if (liveStore) {
+              const merged = [...stores.filter(s => s.id !== liveStore.id), liveStore];
+              setAllStores(merged);
+              saveStores(merged);
+            }
+          }).catch(() => {});
         }
       }
     } catch (e) {
@@ -680,7 +706,10 @@ export default function App() {
   if (activeView === 'superadmin') {
     return (
       <ErrorBoundary fallbackTitle="Super Admin HQ Error">
-        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+        {showSplash && <SplashScreen onFinish={() => {
+          setShowSplash(false);
+          try { sessionStorage.setItem('ta_seen_splash', '1'); } catch (e) {}
+        }} />}
         <SysHqPage
           session={superAdminSession}
           allStores={allStores}
@@ -727,7 +756,10 @@ export default function App() {
   if (!currentStore) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-900 text-white font-sans">
-        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+        {showSplash && <SplashScreen onFinish={() => {
+          setShowSplash(false);
+          try { sessionStorage.setItem('ta_seen_splash', '1'); } catch (e) {}
+        }} />}
         <LandingPage
           stores={allStores}
           onOpenStore={(slug) => {
@@ -769,7 +801,10 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900 overflow-x-clip w-full max-w-full">
       {/* App Splash Screen on Initial Load */}
-      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+      {showSplash && <SplashScreen onFinish={() => {
+        setShowSplash(false);
+        try { sessionStorage.setItem('ta_seen_splash', '1'); } catch (e) {}
+      }} />}
 
       {/* PWA Install Banner — only for sellers (dashboard), not buyers on storefront */}
       {sellerSession && activeView === 'dashboard' && <PWAInstallBanner />}
