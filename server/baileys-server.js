@@ -425,6 +425,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
     qrRaw: null,
     qrGeneratedAt: null,
     phone: null,
+    pairingRequested: false,
     catalog: effectiveCatalog,
     storeInfo: effectiveStoreInfo,
   };
@@ -436,13 +437,14 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
     auth: state,
     logger: pino({ level: 'silent' }), // suppress verbose protocol logs
     printQRInTerminal: false,
-    browser: Browsers.macOS('Desktop'), // Permanent desktop identity so WhatsApp treats session as durable
+    browser: Browsers.macOS('Chrome'), // Must be Chrome browser platform (platformId 1) so WhatsApp accepts pairing code on phone!
     syncFullHistory: false,
     markOnlineOnConnect: true, // Keep WhatsApp seeing device as online & active
     fireInitQueries: true,
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
     keepAliveIntervalMs: 15000, // Frequent ping to prevent NAT / WebSocket idle drops
+    qrTimeout: 180000, // 3 minutes timeout so pairing code does not expire while merchant types on phone
     retryRequestDelayMs: 250,
     maxMsgRetryCount: 5,
     generateHighQualityLinkPreview: false,
@@ -462,7 +464,8 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
 
   // Monitor connection updates & QR generation
   sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
-    if (qr) {
+    // Only emit QR updates if merchant is not currently in the middle of phone pairing code linking
+    if (qr && !sessionData.pairingRequested) {
       try {
         const qrDataUrl = await QRCode.toDataURL(qr, { margin: 2, scale: 8 });
         sessionData.qrDataUrl = qrDataUrl;
