@@ -102,6 +102,11 @@ export function getStoredProducts(): Product[] {
 
 export function saveProducts(products: Product[]) {
   localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+  // Dispatch a custom event so App.tsx can instantly re-render the storefront
+  // without waiting for Supabase round-trip (0ms latency for sellers/buyers)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tashop:products_updated'));
+  }
   products.forEach((p) => dbSaveProduct(p).catch(() => {}));
 }
 

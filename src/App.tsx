@@ -426,6 +426,19 @@ export default function App() {
     } catch (e) {}
   }, [activeView, currentStore]);
 
+  // ─── Instant storefront product refresh on save (no Supabase wait) ──────
+  // Listens for the custom event fired by saveProducts() in storage.ts
+  // so the storefront re-renders within milliseconds of a seller saving a product
+  useEffect(() => {
+    const handler = () => {
+      if (currentStore) {
+        setStoreProducts(getProductsByStore(currentStore.id));
+      }
+    };
+    window.addEventListener('tashop:products_updated', handler);
+    return () => window.removeEventListener('tashop:products_updated', handler);
+  }, [currentStore?.id]);
+
   // â”€â”€â”€ PWA ONLY on Landing Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     const isLanding = !currentStore || activeView === 'landing';

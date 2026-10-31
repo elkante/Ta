@@ -134,8 +134,8 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           <div className="h-5 w-px bg-slate-200 hidden sm:block shrink-0" />
 
-          {/* ─── Tenant Switcher: ONLY for Root Super Admin (strictly role-isolated) ─── */}
-          {superAdminSession ? (
+          {/* ─── Tenant Switcher: ONLY for Root Super Admin in the HQ panel (strictly role-isolated) ─── */}
+          {superAdminSession && activeView === 'superadmin' ? (
             <div className="relative min-w-0">
               <button
                 onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
