@@ -567,7 +567,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
 
                 <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
-                  <li className="flex items-center gap-2 font-medium">✓ <strong>Unlimited products & variants</strong></li>
+                  <li className="flex items-center gap-2 font-medium">✓ <strong>Up to 70 products</strong> with variants</li>
                   <li className="flex items-center gap-2 font-medium">✓ <strong>Verified Blue Tick</strong> for high trust</li>
                   <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by {getPlatformBrandName()}"</strong></li>
                   <li className="flex items-center gap-2 font-medium">✓ Customer inquiry analytics & history</li>

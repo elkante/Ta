@@ -61,6 +61,8 @@ import {
 import confetti from 'canvas-confetti';
 import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense } from '../../types';
 import { AddEditProductModal } from './AddEditProductModal';
+import { ProductLimitModal } from '../modals/ProductLimitModal';
+import { getProductLimitByTier, getPlanNameByTier } from '../../utils/planLimits';
 import { PaystackModal } from '../modals/PaystackModal';
 import { SocialShareModal } from '../modals/SocialShareModal';
 import { StatusStudioModal } from '../modals/StatusStudioModal';
@@ -320,9 +322,20 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [productSearch, setProductSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
 
-  // Product Modals
+  // Product Modals & Plan Restrictions
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isProductLimitModalOpen, setIsProductLimitModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+
+  const handleOpenAddProduct = () => {
+    const limit = getProductLimitByTier(store.tier);
+    if (products.length >= limit) {
+      setIsProductLimitModalOpen(true);
+      return;
+    }
+    setProductToEdit(null);
+    setIsAddProductOpen(true);
+  };
 
   // Paystack & Share Modals
   const [isPaystackOpen, setIsPaystackOpen] = useState(false);
@@ -531,6 +544,14 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       );
       saveProducts(updated);
     } else {
+      // Check tier product limit before adding new product
+      const limit = getProductLimitByTier(store.tier);
+      if (products.length >= limit) {
+        setIsAddProductOpen(false);
+        setIsProductLimitModalOpen(true);
+        return;
+      }
+
       // Add new
       savedProd = {
         id: `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -1775,6 +1796,69 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         {/* TAB 1: PRODUCTS MANAGEMENT */}
         {activeTab === 'products' && (
           <div className="space-y-4">
+            {/* Plan Product Usage Counter & Limit Banner */}
+            {(() => {
+              const limit = getProductLimitByTier(store.tier);
+              const planName = getPlanNameByTier(store.tier);
+              const isAtLimit = products.length >= limit;
+              const isNearLimit = !isAtLimit && limit !== Infinity && products.length >= limit - 1;
+
+              if (isAtLimit) {
+                return (
+                  <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+                        <AlertTriangle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-amber-950 flex items-center gap-2">
+                          <span>Product Limit Reached ({products.length} / {limit} products)</span>
+                          <span className="bg-amber-200 text-amber-900 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold">
+                            {planName}
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-amber-800 mt-0.5">
+                          You have reached your catalog limit. Upgrade your plan to add more products and expand your sales.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setIsProductLimitModalOpen(true)}
+                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer shrink-0 shadow-xs flex items-center gap-1.5"
+                    >
+                      <Zap className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Upgrade Plan</span>
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="bg-white border border-slate-200/80 rounded-2xl px-4 py-3 flex items-center justify-between text-xs shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-800">{planName}:</span>
+                    <span className="font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg text-[11px]">
+                      {products.length} / {limit === Infinity ? 'Unlimited' : `${limit} products used`}
+                    </span>
+                    {isNearLimit && (
+                      <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
+                        Almost full (1 slot left)
+                      </span>
+                    )}
+                  </div>
+                  {limit !== Infinity && (
+                    <button
+                      onClick={() => setIsProductLimitModalOpen(true)}
+                      className="text-[11px] font-bold text-amber-700 hover:text-amber-800 hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <span>Need more products? Upgrade</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Header / Filter Toolbar */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
               <div className="flex-1 flex gap-2">
@@ -1803,10 +1887,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               </div>
 
               <button
-                onClick={() => {
-                  setProductToEdit(null);
-                  setIsAddProductOpen(true);
-                }}
+                onClick={handleOpenAddProduct}
                 className="py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
@@ -2962,9 +3043,9 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
                     {store.tier === 'business'
-                      ? 'Active 24/7 AI WhatsApp Bot, unlimited catalogs, verified badge & priority infrastructure.'
+                      ? 'Active 24/7 AI WhatsApp Bot, unlimited catalog products, verified badge & priority infrastructure.'
                       : store.tier === 'pro'
-                      ? 'Active recurring subscription via Paystack. Unlimited products and verified badge enabled.'
+                      ? 'Active recurring subscription via Paystack. Up to 70 products and verified badge enabled.'
                       : store.tier === 'basic'
                       ? 'Active Basic tier at ₦1,500/month for up to 30 products, item UID search and WhatsApp checkout.'
                       : 'Starter tier at ₦500/month for up to 10 products with custom slug and WhatsApp orders.'}
@@ -3119,11 +3200,11 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   )}
 
                   <ul className="mt-4 space-y-2 text-xs text-slate-700">
-                    <li className="flex items-center gap-2 font-medium">✓ <strong>Unlimited products & variants</strong></li>
+                    <li className="flex items-center gap-2 font-medium">✓ <strong>Up to 70 products</strong> with variants</li>
                     <li className="flex items-center gap-2 font-medium">✓ <strong>Verified Blue Tick</strong> badge</li>
                     <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by Tá.shop"</strong></li>
+                    <li className="flex items-center gap-2 font-medium">✓ Customer reviews collection & ratings</li>
                     <li className="flex items-center gap-2 font-medium">✓ Priority WhatsApp click analytics</li>
-                    <li className="flex items-center gap-2 font-medium">✓ Custom domain support ready</li>
                   </ul>
                 </div>
 
@@ -3167,11 +3248,11 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   )}
 
                   <ul className="mt-4 space-y-2 text-xs text-slate-700">
+                    <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg">✓ <strong>UNLIMITED Products</strong> (Only plan with no limit)</li>
                     <li className="flex items-center gap-2 font-medium">✓ <strong>Everything in Pro included</strong></li>
-                    <li className="flex items-center gap-2 font-medium">✓ <strong>24/7 AI WhatsApp Bot</strong> auto-replies</li>
-                    <li className="flex items-center gap-2 font-medium">✓ Smart product recommendations</li>
-                    <li className="flex items-center gap-2 font-medium">✓ Auto order confirmations on WhatsApp</li>
-                    <li className="flex items-center gap-2 font-medium">✓ Unlimited bot conversations</li>
+                    <li className="flex items-center gap-2 font-medium">✓ <strong>24/7 AI WhatsApp Bot</strong> auto-replies with photos & prices</li>
+                    <li className="flex items-center gap-2 font-medium">✓ Instant WhatsApp order receipts & merchant alerts</li>
+                    <li className="flex items-center gap-2 font-medium">✓ Verified Merchant Blue Tick included 100% FREE</li>
                     <li className="flex items-center gap-2 font-medium">✓ VIP Priority support</li>
                   </ul>
                 </div>
@@ -4422,7 +4503,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           {/* CENTER NOTCH FAB */}
           <div className="flex-1 flex justify-center items-end pb-1 relative">
             <button
-              onClick={() => { setActiveTab('products'); setIsAddProductOpen(true); }}
+              onClick={() => {
+                setActiveTab('products');
+                handleOpenAddProduct();
+              }}
               className="absolute -top-6 w-14 h-14 bg-amber-500 hover:bg-amber-600 active:scale-95 rounded-full shadow-xl flex items-center justify-center transition cursor-pointer border-4 border-white"
             >
               <Plus className="w-7 h-7 text-white" strokeWidth={3} />
@@ -4458,6 +4542,18 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         store={store}
         productToEdit={productToEdit}
         onSave={handleSaveProduct}
+      />
+
+      {/* Product Limit Reached Modal */}
+      <ProductLimitModal
+        isOpen={isProductLimitModalOpen}
+        onClose={() => setIsProductLimitModalOpen(false)}
+        store={store}
+        currentProductCount={products.length}
+        onOpenUpgrade={(targetPlan) => {
+          setPaystackInitialPlan(targetPlan);
+          setIsPaystackOpen(true);
+        }}
       />
 
       {/* Paystack Upgrade Modal */}

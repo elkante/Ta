@@ -373,21 +373,25 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
             <div className="space-y-2 bg-slate-50 p-4 rounded-2xl text-xs text-slate-700">
               {selectedPlan === 'business' ? (
                 <>
+                  <div className="flex items-center gap-2 font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-200">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>UNLIMITED Products (Only plan with no product cap)</span>
+                  </div>
                   <div className="flex items-center gap-2 text-blue-700 font-bold bg-blue-50/80 px-2.5 py-1.5 rounded-xl border border-blue-200">
                     <BadgeCheck className="w-4 h-4 text-blue-600 shrink-0" />
                     <span>FREE Verified Merchant Blue Tick Included (Save ₦2,000/mo)</span>
                   </div>
                   <div className="flex items-center gap-2 text-violet-800 font-semibold">
-                    <Check className="w-4 h-4 text-violet-600" />
-                    <span>WhatsApp Store Bot (auto-replies to inquiries)</span>
+                    <Bot className="w-4 h-4 text-violet-600 shrink-0" />
+                    <span>24/7 WhatsApp AI Assistant Bot (auto-replies with photos & prices)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-violet-600" />
-                    <span>Smart product recommendations & auto-checkout</span>
+                    <Check className="w-4 h-4 text-violet-600 shrink-0" />
+                    <span>Instant WhatsApp order receipts & merchant alerts</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-violet-600" />
-                    <span>All Pro features + priority order notifications</span>
+                    <Check className="w-4 h-4 text-violet-600 shrink-0" />
+                    <span>All Pro features + priority order sound alerts</span>
                   </div>
                 </>
               ) : selectedPlan === 'badge' ? (
@@ -411,13 +415,17 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                 </>
               ) : selectedPlan === 'pro' ? (
                 <>
-                  <div className="flex items-center gap-2 font-medium">
+                  <div className="flex items-center gap-2 font-semibold text-slate-900">
                     <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Unlimited products & variant checkboxes</span>
+                    <span>Up to 70 products (more than 2x Basic)</span>
                   </div>
                   <div className="flex items-center gap-2 font-medium">
                     <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Verified Merchant Blue Tick</span>
+                    <span>Verified Merchant Blue Tick (after ID check)</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-medium">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>Customer reviews collection & ratings showcase</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600" />
@@ -426,28 +434,36 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                 </>
               ) : selectedPlan === 'basic' ? (
                 <>
-                  <div className="flex items-center gap-2 font-medium">
+                  <div className="flex items-center gap-2 font-semibold text-slate-900">
                     <Check className="w-4 h-4 text-emerald-600" />
                     <span>Up to 30 products (3x more than Starter)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Multi-photo uploads & item UID search</span>
+                    <span>AI product descriptions (5 daily credits)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Direct WhatsApp checkout & loud order alerts</span>
+                    <span>WhatsApp Status Studio (marketing cards)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>Store notes, expense tracker & profit calculator</span>
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 font-semibold text-slate-900">
                     <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Up to 10 products with custom slug</span>
+                    <span>Up to 10 products with custom store link</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Item UID search & loud order chime</span>
+                    <span>Item UID search (#TA-XXX) & WhatsApp checkout</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>Customer WhatsApp inquiry click log</span>
                   </div>
                 </>
               )}
