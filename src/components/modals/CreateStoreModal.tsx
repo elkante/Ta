@@ -41,7 +41,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
   const [currency, setCurrency] = useState<CurrencyCode>('NGN');
   const [selectedNiche, setSelectedNiche] = useState('perfumes');
   const [accentColor, setAccentColor] = useState('#b45309');
-  const [location, setLocation] = useState('Lagos, Nigeria');
+  const [location, setLocation] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -153,7 +153,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
         'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&auto=format&fit=crop&q=80',
       accentColor: accentColor,
       themeStyle: selectedNiche === 'perfumes' ? 'luxury' : 'modern',
-      location: location.trim() || 'Nigeria',
+      location: location.trim(),
       announcement: '🎉 Welcome to our brand new WhatsApp storefront! Order in 1 click.',
       deliveryInfo: 'Fast dispatch available. Contact us for delivery timelines and rates.',
       socialLinks: {},
@@ -381,7 +381,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
               <label className="text-xs font-semibold text-slate-700 block mb-1">City / Location</label>
               <input
                 type="text"
-                placeholder="e.g. Lekki, Lagos or Abuja"
+                placeholder="e.g. 12 Okonkwo St, Surulere, Lagos or Abuja"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"

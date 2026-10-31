@@ -80,7 +80,7 @@ export interface Store {
     twitter?: string;
     facebook?: string;
   };
-  tier: 'free' | 'starter' | 'pro' | 'business';
+  tier: 'free' | 'starter' | 'basic' | 'pro' | 'business';
   verified: boolean;
   hasVerifiedBadgeAddon?: boolean; // Standalone ₦2,000/mo verification add-on
   verifiedBadgeExpiresAt?: string;

@@ -326,7 +326,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
   // Paystack & Share Modals
   const [isPaystackOpen, setIsPaystackOpen] = useState(false);
-  const [paystackInitialPlan, setPaystackInitialPlan] = useState<'starter' | 'badge' | 'pro' | 'business'>('pro');
+  const [paystackInitialPlan, setPaystackInitialPlan] = useState<'starter' | 'basic' | 'badge' | 'pro' | 'business'>('pro');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isAiMarketingOpen, setIsAiMarketingOpen] = useState(false);
@@ -338,6 +338,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [settingsSlug, setSettingsSlug] = useState(store.slug);
   const [settingsTagline, setSettingsTagline] = useState(store.tagline || '');
   const [settingsDescription, setSettingsDescription] = useState(store.description || '');
+  const [settingsLocation, setSettingsLocation] = useState(store.location || '');
   const [settingsCountryCode, setSettingsCountryCode] = useState(store.whatsappCountryCode || '+234');
   const [settingsNumber, setSettingsNumber] = useState(store.whatsappNumber || '');
   const [settingsCurrency, setSettingsCurrency] = useState<CurrencyCode>(store.currency || 'NGN');
@@ -369,6 +370,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     setSettingsSlug(store.slug);
     setSettingsTagline(store.tagline || '');
     setSettingsDescription(store.description || '');
+    setSettingsLocation(store.location || '');
     setSettingsCountryCode(store.whatsappCountryCode || '+234');
     setSettingsNumber(store.whatsappNumber || '');
     setSettingsCurrency(store.currency || 'NGN');
@@ -602,6 +604,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       slug: slugCheck.cleanSlug,
       tagline: settingsTagline.trim(),
       description: settingsDescription.trim(),
+      location: settingsLocation.trim(),
       logoUrl: settingsLogoUrl.trim() || store.logoUrl,
       bannerUrl: settingsBannerUrl.trim() || store.bannerUrl,
       whatsappCountryCode: settingsCountryCode,
@@ -710,10 +713,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     { id: 'orders',    label: 'Orders',          icon: ShoppingBag,   badge: pendingOrdersCount > 0 ? `${pendingOrdersCount}` : undefined },
     { id: 'products',  label: 'Products',         icon: Package,       badge: `${products.length}` },
     { id: 'analytics', label: 'Analytics',        icon: BarChart3 },
-    { id: 'uid-bot',   label: 'UID Drop Bot',     icon: Bot,           badge: 'Auto' },
-    { id: 'marketing', label: 'Status & QR',      icon: QrCode },
-    { id: 'inquiries', label: 'WA Clicks',         icon: MessageCircle, badge: inquiries.length > 0 ? `${inquiries.length}` : undefined },
-    { id: 'notes',     label: 'Notes',            icon: StickyNote },
+    { id: 'uid-bot',   label: 'Auto-Reply Bot',     icon: Bot,           badge: 'Auto' },
+    { id: 'marketing', label: 'Share & Market',      icon: QrCode },
+    { id: 'inquiries', label: 'Customer Chats',         icon: MessageCircle, badge: inquiries.length > 0 ? `${inquiries.length}` : undefined },
+    { id: 'notes',     label: 'My Notes',            icon: StickyNote },
     { id: 'expenses',  label: 'Expenses',         icon: Wallet },
     { id: 'calculator',label: 'Calculator',       icon: Calculator },
     { id: 'settings',  label: 'Store Settings',   icon: Settings },
@@ -736,7 +739,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     },
     {
       id: 'marketing',
-      label: 'Marketing & Bot',
+      label: 'Marketing & Auto-Reply',
       icon: Sparkles,
       tabs: ['uid-bot', 'marketing', 'inquiries'],
     },
@@ -1983,9 +1986,9 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Customer WhatsApp Inquiry Log</h3>
+                  <h3 className="font-bold text-slate-900 text-sm">Customer WhatsApp Click Log</h3>
                   <p className="text-xs text-slate-500">
-                    Every time a buyer clicks "Order on WhatsApp", an inquiry event is logged here with their requested variant and location.
+                    Every time a customer clicks "Order on WhatsApp", their requested item, variant, and delivery area appear here instantly.
                   </p>
                 </div>
                 <span className="text-xs font-mono bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg font-semibold">
@@ -2079,7 +2082,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-6 max-w-3xl">
             <h3 className="font-bold text-slate-900 text-base mb-1">Storefront Settings</h3>
             <p className="text-xs text-slate-500 mb-6">
-              Configure your store slug, WhatsApp routing, brand color palette, and delivery announcement.
+              Update your store name, phone number, address, colors & delivery info.
             </p>
 
             {settingsError && (
@@ -2111,7 +2114,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Your legal name as the registered store owner. Required for identity verification and plan upgrades.
+                  Your full name as shown on your ID document.
                 </p>
               </div>
 
@@ -2120,7 +2123,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 <div>
                   <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                     <Camera className="w-4 h-4 text-amber-500" />
-                    <span>Store Branding & Profile Cover</span>
+                    <span>Your Logo & Cover Photo</span>
                   </h4>
                   <p className="text-xs text-slate-500">
                     Upload your official store logo and profile header cover directly from your device.
@@ -2146,7 +2149,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 {/* Cover Banner Preview Card with in-place upload button */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Profile Cover Banner</label>
+                    <label className="text-xs font-semibold text-slate-700">Store Cover Photo</label>
                     <span className="text-[11px] text-slate-400">Recommended 16:9 or 3:1 ratio</span>
                   </div>
 
@@ -2258,7 +2261,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Store URL Slug (Unique)
+                    Store Link / Web Address (Slug)
                   </label>
                   <div className="flex items-center rounded-xl border border-slate-200 overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-slate-900">
                     <span className="pl-3 text-xs text-slate-500 font-mono">/s/</span>
@@ -2304,7 +2307,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 </div>
                 <div className="col-span-2">
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    WhatsApp Orders Phone Number
+                    Your WhatsApp Number (Where Orders Arrive)
                   </label>
                   <input
                     type="tel"
@@ -2320,7 +2323,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Announcement Banner (Top of page)
+                    Top Notice Banner (Shown to Shoppers)
                   </label>
                   <input
                     type="text"
@@ -2333,7 +2336,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Theme Accent Color
+                    Store Brand Colour
                   </label>
                   <div className="flex items-center gap-2">
                     <input
@@ -2366,7 +2369,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               {/* Delivery Info Policy */}
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Delivery & Logistics Timeline
+                  Delivery Timeline & Rates
                 </label>
                 <input
                   type="text"
@@ -2375,6 +2378,22 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   onChange={(e) => setSettingsDeliveryInfo(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
                 />
+              </div>
+              {/* Store Location & Pickup Address */}
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Store Address / Location
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 14 Admiralty Way, Lekki Phase 1, Lagos, Nigeria"
+                  value={settingsLocation}
+                  onChange={(e) => setSettingsLocation(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Enter your physical shop address or city. Displayed to buyers on your storefront header and receipts.
+                </p>
               </div>
 
               {/* Social links */}
@@ -2941,6 +2960,8 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                         ? 'Tá.shop Business AI Plan'
                         : store.tier === 'pro'
                         ? 'Tá.shop Pro Seller'
+                        : store.tier === 'basic'
+                        ? 'Tá.shop Basic Plan (₦1,500/mo)'
                         : 'Tá.shop Starter Plan (₦500/mo)'}
                     </span>
                     {(store.tier === 'pro' || store.tier === 'business') && (
@@ -2952,6 +2973,8 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                       ? 'Active 24/7 AI WhatsApp Bot, unlimited catalogs, verified badge & priority infrastructure.'
                       : store.tier === 'pro'
                       ? 'Active recurring subscription via Paystack. Unlimited products and verified badge enabled.'
+                      : store.tier === 'basic'
+                      ? 'Active Basic tier at ₦1,500/month for up to 30 products, item UID search and WhatsApp checkout.'
                       : 'Starter tier at ₦500/month for up to 10 products with custom slug and WhatsApp orders.'}
                   </p>
                 </div>
@@ -3011,7 +3034,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             </div>
 
             {/* Plan Comparison Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Starter Plan */}
               <div className={`p-5 rounded-2xl border bg-white flex flex-col justify-between ${store.tier === 'free' ? 'ring-2 ring-slate-900' : 'border-slate-200'}`}>
                 <div>
@@ -3034,6 +3057,47 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     <li className="flex items-center gap-2 text-slate-400">✕ 24/7 AI WhatsApp Bot</li>
                   </ul>
                 </div>
+              </div>
+              {/* Basic Plan (New ₦1,500/mo - 30 Products) */}
+              <div className={`p-5 rounded-2xl border bg-white flex flex-col justify-between ${store.tier === 'basic' ? 'ring-2 ring-emerald-600 border-emerald-300' : 'border-slate-200'}`}>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <span>Tá.shop Basic</span>
+                    </h4>
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                      Popular Value
+                    </span>
+                  </div>
+                  <div className="mt-2 text-2xl font-black font-mono">
+                    {billingCycle === 'monthly' ? '₦1,500' : '₦15,000'}
+                    <span className="text-xs font-normal text-slate-400">
+                      {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                    </span>
+                  </div>
+                  {billingCycle === 'yearly' && (
+                    <span className="text-[11px] text-emerald-700 block mt-0.5 font-semibold">Save ₦3,000/yr (2 Months Free)</span>
+                  )}
+                  <ul className="mt-4 space-y-2 text-xs text-slate-700">
+                    <li className="flex items-center gap-2 font-medium">✓ <strong>Up to 30 products</strong></li>
+                    <li className="flex items-center gap-2 font-medium">✓ Up to 5 photos per product</li>
+                    <li className="flex items-center gap-2">✓ Custom store web link</li>
+                    <li className="flex items-center gap-2">✓ Item UID search & WhatsApp checkout</li>
+                    <li className="flex items-center gap-2">✓ Loud audio order alerts</li>
+                    <li className="flex items-center gap-2 text-slate-400">✕ Verified Blue Tick badge</li>
+                  </ul>
+                </div>
+                {store.tier !== 'basic' && (
+                  <button
+                    onClick={() => {
+                      setPaystackInitialPlan('basic');
+                      setIsPaystackOpen(true);
+                    }}
+                    className="mt-5 w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+                  >
+                    Activate Basic ({billingCycle === 'yearly' ? '₦15k/yr' : '₦1.5k/mo'})
+                  </button>
+                )}
               </div>
 
               {/* Pro Plan */}

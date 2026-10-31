@@ -10,9 +10,9 @@ interface PaystackModalProps {
   isOpen: boolean;
   onClose: () => void;
   store: Store;
-  initialPlan?: 'starter' | 'badge' | 'pro' | 'business';
+  initialPlan?: 'starter' | 'basic' | 'badge' | 'pro' | 'business';
   initialCycle?: 'monthly' | 'yearly';
-  onUpgradeSuccess: (plan: 'starter' | 'badge' | 'pro' | 'business') => void;
+  onUpgradeSuccess: (plan: 'starter' | 'basic' | 'badge' | 'pro' | 'business') => void;
 }
 
 export const PaystackModal: React.FC<PaystackModalProps> = ({
@@ -23,7 +23,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
   initialCycle = 'monthly',
   onUpgradeSuccess,
 }) => {
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'badge' | 'pro' | 'business'>(initialPlan);
+  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'basic' | 'badge' | 'pro' | 'business'>(initialPlan);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>(initialCycle);
   const [isProcessing, setIsProcessing] = useState(false);
   const [step, setStep] = useState<'checkout' | 'processing' | 'success'>('checkout');
@@ -82,6 +82,9 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
   const getAmount = () => {
     if (selectedPlan === 'starter') {
       return billingCycle === 'monthly' ? 500 : 6000;
+    }
+    if (selectedPlan === 'basic') {
+      return billingCycle === 'monthly' ? 1500 : 15000;
     }
     if (selectedPlan === 'badge') {
       return billingCycle === 'monthly' ? 2000 : 20000;
@@ -264,7 +267,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
             </div>
 
             {/* Plan Selector Tabs */}
-            <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-2xl text-[11px] font-bold">
+            <div className="grid grid-cols-5 gap-1 p-1 bg-slate-100 rounded-2xl text-[10px] sm:text-[11px] font-bold">
               <button
                 type="button"
                 onClick={() => setSelectedPlan('starter')}
@@ -275,6 +278,17 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                 }`}
               >
                 Starter
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedPlan('basic')}
+                className={`py-2 px-1 rounded-xl transition cursor-pointer text-center truncate ${
+                  selectedPlan === 'basic'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Basic
               </button>
 
               <button
@@ -330,6 +344,8 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                     ? 'Tá.shop Verified Blue Tick'
                     : selectedPlan === 'pro'
                     ? 'Tá.shop Pro Seller'
+                    : selectedPlan === 'basic'
+                    ? 'Tá.shop Basic Plan'
                     : 'Tá.shop Starter Plan'}
                 </span>
                 {selectedPlan === 'badge' && <BadgeCheck className="w-5 h-5 text-blue-600 fill-blue-100" />}
@@ -406,6 +422,21 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600" />
                     <span>Remove "Powered by Tá.shop" branding</span>
+                  </div>
+                </>
+              ) : selectedPlan === 'basic' ? (
+                <>
+                  <div className="flex items-center gap-2 font-medium">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>Up to 30 products (3x more than Starter)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>Multi-photo uploads & item UID search</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>Direct WhatsApp checkout & loud order alerts</span>
                   </div>
                 </>
               ) : (

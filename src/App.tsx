@@ -66,8 +66,10 @@ export default function App() {
       if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
         const storeParam = urlParams.get('store');
-        if (storeParam) {
-          const match = stores.find((s) => s.slug.toLowerCase() === storeParam.toLowerCase());
+        const subSlug = getSubdomainFromHostname();
+        const targetSlug = storeParam || subSlug;
+        if (targetSlug) {
+          const match = stores.find((s) => s.slug.toLowerCase() === targetSlug.toLowerCase());
           if (match) return match;
         }
       }
@@ -78,7 +80,29 @@ export default function App() {
     } catch (e) {}
     return null;
   });
-  const [storeProducts, setStoreProducts] = useState<Product[]>([]);
+  const [storeProducts, setStoreProducts] = useState<Product[]>(() => {
+    try {
+      const stores = getStoredStores();
+      let matchedStoreId: string | null = null;
+      const session = getSellerSession();
+      if (session) {
+        const s = stores.find((x) => x.id === session.storeId || x.slug === session.storeSlug);
+        if (s) matchedStoreId = s.id;
+      }
+      if (!matchedStoreId && typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const storeParam = urlParams.get('store') || getSubdomainFromHostname();
+        if (storeParam) {
+          const s = stores.find((x) => x.slug.toLowerCase() === storeParam.toLowerCase());
+          if (s) matchedStoreId = s.id;
+        }
+      }
+      if (matchedStoreId) {
+        return getProductsByStore(matchedStoreId);
+      }
+    } catch (e) {}
+    return [];
+  });
   const [storeInquiries, setStoreInquiries] = useState<WhatsAppInquiryLog[]>([]);
   const [storeReviews, setStoreReviews] = useState<StoreReview[]>([]);
 
@@ -104,6 +128,11 @@ export default function App() {
       if (viewParam === 'dashboard' || viewParam === 'storefront' || viewParam === 'landing') {
         return viewParam as 'landing' | 'storefront' | 'dashboard' | 'superadmin';
       }
+      // If store param is present in URL or visited via subdomain, immediately route to storefront!
+      const subSlug = getSubdomainFromHostname();
+      if (urlParams.get('store') || subSlug) {
+        return 'storefront';
+      }
       const savedView = sessionStorage.getItem('ta_last_view');
       const session = getSellerSession();
       if (savedView === 'dashboard' && session) return 'dashboard';
@@ -127,6 +156,14 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   /** Product ID from ?product= URL param; passed to Storefront to auto-open detail modal */
   const [initialProductId, setInitialProductId] = useState<string | null>(null);
+  const [isBootingStore, setIsBootingStore] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sub = getSubdomainFromHostname();
+      if (urlParams.get('store') || sub) return true;
+    }
+    return false;
+  });
 
   // Initialize and load store based on URL, Supabase live data or local storage
   const loadTenantData = async (slug?: string) => {
@@ -346,6 +383,7 @@ export default function App() {
         }
       } catch (e) {}
     }
+    setIsBootingStore(false);
   };
 
   useEffect(() => {
@@ -643,6 +681,22 @@ export default function App() {
           }}
         />
       </ErrorBoundary>
+    );
+  }
+
+  if (isBootingStore && !currentStore) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white font-sans px-4">
+        <div className="flex flex-col items-center gap-4 text-center animate-in fade-in duration-300">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+            <div className="w-7 h-7 border-3 border-amber-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+          <div>
+            <h3 className="font-bold text-white text-base">Opening Store...</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Fetching live catalog & WhatsApp checkout</p>
+          </div>
+        </div>
+      </div>
     );
   }
 

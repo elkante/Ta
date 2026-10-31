@@ -47,6 +47,8 @@ export function getStoreAICap(store: Store): number {
       return 250;
     case 'pro':
       return 100;
+    case 'basic':
+      return 75;
     case 'starter':
       return 50;
     case 'free':

@@ -285,7 +285,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
       bannerUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&auto=format&fit=crop&q=80',
       accentColor: '#b45309',
       themeStyle: 'luxury',
-      location: 'Lagos, Nigeria',
+      location: '',
       announcement: `✨ Welcome to ${signupStoreName}! Search by Item UID to order via WhatsApp.`,
       deliveryInfo: 'Fast dispatch available nationwide. Inquire via WhatsApp for exact rates.',
       socialLinks: {
