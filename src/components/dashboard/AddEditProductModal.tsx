@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertCircle, Check, Image as ImageIcon, Link, Lock, Plus, Star, Tag, Trash2, Upload, X } from 'lucide-react';
+import {
+  Sparkles, AlertCircle, Check, Image as ImageIcon, Link, Lock, Plus, Star, Tag, Trash2, Upload, X } from 'lucide-react';
 import { Product, ProductVariant, Store } from '../../types';
 import { addStoreCategory, getStoreCategories } from '../../utils/storage';
 
@@ -50,6 +51,99 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
   const [badge, setBadge] = useState('');
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+  const [aiDescSuccess, setAiDescSuccess] = useState(false);
+  const [aiLimitNotice, setAiLimitNotice] = useState<string | null>(null);
+
+  // Daily 5 AI description generations per store
+  const getAiDescUsageToday = (): number => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const raw = localStorage.getItem(`ta_ai_desc_${store.id}_${today}`);
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const incrementAiDescUsage = () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const current = getAiDescUsageToday();
+      localStorage.setItem(`ta_ai_desc_${store.id}_${today}`, String(current + 1));
+    } catch {}
+  };
+
+  const handleGenerateDescriptionAI = async () => {
+    if (!name.trim()) {
+      setError('Please enter a product title first before generating AI description.');
+      return;
+    }
+    const usedToday = getAiDescUsageToday();
+    if (usedToday >= 5) {
+      setAiLimitNotice('Daily limit reached (5 descriptions per store per day). Resets at midnight.');
+      return;
+    }
+
+    setIsGeneratingDesc(true);
+    setError(null);
+    setAiLimitNotice(null);
+
+    try {
+      let key = '';
+      try {
+        key = localStorage.getItem('ta_gemini_api_key') || '';
+      } catch {}
+
+      let generated = '';
+      if (key && key.startsWith('AIzaSy')) {
+        const prompt = `Write an attractive, professional 2-3 sentence product description for an African online store.
+Product Name: ${name.trim()}
+Category: ${category || 'General'}
+Price: ${price ? store.currencySymbol + ' ' + price : 'Best market price'}
+
+Include key selling highlights (quality, finish, durability or feel). Keep it concise, engaging, and clear. Do not include markdown headers or bullet points.`;
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          generated = text.trim();
+        }
+      }
+
+      // Algorithmic smart marketing generator fallback
+      if (!generated) {
+        const catClean = (category || 'item').toLowerCase();
+        if (catClean.includes('perfume') || catClean.includes('fragrance') || catClean.includes('scent')) {
+          generated = `Immerse yourself in the unforgettable luxury of ${name.trim()}. Masterfully formulated with long-lasting aromatic notes designed to leave an elegant impression from day to night. 100% authentic quality guaranteed.`;
+        } else if (catClean.includes('fashion') || catClean.includes('cloth') || catClean.includes('wear') || catClean.includes('dress')) {
+          generated = `Elevate your wardrobe with ${name.trim()}. Carefully tailored from premium, breathable fabric for superior comfort and an effortlessly stylish silhouette suitable for both casual outings and special occasions.`;
+        } else if (catClean.includes('jewel') || catClean.includes('gold') || catClean.includes('silver') || catClean.includes('ring')) {
+          generated = `Shine bright with the timeless elegance of ${name.trim()}. Beautifully crafted with high-grade, tarnish-resistant finish for everyday glam and celebrations. Comes safely packaged and ready to gift.`;
+        } else if (catClean.includes('gadget') || catClean.includes('tech') || catClean.includes('phone') || catClean.includes('electronic')) {
+          generated = `Experience peak reliability with ${name.trim()}. Built with high-performance components, durable battery efficiency, and sleek modern design to streamline your daily routine.`;
+        } else if (catClean.includes('beauty') || catClean.includes('skin') || catClean.includes('hair')) {
+          generated = `Nourish and glow with ${name.trim()}. Formulated with gentle, skin-loving ingredients to revitalize and enhance your natural radiance. Suitable for everyday care.`;
+        } else {
+          generated = `Discover premium quality and exceptional value with ${name.trim()}. Thoughtfully designed to meet high standards of performance and style. Available for fast nationwide dispatch.`;
+        }
+      }
+
+      setDescription(generated);
+      incrementAiDescUsage();
+      setAiDescSuccess(true);
+      setTimeout(() => setAiDescSuccess(false), 2500);
+    } catch (e) {
+      setError('Could not generate description right now. Please try again.');
+    } finally {
+      setIsGeneratingDesc(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -479,7 +573,22 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
 
           {/* Description */}
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">Description</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-700">Description</label>
+              <button
+                type="button"
+                onClick={handleGenerateDescriptionAI}
+                disabled={isGeneratingDesc}
+                className="text-[11px] font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                title="Generate with AI (5 free daily per store)"
+              >
+                <Sparkles className={`w-3 h-3 text-amber-600 ${isGeneratingDesc ? 'animate-spin' : ''}`} />
+                <span>{isGeneratingDesc ? 'Writing Description...' : 'Generate with AI'}</span>
+                <span className="text-[10px] font-semibold text-amber-900 bg-amber-200/70 px-1 py-0.2 rounded">
+                  ${Math.max(0, 5 - getAiDescUsageToday())}/5 left
+                </span>
+              </button>
+            </div>
             <textarea
               rows={3}
               placeholder="Provide fragrance notes, fabric type, condition, or size guide..."
@@ -487,6 +596,16 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900 leading-relaxed"
             />
+            {aiDescSuccess && (
+              <p className="text-[11px] font-semibold text-emerald-600 mt-1 flex items-center gap-1 animate-in fade-in">
+                ✨ AI description created! You can edit or tweak any word above.
+              </p>
+            )}
+            {aiLimitNotice && (
+              <p className="text-[11px] font-semibold text-amber-700 mt-1">
+                ⚠️ {aiLimitNotice}
+              </p>
+            )}
           </div>
 
           {/* Image Section — Upload / URL / Preset tabs */}
@@ -810,7 +929,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
               type="submit"
               className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-md transition cursor-pointer"
             >
-              {productToEdit ? 'Save Changes' : 'Publish Product'}
+              {productToEdit ? 'Save Changes' : 'Save Product'}
             </button>
           </div>
         </form>

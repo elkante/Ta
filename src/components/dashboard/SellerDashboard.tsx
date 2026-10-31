@@ -1955,13 +1955,6 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => handleDuplicateProduct(p)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                                title="Duplicate Product"
-                              >
-                                <Copy className="w-3.5 h-3.5" />
-                              </button>
-                              <button
                                 onClick={() => handleDeleteProduct(p.id)}
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                                 title="Delete Product"

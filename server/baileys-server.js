@@ -735,11 +735,7 @@ app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
 
   try {
     let session = activeSessions.get(storeId);
-    if (!session || !session.sock) {
-      session = await initStoreSession(storeId);
-    }
-
-    if (session.status === 'connected') {
+    if (session && session.status === 'connected') {
       return res.json({
         success: true,
         connected: true,
@@ -748,26 +744,37 @@ app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
       });
     }
 
-    // Wait if socket is newly booting
-    if (!session.sock) {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+    // Force a fresh session for phone pairing code so WhatsApp registers fresh key material
+    session = await initStoreSession(storeId, session?.catalog || [], session?.storeInfo || {}, { forceRefresh: true });
+
+    // Wait until socket is ready to accept pairing request
+    let waitCount = 0;
+    while ((!session.sock || !session.sock.requestPairingCode) && waitCount < 10) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      waitCount++;
     }
 
     session.pairingRequested = true;
+
+    // Small delay so socket initial registration completes
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     let code = '';
     try {
       code = await session.sock.requestPairingCode(cleanPhone);
     } catch (pairErr) {
-      // Retry once after brief pause if socket was in mid-handshake
-      console.warn(`[Store: ${storeId}] First pairing code attempt failed (${pairErr?.message}), retrying...`);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      console.warn(`[Store: ${storeId}] First pairing code attempt failed (${pairErr?.message}), retrying in 2s...`);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       if (session.sock) {
         code = await session.sock.requestPairingCode(cleanPhone);
       }
     }
 
-    const formattedCode = code ? (code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code) : code;
+    if (!code) {
+      throw new Error('WhatsApp server returned an empty code. Please try again.');
+    }
+
+    const formattedCode = code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
     console.log(`[Store: ${storeId}] Generated 8-digit WhatsApp pairing code for +${cleanPhone}: ${formattedCode}`);
 
     pushSSEEvent(storeId, {
