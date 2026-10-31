@@ -1253,54 +1253,53 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           </div>
         )}
 
-        {/* Analytics Highlights Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-            <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-semibold uppercase tracking-wider">Orders Received</span>
-              <ShoppingBag className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="text-2xl font-black text-slate-900 font-mono">{storeOrders.length}</div>
-            <span className="text-[11px] text-emerald-600 font-medium">
-              {pendingOrdersCount > 0 ? `${pendingOrdersCount} pending dispatch` : 'All orders processed'}
-            </span>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-            <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-semibold uppercase tracking-wider">Order Revenue</span>
-              <TrendingUp className="w-4 h-4 text-blue-600" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono truncate">
-              {formatPrice(totalOrderRevenue, store.currencySymbol)}
-            </div>
-            <span className="text-[11px] text-slate-400 font-medium">From WhatsApp checkouts</span>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-            <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-semibold uppercase tracking-wider">Catalog Products</span>
-              <Package className="w-4 h-4 text-slate-600" />
-            </div>
-            <div className="text-2xl font-black text-slate-900 font-mono">{products.length}</div>
-            <span className="text-[11px] text-slate-400 font-medium">
-              {outOfStockCount > 0 ? `${outOfStockCount} sold out` : 'All in stock'}
-            </span>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-            <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-semibold uppercase tracking-wider">WhatsApp Leads</span>
-              <MessageCircle className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="text-2xl font-black text-slate-900 font-mono">{totalInquiriesCount}</div>
-            <span className="text-[11px] text-slate-400 font-medium">Direct chats initiated</span>
-          </div>
-        </div>
-
         {/* TAB 0: ORDERS MANAGEMENT */}
         {activeTab === 'orders' && (
           <div className="space-y-4">
+            {/* Analytics Highlights Bar — kept exclusively in Orders tab */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-2">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+                <div className="flex items-center justify-between text-slate-400 mb-1">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Orders Received</span>
+                  <ShoppingBag className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="text-2xl font-black text-slate-900 font-mono">{storeOrders.length}</div>
+                <span className="text-[11px] text-emerald-600 font-medium">
+                  {pendingOrdersCount > 0 ? `${pendingOrdersCount} pending dispatch` : 'All orders processed'}
+                </span>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+                <div className="flex items-center justify-between text-slate-400 mb-1">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Order Revenue</span>
+                  <TrendingUp className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono truncate">
+                  {formatPrice(totalOrderRevenue, store.currencySymbol)}
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium">From WhatsApp checkouts</span>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+                <div className="flex items-center justify-between text-slate-400 mb-1">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Catalog Products</span>
+                  <Package className="w-4 h-4 text-slate-600" />
+                </div>
+                <div className="text-2xl font-black text-slate-900 font-mono">{products.length}</div>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {outOfStockCount > 0 ? `${outOfStockCount} sold out` : 'All in stock'}
+                </span>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+                <div className="flex items-center justify-between text-slate-400 mb-1">
+                  <span className="text-xs font-semibold uppercase tracking-wider">WhatsApp Leads</span>
+                  <MessageCircle className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="text-2xl font-black text-slate-900 font-mono">{totalInquiriesCount}</div>
+                <span className="text-[11px] text-slate-400 font-medium">Direct chats initiated</span>
+              </div>
+            </div>
             {/* Header with Loud Alert Sound Test Button */}
             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
               <div>
