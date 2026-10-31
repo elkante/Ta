@@ -3037,7 +3037,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                         ? 'Tá.shop Basic Plan (₦1,500/mo)'
                         : 'Tá.shop Starter Plan (₦500/mo)'}
                     </span>
-                    {(store.tier === 'pro' || store.tier === 'business') && (
+                    {store.tier === 'business' && (
                       <BadgeCheck className="w-5 h-5 text-blue-500" />
                     )}
                   </h3>
@@ -3045,7 +3045,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     {store.tier === 'business'
                       ? 'Active 24/7 AI WhatsApp Bot, unlimited catalog products, verified badge & priority infrastructure.'
                       : store.tier === 'pro'
-                      ? 'Active recurring subscription via Paystack. Up to 70 products and verified badge enabled.'
+                      ? 'Active recurring subscription via Paystack. Up to 70 products and customer reviews enabled.'
                       : store.tier === 'basic'
                       ? 'Active Basic tier at ₦1,500/month for up to 30 products, item UID search and WhatsApp checkout.'
                       : 'Starter tier at ₦500/month for up to 10 products with custom slug and WhatsApp orders.'}
@@ -3201,10 +3201,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
                   <ul className="mt-4 space-y-2 text-xs text-slate-700">
                     <li className="flex items-center gap-2 font-medium">✓ <strong>Up to 70 products</strong> with variants</li>
-                    <li className="flex items-center gap-2 font-medium">✓ <strong>Verified Blue Tick</strong> badge</li>
-                    <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by Tá.shop"</strong></li>
                     <li className="flex items-center gap-2 font-medium">✓ Customer reviews collection & ratings</li>
                     <li className="flex items-center gap-2 font-medium">✓ Priority WhatsApp click analytics</li>
+                    <li className="flex items-center gap-2 font-medium">✓ Multi-photo uploads & item UID search</li>
+                    <li className="flex items-center gap-2 font-medium">✓ Priority order sound alerts</li>
                   </ul>
                 </div>
 
@@ -3249,11 +3249,11 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
                   <ul className="mt-4 space-y-2 text-xs text-slate-700">
                     <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg">✓ <strong>UNLIMITED Products</strong> (Only plan with no limit)</li>
-                    <li className="flex items-center gap-2 font-medium">✓ <strong>Everything in Pro included</strong></li>
+                    <li className="flex items-center gap-2 font-bold text-blue-800 bg-blue-50 px-2 py-1 rounded-lg">✓ <strong>Verified Merchant Blue Tick</strong> (Exclusive to Business)</li>
+                    <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by Tá.shop"</strong> (100% white-label)</li>
                     <li className="flex items-center gap-2 font-medium">✓ <strong>24/7 AI WhatsApp Bot</strong> auto-replies with photos & prices</li>
                     <li className="flex items-center gap-2 font-medium">✓ Instant WhatsApp order receipts & merchant alerts</li>
-                    <li className="flex items-center gap-2 font-medium">✓ Verified Merchant Blue Tick included 100% FREE</li>
-                    <li className="flex items-center gap-2 font-medium">✓ VIP Priority support</li>
+                    <li className="flex items-center gap-2 font-medium">✓ All Pro features + VIP priority support</li>
                   </ul>
                 </div>
 
@@ -4568,8 +4568,8 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           const updatedStore: Store = {
             ...store,
             tier: plan === 'badge' ? store.tier : plan,
-            verified: plan === 'badge' || plan === 'pro' || plan === 'business' ? true : store.verified,
-            hasVerifiedBadgeAddon: plan === 'badge' || plan === 'business' ? true : store.hasVerifiedBadgeAddon,
+            verified: plan === 'business' ? true : store.verified,
+            hasVerifiedBadgeAddon: plan === 'business' ? true : store.hasVerifiedBadgeAddon,
           };
           saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
           onSelectStore(updatedStore);

@@ -106,8 +106,8 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
     const updatedStore: Store = {
       ...store,
       tier: selectedPlan === 'badge' ? store.tier : selectedPlan,
-      verified: selectedPlan === 'badge' || selectedPlan === 'pro' || selectedPlan === 'business' ? true : store.verified,
-      hasVerifiedBadgeAddon: selectedPlan === 'badge' || selectedPlan === 'business' ? true : store.hasVerifiedBadgeAddon,
+      verified: selectedPlan === 'business' ? true : store.verified,
+      hasVerifiedBadgeAddon: selectedPlan === 'business' ? true : store.hasVerifiedBadgeAddon,
       idVerification: (frontIdUrl && backIdUrl) ? {
         idType,
         idNumber: idNumber.trim() || undefined,
@@ -379,7 +379,11 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                   </div>
                   <div className="flex items-center gap-2 text-blue-700 font-bold bg-blue-50/80 px-2.5 py-1.5 rounded-xl border border-blue-200">
                     <BadgeCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span>FREE Verified Merchant Blue Tick Included (Save ₦2,000/mo)</span>
+                    <span>Verified Merchant Blue Tick Included FREE (Exclusive to Business)</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-semibold text-slate-900">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Remove "Powered by Tá.shop" promotion (100% White-Label)</span>
                   </div>
                   <div className="flex items-center gap-2 text-violet-800 font-semibold">
                     <Bot className="w-4 h-4 text-violet-600 shrink-0" />
@@ -421,15 +425,19 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                   </div>
                   <div className="flex items-center gap-2 font-medium">
                     <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Verified Merchant Blue Tick (after ID check)</span>
+                    <span>Customer reviews collection & ratings showcase</span>
                   </div>
                   <div className="flex items-center gap-2 font-medium">
                     <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Customer reviews collection & ratings showcase</span>
+                    <span>Priority WhatsApp click tracking & analytics</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Remove "Powered by Tá.shop" branding</span>
+                    <span>Multi-photo uploads & item UID search</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>Priority customer order sound alerts</span>
                   </div>
                 </>
               ) : selectedPlan === 'basic' ? (

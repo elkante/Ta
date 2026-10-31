@@ -568,10 +568,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                 <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
                   <li className="flex items-center gap-2 font-medium">✓ <strong>Up to 70 products</strong> with variants</li>
-                  <li className="flex items-center gap-2 font-medium">✓ <strong>Verified Blue Tick</strong> for high trust</li>
-                  <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by {getPlatformBrandName()}"</strong></li>
+                  <li className="flex items-center gap-2 font-medium">✓ Customer review collection & ratings</li>
+                  <li className="flex items-center gap-2 font-medium">✓ Multi-photo uploads & item UID search</li>
                   <li className="flex items-center gap-2 font-medium">✓ Customer inquiry analytics & history</li>
-                  <li className="flex items-center gap-2 font-medium">✓ Custom domain support ready</li>
+                  <li className="flex items-center gap-2 font-medium">✓ Priority order sound alerts</li>
                 </ul>
               </div>
 

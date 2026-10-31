@@ -782,14 +782,14 @@ export const Storefront: React.FC<StorefrontProps> = ({
               </button>
             )}
 
-            {store.tier === 'free' && (
+            {store.tier !== 'business' && (
               <button
                 onClick={onOpenCreateStore}
                 className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-2xl text-slate-700 font-semibold text-xs transition cursor-pointer border border-slate-200"
               >
                 <span>⚡ Powered by <strong>Tá.shop</strong></span>
                 <span className="text-slate-300">•</span>
-                <span className="text-amber-700 font-bold">Launch store (₦500/mo)</span>
+                <span className="text-amber-700 font-bold">Launch your store</span>
               </button>
             )}
           </div>

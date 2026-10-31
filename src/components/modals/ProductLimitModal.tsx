@@ -112,19 +112,29 @@ export const ProductLimitModal: React.FC<ProductLimitModalProps> = ({
                 <>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Verified Merchant Blue Tick</span>
+                    <span>Up to 70 products catalog capacity</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Customer reviews collection</span>
+                    <span>Customer reviews collection & ratings</span>
                   </li>
                 </>
               )}
               {store.tier === 'pro' && (
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>24/7 AI WhatsApp Bot (auto-replies & cards)</span>
-                </li>
+                <>
+                  <li className="flex items-center gap-2 font-semibold text-violet-900">
+                    <Check className="w-4 h-4 text-violet-600 shrink-0" />
+                    <span>Verified Merchant Blue Tick (Exclusive)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Remove "Powered by Tá.shop" promotion</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>24/7 AI WhatsApp Bot (auto-replies & cards)</span>
+                  </li>
+                </>
               )}
             </ul>
           </div>

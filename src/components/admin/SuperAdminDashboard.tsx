@@ -405,7 +405,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     const updated: Store = {
       ...store,
       tier,
-      verified: tier === 'pro' || tier === 'business' ? true : store.verified,
+      verified: tier === 'business' ? true : store.verified,
       planExpiresAt: tier === 'free' ? undefined : expiry.toISOString(),
     };
     await saveStoreEverywhere(updated);
