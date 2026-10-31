@@ -62,7 +62,9 @@ import confetti from 'canvas-confetti';
 import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense } from '../../types';
 import { AddEditProductModal } from './AddEditProductModal';
 import { ProductLimitModal } from '../modals/ProductLimitModal';
+import { VerifiedBadge } from '../common/VerifiedBadge';
 import { getProductLimitByTier, getPlanNameByTier } from '../../utils/planLimits';
+import { getStorePlanStatus } from '../../utils/planStatus';
 import { PaystackModal } from '../modals/PaystackModal';
 import { SocialShareModal } from '../modals/SocialShareModal';
 import { StatusStudioModal } from '../modals/StatusStudioModal';
@@ -327,9 +329,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [isProductLimitModalOpen, setIsProductLimitModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
 
+  // Subscription Expiry & 5-Day Grace Period Status
+  const planStatus = useMemo(() => getStorePlanStatus(store), [store.tier, store.planExpiresAt]);
+
   const handleOpenAddProduct = () => {
-    const limit = getProductLimitByTier(store.tier);
-    if (products.length >= limit) {
+    // If expired past 5-day grace period, max products allowed is 4 (free plan)
+    const effectiveLimit = planStatus.hasExpiredPastGrace ? 4 : getProductLimitByTier(store.tier);
+    if (products.length >= effectiveLimit) {
       setIsProductLimitModalOpen(true);
       return;
     }
@@ -545,7 +551,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       saveProducts(updated);
     } else {
       // Check tier product limit before adding new product
-      const limit = getProductLimitByTier(store.tier);
+      const limit = planStatus.hasExpiredPastGrace ? 4 : getProductLimitByTier(store.tier);
       if (products.length >= limit) {
         setIsAddProductOpen(false);
         setIsProductLimitModalOpen(true);
@@ -1074,7 +1080,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               className="w-10 h-10 rounded-xl object-cover border border-white/20 flex-shrink-0"
             />
             <div className="min-w-0">
-              <p className="text-white font-bold text-sm truncate leading-tight">{store.name}</p>
+              <p className="text-white font-bold text-sm truncate leading-tight flex items-center gap-1.5">
+                <span className="truncate">{store.name}</span>
+                <VerifiedBadge tier={store.tier} verified={store.verified} size="xs" />
+              </p>
               <span className={`inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${
                 store.tier === 'business'
                   ? 'bg-violet-500/30 text-violet-300'
@@ -1221,6 +1230,65 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
         {/* Content area */}
         <div className="flex-1 p-4 sm:p-6 pb-28 md:pb-8 overflow-x-hidden">
+
+        {/* GRACE PERIOD ACTIVE BANNER (Within 5 days after plan expiry) */}
+        {planStatus.isGracePeriod && (
+          <div className="mb-6 bg-gradient-to-r from-amber-500 to-amber-600 text-white p-4 rounded-2xl shadow-lg border border-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0 text-xl">
+                ⏳
+              </div>
+              <div>
+                <h4 className="font-extrabold text-sm flex items-center gap-2">
+                  <span>Subscription Expired — 5-Day Grace Period Active</span>
+                  <span className="bg-white/25 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+                    {planStatus.daysRemainingInGrace} day(s) left
+                  </span>
+                </h4>
+                <p className="text-xs text-amber-100 mt-0.5">
+                  Your {getPlanNameByTier(store.tier)} expired on {planStatus.expiryDateStr}. You have {planStatus.daysRemainingInGrace} day(s) of grace left before your extra products are paused to the Free plan (max 4 products).
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setPaystackInitialPlan(store.tier === 'free' ? 'pro' : store.tier);
+                setIsPaystackOpen(true);
+              }}
+              className="px-4 py-2 bg-white text-slate-900 hover:bg-amber-50 rounded-xl text-xs font-black shadow-md cursor-pointer transition shrink-0"
+            >
+              Renew Subscription →
+            </button>
+          </div>
+        )}
+
+        {/* PLAN EXPIRED & PAUSED BANNER (Past 5-day grace period) */}
+        {planStatus.hasExpiredPastGrace && (
+          <div className="mb-6 bg-gradient-to-r from-rose-600 to-rose-700 text-white p-4 rounded-2xl shadow-lg border border-rose-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0 text-xl">
+                ⏸️
+              </div>
+              <div>
+                <h4 className="font-extrabold text-sm flex items-center gap-2">
+                  <span>Plan Expired — Store Paused to Free Plan</span>
+                </h4>
+                <p className="text-xs text-rose-100 mt-0.5">
+                  Your 5-day grace period ended. Only your first 4 products are visible to customers. Your other {Math.max(0, products.length - 4)} products are safely preserved (not deleted) and will be restored immediately when you renew.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setPaystackInitialPlan(store.tier === 'free' ? 'pro' : store.tier);
+                setIsPaystackOpen(true);
+              }}
+              className="px-4 py-2 bg-white text-rose-900 hover:bg-rose-50 rounded-xl text-xs font-black shadow-md cursor-pointer transition shrink-0"
+            >
+              Renew &amp; Unpause Catalog →
+            </button>
+          </div>
+        )}
 
         {/* LOUD NEW ORDER ALERT BANNER */}
         {newOrderToast && (
@@ -1919,8 +1987,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                         </td>
                       </tr>
                     ) : (
-                      filteredProducts.map((p) => (
-                        <tr key={p.id} className="hover:bg-slate-50/60 transition">
+                      filteredProducts.map((p) => {
+                        const originalIndex = products.findIndex((prod) => prod.id === p.id);
+                        const isPausedDueToPlan = (store.tier === 'free' || planStatus.hasExpiredPastGrace) && originalIndex >= 4;
+
+                        return (
+                        <tr key={p.id} className={`hover:bg-slate-50/60 transition ${isPausedDueToPlan ? 'bg-amber-50/20' : ''}`}>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
                               <img
@@ -1929,7 +2001,14 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                                 className="w-10 h-10 rounded-xl object-cover bg-slate-100 border border-slate-200 shrink-0"
                               />
                               <div className="max-w-xs">
-                                <div className="font-semibold text-slate-900 truncate">{p.name}</div>
+                                <div className="font-semibold text-slate-900 truncate flex items-center gap-1.5">
+                                  <span className="truncate">{p.name}</span>
+                                  {isPausedDueToPlan && (
+                                    <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-1.5 py-0.2 rounded shrink-0">
+                                      PAUSED
+                                    </span>
+                                  )}
+                                </div>
                                 {p.badge && (
                                   <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-medium">
                                     {p.badge}
@@ -1982,18 +2061,20 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                               <span className={`w-1.5 h-1.5 rounded-full ${p.inStock ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                               <span>{p.inStock ? 'In Stock' : 'Sold Out'}</span>
                             </button>
-                            {/* Approval status badge */}
-                            {p.approvalStatus === 'pending' && (
+                            {/* Approval & Plan status badge */}
+                            {isPausedDueToPlan ? (
+                              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full" title="Paused on Free/Expired plan. Only first 4 products visible to buyers.">
+                                ⏸️ Paused (Hidden from buyers)
+                              </span>
+                            ) : p.approvalStatus === 'pending' ? (
                               <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full animate-pulse">
                                 ⏳ Pending Approval
                               </span>
-                            )}
-                            {p.approvalStatus === 'rejected' && (
+                            ) : p.approvalStatus === 'rejected' ? (
                               <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full" title={p.approvalRejectionReason || 'Rejected by admin'}>
                                 ✗ Rejected
                               </span>
-                            )}
-                            {(!p.approvalStatus || p.approvalStatus === 'approved') && (
+                            ) : (
                               <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
                                 ✓ Live
                               </span>
@@ -2044,7 +2125,8 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                             </div>
                           </td>
                         </tr>
-                      ))
+                      );
+                    })
                     )}
                   </tbody>
                 </table>
@@ -4565,11 +4647,14 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         initialCycle={billingCycle}
         onUpgradeSuccess={async (plan) => {
           const allStores = getStoredStores();
+          const durationDays = billingCycle === 'annual' ? 365 : 30;
+          const planExpiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
           const updatedStore: Store = {
             ...store,
             tier: plan === 'badge' ? store.tier : plan,
-            verified: plan === 'business' ? true : store.verified,
-            hasVerifiedBadgeAddon: plan === 'business' ? true : store.hasVerifiedBadgeAddon,
+            verified: plan === 'pro' || plan === 'business' ? true : store.verified,
+            hasVerifiedBadgeAddon: plan === 'pro' || plan === 'business' ? true : store.hasVerifiedBadgeAddon,
+            planExpiresAt,
           };
           saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
           onSelectStore(updatedStore);

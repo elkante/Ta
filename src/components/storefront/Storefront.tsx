@@ -30,6 +30,8 @@ import { StoreAIBotBubble } from './StoreAIBotBubble';
 import { WhatsAppPreviewModal } from '../modals/WhatsAppPreviewModal';
 import { SocialShareModal } from '../modals/SocialShareModal';
 import { CustomerReviewModal } from '../modals/CustomerReviewModal';
+import { VerifiedBadge } from '../common/VerifiedBadge';
+import { getStorePlanStatus } from '../../utils/planStatus';
 import {
   createCartInquiryMessage,
   createProductInquiryMessage,
@@ -177,6 +179,19 @@ export const Storefront: React.FC<StorefrontProps> = ({
       return matchSearch && matchCategory && matchStock;
     });
   }, [products, cleanSearch, selectedCategory, onlyInStock, isStoreOwner]);
+
+  // Plan Status & 5-Day Grace Period Product Cap
+  // If the store is on Free (or paid plan expired past 5-day grace period),
+  // buyers (!isStoreOwner) see ONLY the first 4 products. Remaining products are safely paused.
+  const planStatus = useMemo(() => getStorePlanStatus(store), [store.tier, store.planExpiresAt]);
+
+  const visibleProducts = useMemo(() => {
+    if (isStoreOwner) return filteredProducts;
+    if (planStatus.hasExpiredPastGrace || store.tier === 'free') {
+      return filteredProducts.slice(0, 4);
+    }
+    return filteredProducts;
+  }, [filteredProducts, isStoreOwner, planStatus.hasExpiredPastGrace, store.tier]);
 
   // Exact or direct UID match
   const directUidMatch = useMemo(() => {
@@ -347,14 +362,9 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 alt={store.name}
                 className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-2xl bg-slate-800 ring-4 ring-amber-400/70 ring-offset-2 ring-offset-slate-900"
               />
-              {store.verified && (
-                <div
-                  className="absolute -bottom-1 -right-1 bg-blue-500 text-white p-1 rounded-full ring-2 ring-slate-900 shadow-sm"
-                  title="Verified Seller on Tá.shop"
-                >
-                  <BadgeCheck className="w-4 h-4" />
-                </div>
-              )}
+              <div className="absolute -bottom-1 -right-1 ring-2 ring-slate-900 rounded-full shadow-sm">
+                <VerifiedBadge tier={store.tier} verified={store.verified} size="md" />
+              </div>
             </div>
 
             {/* Store Title, Tagline & Meta */}
@@ -363,12 +373,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans">
                   {store.name}
                 </h1>
-                {store.verified && (
-                  <span className="bg-blue-500/20 text-blue-300 text-xs px-2.5 py-0.5 rounded-full font-medium inline-flex items-center gap-1 border border-blue-400/30">
-                    <BadgeCheck className="w-3.5 h-3.5 text-blue-400" />
-                    Verified Seller
-                  </span>
-                )}
+                <VerifiedBadge tier={store.tier} verified={store.verified} size="md" showLabel />
               </div>
 
               <p className="text-base sm:text-xl text-white mt-1 font-black leading-snug">{store.tagline}</p>
@@ -587,8 +592,31 @@ export const Storefront: React.FC<StorefrontProps> = ({
           </div>
         </div>
 
+        {/* Store Owner Preview Banner: Notice if products beyond 4 are paused */}
+        {isStoreOwner && (planStatus.hasExpiredPastGrace || store.tier === 'free') && products.length > 4 && (
+          <div className="mb-4 bg-amber-50 border border-amber-300 rounded-2xl p-3.5 text-xs text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">👁️</span>
+              <div>
+                <strong className="block font-bold">Owner Preview Mode</strong>
+                <span className="text-[11px] text-amber-800">
+                  You see all {products.length} products. Public buyers only see the first 4 products because the store is on the Free plan (or plan expired).
+                </span>
+              </div>
+            </div>
+            {onOpenDashboard && (
+              <button
+                onClick={() => onOpenDashboard()}
+                className="px-3 py-1.5 bg-slate-900 text-white font-bold text-[11px] rounded-xl shrink-0 cursor-pointer hover:bg-slate-800 transition"
+              >
+                Upgrade to Unpause All →
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Catalog Products Grid */}
-        {filteredProducts.length === 0 ? (
+        {visibleProducts.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-slate-200/80 p-8 space-y-4 animate-in fade-in duration-300">
             {/* Branded empty state */}
             <div className="mx-auto w-20 h-20 relative">
@@ -633,7 +661,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-5">
-            {filteredProducts.map((product, idx) => (
+            {visibleProducts.map((product, idx) => (
               <ProductCard
                 key={product.id}
                 product={product}

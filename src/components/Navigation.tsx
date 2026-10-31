@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { SellerSession, Store, SuperAdminSession } from '../types';
 import { getRootDomain, getPlatformBrandName } from '../utils/storage';
+import { VerifiedBadge } from './common/VerifiedBadge';
 interface NavigationProps {
   currentStore: Store;
   allStores: Store[];
@@ -239,9 +240,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               <div className="truncate">
                 <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1">
                   <span className="truncate">{currentStore.name}</span>
-                  {currentStore.verified && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" title="Verified Store" />
-                  )}
+                  <VerifiedBadge tier={currentStore.tier} verified={currentStore.verified} size="xs" />
                 </div>
                 <div className="text-[10px] text-slate-400 font-mono truncate">
                   {currentStore.customDomain || `${currentStore.slug}.${getRootDomain()}`}

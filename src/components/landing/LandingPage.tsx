@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { SellerSession, Store } from '../../types';
 import { validateSlug, getRootDomain, getPlatformBrandName } from '../../utils/storage';
+import { VerifiedBadge } from '../common/VerifiedBadge';
 
 interface LandingPageProps {
   stores: Store[];
@@ -433,7 +434,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           <div>
                             <div className="flex items-center gap-1.5 font-bold text-slate-900 text-sm">
                               <span className="truncate">{s.name}</span>
-                              {s.verified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />}
+                              <VerifiedBadge tier={s.tier} verified={s.verified} size="sm" />
                             </div>
                             <span className="text-[11px] text-slate-400 font-medium">{s.location}</span>
                           </div>
@@ -568,10 +569,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                 <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
                   <li className="flex items-center gap-2 font-medium">✓ <strong>Up to 70 products</strong> with variants</li>
+                  <li className="flex items-center gap-2 font-medium">✓ <strong>Verified Blue Tick</strong> for high trust</li>
                   <li className="flex items-center gap-2 font-medium">✓ Customer review collection & ratings</li>
                   <li className="flex items-center gap-2 font-medium">✓ Multi-photo uploads & item UID search</li>
                   <li className="flex items-center gap-2 font-medium">✓ Customer inquiry analytics & history</li>
-                  <li className="flex items-center gap-2 font-medium">✓ Priority order sound alerts</li>
                 </ul>
               </div>
 

@@ -101,13 +101,18 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
     setIsProcessing(false);
     setStep('success');
 
-    // Persist to storage
+    // Persist to storage & calculate subscription validity
     const allStores = getStoredStores();
+    const now = new Date();
+    const expiry = new Date(now);
+    expiry.setDate(expiry.getDate() + (billingCycle === 'yearly' ? 365 : 30));
+
     const updatedStore: Store = {
       ...store,
       tier: selectedPlan === 'badge' ? store.tier : selectedPlan,
-      verified: selectedPlan === 'business' ? true : store.verified,
+      verified: selectedPlan === 'pro' || selectedPlan === 'business' ? true : store.verified,
       hasVerifiedBadgeAddon: selectedPlan === 'business' ? true : store.hasVerifiedBadgeAddon,
+      planExpiresAt: expiry.toISOString(),
       idVerification: (frontIdUrl && backIdUrl) ? {
         idType,
         idNumber: idNumber.trim() || undefined,
@@ -377,9 +382,9 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                     <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>UNLIMITED Products (Only plan with no product cap)</span>
                   </div>
-                  <div className="flex items-center gap-2 text-blue-700 font-bold bg-blue-50/80 px-2.5 py-1.5 rounded-xl border border-blue-200">
-                    <BadgeCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span>Verified Merchant Blue Tick Included FREE (Exclusive to Business)</span>
+                  <div className="flex items-center gap-2 text-amber-900 font-bold bg-amber-50 px-2.5 py-1.5 rounded-xl border border-amber-300">
+                    <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" />
+                    <span>Official Golden Tick Badge (Exclusive to Business AI)</span>
                   </div>
                   <div className="flex items-center gap-2 font-semibold text-slate-900">
                     <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -423,6 +428,10 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                     <Check className="w-4 h-4 text-emerald-600" />
                     <span>Up to 70 products (more than 2x Basic)</span>
                   </div>
+                  <div className="flex items-center gap-2 text-blue-900 font-bold bg-blue-50/80 px-2.5 py-1.5 rounded-xl border border-blue-200">
+                    <BadgeCheck className="w-4 h-4 text-blue-600 fill-blue-100 shrink-0" />
+                    <span>Verified Merchant Blue Tick</span>
+                  </div>
                   <div className="flex items-center gap-2 font-medium">
                     <Check className="w-4 h-4 text-emerald-600" />
                     <span>Customer reviews collection & ratings showcase</span>
@@ -434,10 +443,6 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600" />
                     <span>Multi-photo uploads & item UID search</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Priority customer order sound alerts</span>
                   </div>
                 </>
               ) : selectedPlan === 'basic' ? (

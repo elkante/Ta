@@ -73,6 +73,7 @@ export const PLAN_CONFIGS: Record<StoreTier, PlanConfig> = {
     description: 'For growing brands wanting high catalog volume and customer reviews.',
     features: [
       'Up to 70 products (more than 2x Basic)',
+      'Verified Merchant Blue Tick badge',
       'Everything in Basic',
       'Customer review collection & ratings showcase',
       'Priority WhatsApp click tracking & analytics',
@@ -91,9 +92,9 @@ export const PLAN_CONFIGS: Record<StoreTier, PlanConfig> = {
     description: 'Fully automated WhatsApp commerce with verified trust and unlimited products.',
     features: [
       'UNLIMITED products (the only plan with no cap)',
-      'Everything in Pro included',
-      'Verified Merchant Blue Tick included 100% FREE (Exclusive to Business)',
+      'Official Golden Tick Badge (Exclusive to Business AI)',
       'Remove "Powered by Tá.shop" promotion (100% white-label)',
+      'Everything in Pro included',
       '24/7 WhatsApp AI Assistant Bot (Baileys connection)',
       'Auto-replies with product photos, prices & status',
       'Automated WhatsApp receipts to customers',
