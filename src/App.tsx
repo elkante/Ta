@@ -763,8 +763,8 @@ export default function App() {
       {/* App Splash Screen on Initial Load */}
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
 
-      {/* PWA Install Banner — top of page, dismissible per session, gone once installed */}
-      <PWAInstallBanner />
+      {/* PWA Install Banner — only for sellers (dashboard), not buyers on storefront */}
+      {sellerSession && activeView === 'dashboard' && <PWAInstallBanner />}
 
       {/* Top Multi-Tenant Navigation Header — shown on storefront & dashboard; hidden on landing */}
       {activeView !== 'landing' && (
