@@ -96,13 +96,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           }}
         />
 
-        {/* Top-left: product badge */}
-        {product.badge && (
+        {/* Top-left: product badge or approval status */}
+        {product.approvalStatus === 'pending' ? (
+          <span className="absolute top-2 left-2 bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 z-10 uppercase tracking-wider">
+            Under Review
+          </span>
+        ) : product.badge ? (
           <span className="absolute top-2 left-2 bg-slate-900/90 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 z-10">
             <Sparkles className="w-2.5 h-2.5 text-amber-400" />
             {product.badge}
           </span>
-        )}
+        ) : null}
 
         {/* Top-right: discount */}
         {discountPercent && product.inStock && (

@@ -43,6 +43,7 @@ interface StorefrontProps {
   store: Store;
   products: Product[];
   reviews: StoreReview[];
+  isStoreOwner?: boolean;
   onOpenCreateStore: () => void;
   onOpenLogin?: () => void;
   onOpenLanding?: () => void;
@@ -56,6 +57,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
   store,
   products,
   reviews,
+  isStoreOwner = false,
   onOpenCreateStore,
   onOpenLogin,
   onOpenLanding,
@@ -120,6 +122,11 @@ export const Storefront: React.FC<StorefrontProps> = ({
     } catch (e) {}
   }, []);
 
+  // Trigger data sync on mount so newly approved products show immediately
+  useEffect(() => {
+    onRefreshData?.();
+  }, [store.id]);
+
   // WhatsApp Message Preview Modal state
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [pendingWhatsAppMessage, setPendingWhatsAppMessage] = useState('');
@@ -150,8 +157,9 @@ export const Storefront: React.FC<StorefrontProps> = ({
   // Filtered products with UID support
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      // Only show approved products (or old products without the field — backward compat)
-      const isApproved = !p.approvalStatus || p.approvalStatus === 'approved';
+      // Store owners previewing their store can see all their products (pending ones marked Under Review)
+      // Public buyers only see approved products (or legacy products without the field)
+      const isApproved = !p.approvalStatus || p.approvalStatus === 'approved' || isStoreOwner;
       if (!isApproved) return false;
 
       const matchSearch =
@@ -168,7 +176,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
 
       return matchSearch && matchCategory && matchStock;
     });
-  }, [products, cleanSearch, selectedCategory, onlyInStock]);
+  }, [products, cleanSearch, selectedCategory, onlyInStock, isStoreOwner]);
 
   // Exact or direct UID match
   const directUidMatch = useMemo(() => {

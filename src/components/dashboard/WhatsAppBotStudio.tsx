@@ -221,17 +221,17 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
             setServerMessage('New QR ready — scan this one with WhatsApp.');
             setServerStatus('online');
           } else if (data.event === 'reconnecting') {
-            // QR was scanned — WhatsApp is confirming — start 25s safety timeout
+            // QR was scanned or Pairing Code was entered on phone — WhatsApp is confirming
             setQrScannedConfirming(true);
-            setServerMessage('QR scanned! Confirming pairing with WhatsApp...');
+            setServerMessage(pairingMethod === 'code' ? 'Code entered on phone! 📱 Linking WhatsApp...' : 'QR scanned! Confirming pairing with WhatsApp...');
             if (confirmingTimeout) clearTimeout(confirmingTimeout);
             confirmingTimeout = setTimeout(() => {
-              // Timed out — pairing failed. Auto-request a fresh QR.
+              // Timed out — pairing failed
               setQrScannedConfirming(false);
               setBaileysQr(null);
-              setServerMessage('Pairing timed out. A fresh QR is being generated — try again.');
-              handleStartBaileysPairing();
-            }, 25000);
+              setServerMessage('Pairing timed out. Please try again.');
+              if (pairingMethod === 'qr') handleStartBaileysPairing();
+            }, 30000);
           } else if (data.event === 'connecting') {
             // Plain reconnect (not scan-related) — just show loading state
             setQrScannedConfirming(false);
@@ -252,7 +252,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       es?.close();
       if (confirmingTimeout) clearTimeout(confirmingTimeout);
     };
-  }, [baileysStatus, serverEndpoint, store.id, handleConnectedEvent]);
+  }, [baileysStatus, serverEndpoint, store.id, handleConnectedEvent, pairingMethod]);
 
   // Fast fallback polling (every 1.2s) when waiting for scan — covers SSE gaps
   useEffect(() => {
@@ -265,15 +265,15 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         const data = await res.json();
         if (data.connected || data.status === 'connected') {
           handleConnectedEvent(data.phone || '');
-        } else if (data.qrDataUrl && baileysStatus === 'waiting_scan') {
+        } else if (data.qrDataUrl && baileysStatus === 'waiting_scan' && pairingMethod === 'qr') {
           setBaileysQr(data.qrDataUrl);
           setQrScannedConfirming(false);
           setServerMessage('');
           setServerStatus('online');
-        } else if ((data.status === 'connecting') && baileysStatus === 'waiting_scan' && baileysQr) {
-          // QR was scanned — Baileys is reconnecting to confirm it
+        } else if ((data.status === 'connecting') && baileysStatus === 'waiting_scan' && (baileysQr || pairingCode)) {
+          // QR was scanned or Pairing Code entered — Baileys is reconnecting to confirm it
           setQrScannedConfirming(true);
-          setServerMessage('QR scanned! Confirming pairing with WhatsApp...');
+          setServerMessage(pairingMethod === 'code' ? 'Code entered on phone! 📱 Linking WhatsApp...' : 'QR scanned! Confirming pairing with WhatsApp...');
         } else if (!data.connected && data.status === 'disconnected' && baileysStatus === 'connected') {
           setBaileysStatus('disconnected');
           setConnectedPhone(null);
@@ -945,7 +945,15 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                         <p className="text-xs text-rose-600 font-medium">{pairingError}</p>
                       )}
 
-                      {pairingCode && (
+                      {qrScannedConfirming ? (
+                        <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-300 shadow-xs flex items-center gap-3 animate-in fade-in">
+                          <RefreshCw className="w-5 h-5 text-emerald-600 animate-spin shrink-0" />
+                          <div>
+                            <span className="text-xs font-bold text-emerald-950 block">Code Entered on Phone! ✅</span>
+                            <span className="text-[11px] text-emerald-700 block">Completing WhatsApp handshake and pairing your store bot...</span>
+                          </div>
+                        </div>
+                      ) : pairingCode && (
                         <div className="p-4 bg-white rounded-xl border-2 border-emerald-500/80 shadow-xs space-y-2">
                           <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">
                             Your WhatsApp 8-Digit Pairing Code:

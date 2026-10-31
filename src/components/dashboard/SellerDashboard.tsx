@@ -466,10 +466,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     const allProducts = getStoredProducts();
     const updated = allProducts.map((p) => (p.id === product.id ? updatedProd : p));
     saveProducts(updated);
+    onRefreshData(); // 0ms instant UI update
     try {
       await dbSaveProduct(updatedProd);
     } catch (e) {}
-    onRefreshData();
   };
 
   const handleDeleteProduct = async (productId: string) => {
@@ -477,12 +477,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       const allProducts = getStoredProducts();
       const updated = allProducts.filter((p) => p.id !== productId);
       saveProducts(updated);
+      onRefreshData(); // 0ms instant UI update
       try {
         await dbDeleteProduct(productId);
       } catch (err) {
         console.warn('Failed deleting product from Supabase:', err);
       }
-      onRefreshData();
     }
   };
 
@@ -498,10 +498,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       approvalStatus: 'pending',
     };
     saveProducts([duplicated, ...allProducts]);
+    onRefreshData(); // 0ms instant UI update
     try {
       await dbSaveProduct(duplicated);
     } catch (e) {}
-    onRefreshData();
   };
 
   const handleSaveProduct = async (payload: Partial<Product>) => {
@@ -552,15 +552,14 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     }
 
     setProductToEdit(null);
+    onRefreshData(); // 0ms instant UI update for seller!
 
-    // Await cloud persistence before triggering data refresh
+    // Persist to Supabase in background
     try {
       await dbSaveProduct(savedProd);
     } catch (e) {
       console.warn('Supabase product save error:', e);
     }
-
-    onRefreshData();
   };
 
   // Inquiry Status Change

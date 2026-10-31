@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertCircle, Check, Image as ImageIcon, Link, Lock, Plus, Tag, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, Check, Image as ImageIcon, Link, Lock, Plus, Star, Tag, Trash2, Upload, X } from 'lucide-react';
 import { Product, ProductVariant, Store } from '../../types';
 import { addStoreCategory, getStoreCategories } from '../../utils/storage';
 
@@ -42,6 +42,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [imagesList, setImagesList] = useState<string[]>([]);
   const [imageTab, setImageTab] = useState<'upload' | 'url' | 'preset'>('upload');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,14 +65,20 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
       setPrice(productToEdit.price);
       setOriginalPrice(productToEdit.originalPrice);
       setCategory(productToEdit.category || cats[0] || 'General');
-      const existingImg = productToEdit.images[0] || '';
-      setImageUrl(existingImg);
+
+      const existingImgs = Array.isArray(productToEdit.images) && productToEdit.images.length > 0
+        ? productToEdit.images.filter((img) => img && img.trim())
+        : [];
+      setImagesList(existingImgs);
+      const firstImg = existingImgs[0] || '';
+      setImageUrl(firstImg);
+
       // If product has a device-uploaded image (base64), show upload tab; URL shows URL tab; preset shows preset tab
-      if (existingImg.startsWith('data:')) {
+      if (firstImg.startsWith('data:')) {
         setImageTab('upload');
-      } else if (PRESET_IMAGES.some((p) => p.url === existingImg)) {
+      } else if (PRESET_IMAGES.some((p) => p.url === firstImg)) {
         setImageTab('preset');
-      } else if (existingImg) {
+      } else if (firstImg) {
         setImageTab('url');
       } else {
         setImageTab('upload');
@@ -90,6 +97,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
       setOriginalPrice(undefined);
       setCategory(cats[0] || 'General');
       setImageUrl('');
+      setImagesList([]);
       setImageTab('upload');
       setInStock(true);
       setBadge('');
@@ -103,34 +111,104 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
   if (!isOpen) return null;
 
   const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file (JPG, PNG, WebP, etc.)');
+    if (imagesList.length >= 5) {
+      setError('Maximum 5 pictures allowed per product.');
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image must be under 5MB. Please compress or resize it first.');
-      return;
+    const maxToAdd = 5 - imagesList.length;
+    const selectedFiles = Array.from(files).slice(0, maxToAdd);
+
+    for (const file of selectedFiles) {
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file (JPG, PNG, WebP, etc.)');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Each image must be under 5MB. Please compress or resize it first.');
+        return;
+      }
     }
 
     setIsUploadingImage(true);
     setError(null);
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImageUrl(reader.result as string);
-      setIsUploadingImage(false);
-    };
-    reader.onerror = () => {
-      setError('Failed to read image file. Please try again.');
-      setIsUploadingImage(false);
-    };
-    reader.readAsDataURL(file);
+    let loadedCount = 0;
+    const newImgs: string[] = [];
+
+    selectedFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          newImgs.push(reader.result);
+        }
+        loadedCount++;
+        if (loadedCount === selectedFiles.length) {
+          setImagesList((prev) => {
+            const nextList = [...prev, ...newImgs].slice(0, 5);
+            setImageUrl(nextList[0] || '');
+            return nextList;
+          });
+          setIsUploadingImage(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      };
+      reader.onerror = () => {
+        loadedCount++;
+        if (loadedCount === selectedFiles.length) setIsUploadingImage(false);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAddUrlImage = () => {
+    const clean = imageUrl.trim();
+    if (!clean) return;
+    if (imagesList.length >= 5) {
+      setError('Maximum 5 pictures allowed per product.');
+      return;
+    }
+    if (imagesList.includes(clean)) return;
+    setImagesList((prev) => {
+      const next = [...prev, clean].slice(0, 5);
+      return next;
+    });
+    setImageUrl('');
+  };
+
+  const handleSelectPreset = (url: string) => {
+    if (imagesList.includes(url)) return;
+    if (imagesList.length >= 5) {
+      setError('Maximum 5 pictures allowed per product.');
+      return;
+    }
+    setImagesList((prev) => {
+      const next = [...prev, url].slice(0, 5);
+      setImageUrl(next[0] || '');
+      return next;
+    });
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImagesList((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      setImageUrl(next[0] || '');
+      return next;
+    });
+  };
+
+  const handleSetPrimaryImage = (index: number) => {
+    if (index === 0) return;
+    setImagesList((prev) => {
+      const target = prev[index];
+      const rest = prev.filter((_, i) => i !== index);
+      const reordered = [target, ...rest];
+      setImageUrl(reordered[0]);
+      return reordered;
+    });
   };
 
   const handleCreateCategory = (e?: React.FormEvent) => {
@@ -182,6 +260,13 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
     // Ensure category is registered in store categories
     addStoreCategory(store.id, finalCategory);
 
+    const finalImages =
+      imagesList.length > 0
+        ? imagesList
+        : imageUrl.trim()
+        ? [imageUrl.trim()]
+        : [PRESET_IMAGES[0].url];
+
     const payload: Partial<Product> = {
       name: name.trim(),
       uid: uid, // Non-editable, kept intact
@@ -189,7 +274,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
       price: Number(price),
       originalPrice: originalPrice ? Number(originalPrice) : undefined,
       category: finalCategory,
-      images: [imageUrl || PRESET_IMAGES[0].url],
+      images: finalImages,
       inStock,
       badge: badge.trim() || undefined,
       variants,
@@ -422,7 +507,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
             {/* Image Preview */}
             <div className="relative w-full h-36 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 mb-3">
               <img
-                src={imageUrl || DEFAULT_FALLBACK_IMAGE}
+                src={imagesList[0] || imageUrl || DEFAULT_FALLBACK_IMAGE}
                 alt="Product preview"
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -434,12 +519,71 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
                   <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
-              {imageUrl && (
-                <div className="absolute bottom-2 right-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Check className="w-3 h-3" /> Image set
+              {(imagesList.length > 0 || imageUrl) && (
+                <div className="absolute bottom-2 right-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                  <Check className="w-3 h-3" /> {imagesList.length > 1 ? `${imagesList.length} photos added` : 'Cover image set'}
                 </div>
               )}
             </div>
+
+            {/* Multi-Photo Thumbnails Tray */}
+            {imagesList.length > 0 && (
+              <div className="mb-3 space-y-1.5 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-800">
+                    Product Photos ({imagesList.length}/5)
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    Photo #1 is your primary cover & WhatsApp bot drop
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5">
+                  {imagesList.map((img, idx) => (
+                    <div
+                      key={idx}
+                      className={`relative group shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition ${
+                        idx === 0 ? 'border-amber-500 ring-2 ring-amber-400/50' : 'border-slate-200 hover:border-slate-400'
+                      }`}
+                    >
+                      <img src={img} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                      {idx === 0 ? (
+                        <span className="absolute bottom-0 inset-x-0 bg-amber-500 text-slate-950 text-[8px] font-black text-center uppercase py-0.5 tracking-tight">
+                          Cover
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSetPrimaryImage(idx)}
+                          className="absolute inset-x-0 bottom-0 bg-slate-900/80 hover:bg-slate-900 text-white text-[8px] font-bold py-0.5 text-center opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                        >
+                          Make Cover
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(idx)}
+                        className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer shadow-xs"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {imagesList.length < 5 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (imageTab === 'upload') fileInputRef.current?.click();
+                      }}
+                      className="shrink-0 w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 hover:border-slate-900 bg-white hover:bg-slate-50 flex flex-col items-center justify-center gap-0.5 text-slate-500 hover:text-slate-900 transition cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span className="text-[9px] font-bold">+ Photo</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Tabs */}
             <div className="flex rounded-xl bg-slate-100 p-1 mb-3 text-xs font-semibold">
@@ -448,14 +592,14 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
                 onClick={() => setImageTab('upload')}
                 className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition ${imageTab === 'upload' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
               >
-                <Upload className="w-3.5 h-3.5" /> Upload
+                <Upload className="w-3.5 h-3.5" /> Device ({imagesList.length}/5)
               </button>
               <button
                 type="button"
                 onClick={() => setImageTab('url')}
                 className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition ${imageTab === 'url' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
               >
-                <Link className="w-3.5 h-3.5" /> URL
+                <Link className="w-3.5 h-3.5" /> Direct URL
               </button>
               <button
                 type="button"
@@ -473,20 +617,27 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  multiple
                   className="hidden"
                   onChange={handleImageFileUpload}
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploadingImage}
+                  disabled={isUploadingImage || imagesList.length >= 5}
                   className="w-full py-3 border-2 border-dashed border-slate-300 hover:border-slate-900 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Upload className="w-4 h-4" />
-                  {isUploadingImage ? 'Loading image...' : imageUrl && !imageUrl.startsWith('http') ? 'Change device image' : 'Tap to upload from device'}
+                  {isUploadingImage
+                    ? 'Loading photos...'
+                    : imagesList.length >= 5
+                    ? 'Maximum 5 photos reached'
+                    : imagesList.length > 0
+                    ? `Add more photos (${imagesList.length}/5)`
+                    : 'Tap to select photos from device (up to 5)'}
                 </button>
                 <p className="text-[11px] text-slate-400 mt-1.5 text-center">
-                  Supports JPG, PNG, WebP · Max 5MB · Stored locally on this device
+                  Select up to 5 photos · Supports JPG, PNG, WebP · Max 5MB each
                 </p>
               </div>
             )}
@@ -499,8 +650,16 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
                   placeholder="Paste direct image link (https://...)"
                   value={imageUrl.startsWith('data:') ? '' : imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-mono font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-mono font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
                 />
+                <button
+                  type="button"
+                  onClick={handleAddUrlImage}
+                  disabled={!imageUrl.trim() || imagesList.length >= 5}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-xs font-bold transition shrink-0 cursor-pointer"
+                >
+                  Add
+                </button>
               </div>
             )}
 
@@ -508,12 +667,12 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
             {imageTab === 'preset' && (
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {PRESET_IMAGES.map((img) => {
-                  const isSelected = imageUrl === img.url;
+                  const isSelected = imagesList.includes(img.url) || imageUrl === img.url;
                   return (
                     <button
                       type="button"
                       key={img.name}
-                      onClick={() => setImageUrl(img.url)}
+                      onClick={() => handleSelectPreset(img.url)}
                       className={`group relative rounded-xl overflow-hidden border text-left transition cursor-pointer p-1 flex flex-col items-center gap-1 ${
                         isSelected
                           ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-400'

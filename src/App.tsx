@@ -545,8 +545,31 @@ export default function App() {
     handleLoginSuccess(session);
   };
 
+  const handleOpenStorefront = async () => {
+    if (currentStore) {
+      // Immediately refresh products from localStorage cache
+      setStoreProducts(getProductsByStore(currentStore.id));
+      // And asynchronously pull fresh approvals from Supabase
+      try {
+        const liveProds = await dbFetchProducts(currentStore.id);
+        if (liveProds && liveProds.length > 0) {
+          setStoreProducts(liveProds);
+          saveProducts(liveProds);
+        }
+      } catch (e) {}
+    }
+    setActiveView('storefront');
+  };
+
   const handleRefreshData = async () => {
-    // Always re-fetch from Supabase so SuperAdmin changes persist across refreshes
+    // 1. Immediately refresh in-memory state from localStorage so changes reflect with 0ms latency
+    if (currentStore) {
+      setStoreProducts(getProductsByStore(currentStore.id));
+      setStoreInquiries(getInquiriesByStore(currentStore.id));
+      setStoreReviews(getReviewsByStore(currentStore.id));
+    }
+
+    // 2. Re-fetch from Supabase in background so SuperAdmin approvals & edits sync across devices
     try {
       const liveStores = await dbFetchStores();
       if (liveStores && liveStores.length > 0) {
@@ -765,6 +788,7 @@ export default function App() {
                       store={currentStore}
                       products={storeProducts}
                       reviews={storeReviews}
+                      isStoreOwner={Boolean(sellerSession && currentStore && (sellerSession.storeId === currentStore.id || sellerSession.storeSlug === currentStore.slug))}
                       onOpenCreateStore={() => {
                         setAuthModalMode('signup');
                         setIsAuthModalOpen(true);
@@ -787,6 +811,7 @@ export default function App() {
                 store={currentStore}
                 products={storeProducts}
                 reviews={storeReviews}
+                isStoreOwner={Boolean(sellerSession && currentStore && (sellerSession.storeId === currentStore.id || sellerSession.storeSlug === currentStore.slug))}
                 onOpenCreateStore={() => {
                   setAuthModalMode('signup');
                   setIsAuthModalOpen(true);
@@ -806,7 +831,7 @@ export default function App() {
               store={currentStore}
               products={storeProducts}
               inquiries={storeInquiries}
-              onOpenStorefront={() => setActiveView('storefront')}
+              onOpenStorefront={handleOpenStorefront}
               onRefreshData={handleRefreshData}
               onSelectStore={handleSelectStore}
               onOpenGuide={() => setShowOnboarding(true)}

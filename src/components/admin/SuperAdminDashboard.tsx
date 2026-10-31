@@ -421,7 +421,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setLiveProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
     // Persist to localStorage
     const allProds = getStoredProducts();
-    saveProducts(allProds.map((p) => (p.id === product.id ? updated : p)));
+    const updatedAll = allProds.some((p) => p.id === product.id)
+      ? allProds.map((p) => (p.id === product.id ? updated : p))
+      : [updated, ...allProds];
+    saveProducts(updatedAll);
     // Persist to Supabase (approval stored in attributes JSONB via mapProductToDB)
     try {
       const ok = await dbSaveProduct(updated);
@@ -439,7 +442,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setLiveProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
     // Persist to localStorage
     const allProds = getStoredProducts();
-    saveProducts(allProds.map((p) => (p.id === product.id ? updated : p)));
+    const updatedAll = allProds.some((p) => p.id === product.id)
+      ? allProds.map((p) => (p.id === product.id ? updated : p))
+      : [updated, ...allProds];
+    saveProducts(updatedAll);
     // Persist to Supabase
     try {
       const ok = await dbSaveProduct(updated);

@@ -338,19 +338,26 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
       sessionData.qrDataUrl = null;
 
       if (!isLoggedOut) {
-        // WhatsApp protocol code 515 (restartRequired) signals QR was scanned and accepted!
-        // We MUST reconnect quickly (500ms) with the saved auth credentials intact.
+        // WhatsApp protocol code 515 (restartRequired) signals QR was scanned or Pairing Code was entered on phone!
+        // We MUST flush credentials to disk immediately so registered: true is safely preserved before reconnecting.
+        try {
+          await saveCreds();
+        } catch (flushErr) {
+          console.warn(`[Store: ${storeId}] Failed flushing creds on close:`, flushErr?.message);
+        }
+
         const isRestart = statusCode === DisconnectReason.restartRequired;
-        console.log(`[Store: ${storeId}] Connection closed (code: ${statusCode})${isRestart ? ' — restartRequired (QR scan accepted, re-opening socket...)' : ', reconnecting...'}`);
+        console.log(`[Store: ${storeId}] Connection closed (code: ${statusCode})${isRestart ? ' — restartRequired (Link accepted on phone, re-opening socket...)' : ', reconnecting...'}`);
 
         sessionData.status = 'connecting';
         pushSSEEvent(storeId, {
           event: isRestart ? 'reconnecting' : 'connecting',
           status: 'connecting',
           statusCode,
+          message: isRestart ? 'Code / QR accepted! Linking WhatsApp on your phone...' : 'Connecting to WhatsApp...',
         });
 
-        const reconnectDelay = isRestart ? 500 : 2500;
+        const reconnectDelay = isRestart ? 800 : 2500;
         setTimeout(async () => {
           try {
             await initStoreSession(storeId, sessionData.catalog, sessionData.storeInfo, { forceRefresh: false });
@@ -746,20 +753,33 @@ app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
     }
 
+    session.pairingRequested = true;
+
     let code = '';
     try {
       code = await session.sock.requestPairingCode(cleanPhone);
     } catch (pairErr) {
-      // Retry once after brief pause
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      code = await session.sock.requestPairingCode(cleanPhone);
+      // Retry once after brief pause if socket was in mid-handshake
+      console.warn(`[Store: ${storeId}] First pairing code attempt failed (${pairErr?.message}), retrying...`);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (session.sock) {
+        code = await session.sock.requestPairingCode(cleanPhone);
+      }
     }
 
     const formattedCode = code ? (code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code) : code;
+    console.log(`[Store: ${storeId}] Generated 8-digit WhatsApp pairing code for +${cleanPhone}: ${formattedCode}`);
+
+    pushSSEEvent(storeId, {
+      event: 'pairing_code',
+      pairingCode: formattedCode,
+      phoneNumber: cleanPhone,
+    });
 
     res.json({
       success: true,
       pairingCode: formattedCode,
+      phoneNumber: cleanPhone,
     });
   } catch (err) {
     console.error(`[Store: ${storeId}] Failed requesting pairing code:`, err?.message);
