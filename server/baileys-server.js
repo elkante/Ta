@@ -30,11 +30,30 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
-const SESSIONS_DIR = path.resolve('./sessions');
+// Ensure SESSIONS_DIR is permanently anchored in the server folder regardless of process.cwd()
+const SESSIONS_DIR = path.join(__dirname, 'sessions');
 const REGISTRY_FILE = path.join(SESSIONS_DIR, 'sessions-registry.json');
 
 if (!fs.existsSync(SESSIONS_DIR)) {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+}
+
+// Migrate any existing sessions from root ./sessions to server/sessions
+const rootSessions = path.resolve('./sessions');
+if (rootSessions !== SESSIONS_DIR && fs.existsSync(rootSessions)) {
+  try {
+    const rootEntries = fs.readdirSync(rootSessions);
+    for (const entry of rootEntries) {
+      const src = path.join(rootSessions, entry);
+      const dest = path.join(SESSIONS_DIR, entry);
+      if (!fs.existsSync(dest)) {
+        fs.cpSync(src, dest, { recursive: true });
+        console.log(`[Sessions Migration] Migrated session ${entry} to permanent store`);
+      }
+    }
+  } catch (migErr) {
+    console.warn('[Sessions Migration] Warning:', migErr.message);
+  }
 }
 
 function loadRegistry() {
@@ -413,13 +432,15 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
     auth: state,
     logger: pino({ level: 'silent' }), // suppress verbose protocol logs
     printQRInTerminal: false,
-    browser: Browsers.ubuntu('Chrome'),
+    browser: Browsers.macOS('Desktop'), // Permanent desktop identity so WhatsApp treats session as durable
     syncFullHistory: false,
-    markOnlineOnConnect: false,
-    fireInitQueries: false,
+    markOnlineOnConnect: true, // Keep WhatsApp seeing device as online & active
+    fireInitQueries: true,
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
-    keepAliveIntervalMs: 30000,
+    keepAliveIntervalMs: 15000, // Frequent ping to prevent NAT / WebSocket idle drops
+    retryRequestDelayMs: 250,
+    maxMsgRetryCount: 5,
     generateHighQualityLinkPreview: false,
     getMessage: async (key) => {
       if (key?.id && messageStore.has(key.id)) {
@@ -482,49 +503,41 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
         ? lastDisconnect.error.statusCode
         : null;
 
-      const isLoggedOut = statusCode === DisconnectReason.loggedOut;
       sessionData.qrDataUrl = null;
 
-      if (!isLoggedOut) {
-        // WhatsApp protocol code 515 (restartRequired) signals QR was scanned or Pairing Code was entered on phone!
-        // We MUST flush credentials to disk immediately so registered: true is safely preserved before reconnecting.
-        try {
-          await saveCreds();
-        } catch (flushErr) {
-          console.warn(`[Store: ${storeId}] Failed flushing creds on close:`, flushErr?.message);
-        }
-
-        const isRestart = statusCode === DisconnectReason.restartRequired;
-        console.log(`[Store: ${storeId}] Connection closed (code: ${statusCode})${isRestart ? ' — restartRequired (Link accepted on phone, re-opening socket...)' : ', reconnecting...'}`);
-
-        sessionData.status = 'connecting';
-        pushSSEEvent(storeId, {
-          event: isRestart ? 'reconnecting' : 'connecting',
-          status: 'connecting',
-          statusCode,
-          message: isRestart ? 'Code / QR accepted! Linking WhatsApp on your phone...' : 'Connecting to WhatsApp...',
-        });
-
-        const reconnectDelay = isRestart ? 800 : 2500;
-        setTimeout(async () => {
-          try {
-            await initStoreSession(storeId, sessionData.catalog, sessionData.storeInfo, { forceRefresh: false });
-          } catch (e) {
-            console.error(`[Store: ${storeId}] Failed to reconnect session:`, e?.message);
-          }
-        }, reconnectDelay);
-      } else {
-        sessionData.status = 'disconnected';
-        console.log(`[Store: ${storeId}] Logged out. Cleaned session credentials.`);
-        pushSSEEvent(storeId, { event: 'disconnected', status: 'disconnected' });
-        try {
-          fs.rmSync(storeSessionDir, { recursive: true, force: true });
-        } catch (e) {}
-        activeSessions.delete(storeId);
-        const registry = loadRegistry();
-        delete registry[storeId];
-        saveRegistry(registry);
+      // Always flush credentials immediately so auth tokens are safely preserved on disk
+      try {
+        await saveCreds();
+      } catch (flushErr) {
+        console.warn(`[Store: ${storeId}] Failed flushing creds on close:`, flushErr?.message);
       }
+
+      const isRestart = statusCode === DisconnectReason.restartRequired;
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+      const credsPath = path.join(storeSessionDir, 'creds.json');
+      const hasRegisteredCreds = fs.existsSync(credsPath) && fs.readFileSync(credsPath, 'utf8').includes('"registered":true');
+
+      console.log(`[Store: ${storeId}] WhatsApp connection closed (code: ${statusCode}, registered: ${hasRegisteredCreds}). Maintaining permanent session...`);
+
+      sessionData.status = 'connecting';
+      pushSSEEvent(storeId, {
+        event: isRestart ? 'reconnecting' : 'connecting',
+        status: 'connecting',
+        statusCode,
+        message: isRestart ? 'Code / QR accepted! Linking WhatsApp on your phone...' : 'Maintaining permanent WhatsApp connection...',
+      });
+
+      // NEVER wipe credentials automatically on socket error!
+      // Only unlinking via POST /api/whatsapp/disconnect wipes credentials.
+      const reconnectDelay = isRestart ? 800 : (isLoggedOut ? 5000 : 2500);
+      setTimeout(async () => {
+        try {
+          console.log(`[Store: ${storeId}] Auto-restoring permanent socket...`);
+          await initStoreSession(storeId, sessionData.catalog, sessionData.storeInfo, { forceRefresh: false });
+        } catch (e) {
+          console.error(`[Store: ${storeId}] Failed to reconnect session:`, e?.message);
+        }
+      }, reconnectDelay);
     }
   });
 
@@ -1318,6 +1331,36 @@ async function restoreAllSessions() {
     console.error('[Boot] Error restoring sessions:', err.message);
   }
 }
+
+// ─── PERMANENT ACTIVE HEARTBEAT & AUTO-HEALING LOOP ────────────────────────
+// Runs every 25 seconds:
+// 1. Sends an active presence ping to WhatsApp so connections never drop due to idling
+// 2. Automatically restores any registered sessions that may have had a temporary network drop
+setInterval(async () => {
+  for (const [storeId, session] of activeSessions.entries()) {
+    if (session && session.status === 'connected' && session.sock) {
+      try {
+        await session.sock.sendPresenceUpdate('available');
+      } catch (e) {
+        // Socket may be reconnecting; heartbeat will retry next cycle
+      }
+    } else if (session && session.status !== 'connected' && session.status !== 'connecting') {
+      const credsPath = path.join(SESSIONS_DIR, storeId, 'creds.json');
+      if (fs.existsSync(credsPath)) {
+        try {
+          const credsStr = fs.readFileSync(credsPath, 'utf8');
+          if (credsStr.includes('"registered":true')) {
+            console.log(`[Permanent Heartbeat] Restoring inactive registered session for store: ${storeId}...`);
+            session.status = 'connecting';
+            initStoreSession(storeId, session.catalog, session.storeInfo, { forceRefresh: false }).catch((err) => {
+              console.warn(`[Permanent Heartbeat] Reconnect failed for ${storeId}:`, err?.message);
+            });
+          }
+        } catch (e) {}
+      }
+    }
+  }
+}, 25000);
 
 app.listen(PORT, async () => {
   console.log(`⚡ Taaa.shop Baileys Multi-Tenant WhatsApp Server running on port ${PORT}`);

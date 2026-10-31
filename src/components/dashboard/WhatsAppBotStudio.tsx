@@ -293,10 +293,9 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
           // QR was scanned or Pairing Code entered — Baileys is reconnecting to confirm it
           setQrScannedConfirming(true);
           setServerMessage(pairingMethod === 'code' ? 'Code entered on phone! 📱 Linking WhatsApp...' : 'QR scanned! Confirming pairing with WhatsApp...');
-        } else if (!data.connected && data.status === 'disconnected' && baileysStatus === 'connected') {
-          setBaileysStatus('disconnected');
-          setConnectedPhone(null);
-          try { localStorage.removeItem(`ta_wa_conn_${store.id}`); } catch (e) {}
+        } else if (data.status === 'connecting' && baileysStatus === 'connected') {
+          // Server is auto-reconnecting socket in background — keep session alive
+          setServerStatus('online');
         }
       } catch (e) {
         // server asleep or not reachable
@@ -780,22 +779,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
 
         {/* RIGHT: WhatsApp Connection & Configuration (7 Cols) */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Info Card — webhook not needed with Baileys */}
-          <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-3xl flex items-start gap-4">
-            <div className="w-9 h-9 rounded-2xl bg-emerald-600 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-emerald-900 text-sm">No Webhook Setup Required</h3>
-              <p className="text-emerald-700 text-xs mt-1 leading-relaxed">
-                Taaa.shop uses <strong>Baileys</strong> — a free, open-source WhatsApp bridge. You connect via QR code
-                scan (just like WhatsApp Web) and order notifications go straight to your phone. No Meta Business
-                Manager, no webhook URL, no API approval needed.
-              </p>
-            </div>
-          </div>
-
-          {/* LIVE BAILEYS 1-CLICK WHATSAPP QR PAIRING */}
+          {/* LIVE 1-CLICK WHATSAPP QR PAIRING */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
@@ -807,8 +791,8 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                 <div>
                   <h3 className="font-extrabold text-slate-900 text-base leading-tight flex items-center gap-2">
                     <span>1-Click WhatsApp QR Link</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                      Baileys Powered
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold">
+                      24/7 Auto-Reply
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500">
@@ -1119,51 +1103,6 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Supported WhatsApp Connectors */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
-            <h3 className="font-bold text-slate-900 text-base">
-              Supported WhatsApp Integrations
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-1.5">
-                <span className="font-bold text-slate-900 text-xs block">
-                  Meta Cloud API
-                </span>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Official Meta WhatsApp API. 1,000 free conversations per month.
-                </p>
-                <span className="text-[10px] text-emerald-700 font-bold block">
-                  ✓ Enterprise Grade
-                </span>
-              </div>
-
-              <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-1.5">
-                <span className="font-bold text-slate-900 text-xs block">
-                  Twilio WhatsApp
-                </span>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Zero setup, plug-and-play webhook for existing Twilio accounts.
-                </p>
-                <span className="text-[10px] text-blue-700 font-bold block">
-                  ✓ Global Routing
-                </span>
-              </div>
-
-              <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-1.5">
-                <span className="font-bold text-slate-900 text-xs block">
-                  Baileys / Green API
-                </span>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Scan QR code from your phone WhatsApp. No official business approval needed.
-                </p>
-                <span className="text-[10px] text-amber-700 font-bold block">
-                  ✓ Instant 60-Sec Setup
-                </span>
-              </div>
-            </div>
           </div>
 
           {/* Bot Custom Message Templates & Store AI Settings */}
