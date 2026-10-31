@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   BadgeCheck,
   Ban,
+  Bot,
   Building,
   Check,
   CheckCircle2,
@@ -547,6 +548,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
+    savePlatformSettings(platformSettings);
+    setSettingsSavedToast(true);
+    setTimeout(() => setSettingsSavedToast(false), 2500);
+  };
+
+  const handleSavePlanPricing = () => {
     savePlatformSettings(platformSettings);
     setSettingsSavedToast(true);
     setTimeout(() => setSettingsSavedToast(false), 2500);
@@ -1800,9 +1807,170 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </div>
           )}
 
-          {/* ── TAB 4: PLAN & SUBSCRIPTIONS MANAGER (With Expiry Timer) ── */}
+          {/* ── TAB 4: PLAN & SUBSCRIPTIONS MANAGER (With Expiry Timer & Pricing Matrix) ── */}
           {activeTab === 'plans' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Live Plan Pricing Matrix Card */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-slate-100 pb-4">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
+                      <span>Live Subscription Pricing & Paystack Rates</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Adjust monthly & annual rates anytime. Changes immediately update Paystack transactions, the landing page, and upgrade modals.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleSavePlanPricing}
+                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span>Save Plan Pricing</span>
+                    </button>
+                  </div>
+                </div>
+
+                {settingsSavedToast && (
+                  <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-center gap-2 animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Plan pricing updated! New values are now live in Paystack checkout and storefronts.</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Starter Plan */}
+                  <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-900">Starter Plan</span>
+                      <span className="text-[10px] font-mono bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-semibold">10 Products</span>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Monthly Price (₦)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="100"
+                        value={platformSettings.starterPriceMonthly}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, starterPriceMonthly: Math.max(0, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Annual / Yearly (₦)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="500"
+                        value={platformSettings.starterPriceYearly ?? 6000}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, starterPriceYearly: Math.max(0, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Basic Plan */}
+                  <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-emerald-950">Basic Plan</span>
+                      <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-semibold">30 Products</span>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Monthly Price (₦)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="100"
+                        value={platformSettings.basicPriceMonthly ?? 1500}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, basicPriceMonthly: Math.max(0, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-emerald-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Annual / Yearly (₦)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="500"
+                        value={platformSettings.basicPriceYearly ?? 15000}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, basicPriceYearly: Math.max(0, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-emerald-900"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Pro Plan */}
+                  <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/40 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-amber-950 flex items-center gap-1">
+                        <span>Tá.shop Pro</span>
+                        <BadgeCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-100" />
+                      </span>
+                      <span className="text-[10px] font-mono bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-semibold">70 Products</span>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Monthly Price (₦)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="100"
+                        value={platformSettings.proPriceMonthly}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, proPriceMonthly: Math.max(0, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-amber-950"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Annual / Yearly (₦)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="500"
+                        value={platformSettings.proPriceYearly ?? 39000}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, proPriceYearly: Math.max(0, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-amber-950"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Business AI Bot */}
+                  <div className="p-4 rounded-xl border border-violet-200 bg-violet-50/40 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-violet-950 flex items-center gap-1">
+                        <span>Business AI</span>
+                        <BadgeCheck className="w-3.5 h-3.5 text-amber-500 fill-amber-100" />
+                      </span>
+                      <span className="text-[10px] font-mono bg-violet-200 text-violet-900 px-1.5 py-0.2 rounded font-semibold">Unlimited</span>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Monthly Price (₦)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="500"
+                        value={platformSettings.businessPriceMonthly ?? 25000}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, businessPriceMonthly: Math.max(0, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-violet-950"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Annual / Yearly (₦)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1000"
+                        value={platformSettings.businessPriceYearly ?? 200000}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, businessPriceYearly: Math.max(0, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-violet-950"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stores Plan Subscriptions Table */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 border-b border-slate-100 pb-3">
                   <div>
@@ -2020,17 +2188,61 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Pricing Tiers */}
+                  {/* Subscription Pricing Tiers */}
                   <div className="pt-3 border-t border-slate-100">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Subscription Pricing Defaults</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                          Subscription Plan Pricing (Paystack & Landing Page)
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          These values control what sellers are charged during Paystack checkout and what visitors see on the landing page.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                       <div>
                         <label className="text-xs font-semibold text-slate-700 block mb-1">Starter Plan Monthly (₦)</label>
                         <input
                           type="number"
+                          min="0"
                           value={platformSettings.starterPriceMonthly}
-                          onChange={(e) => setPlatformSettings({ ...platformSettings, starterPriceMonthly: Number(e.target.value) })}
-                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold"
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, starterPriceMonthly: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-slate-700 block mb-1">Starter Plan Yearly (₦)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={platformSettings.starterPriceYearly ?? 6000}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, starterPriceYearly: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-slate-700 block mb-1">Basic Plan Monthly (₦)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={platformSettings.basicPriceMonthly ?? 1500}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, basicPriceMonthly: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-emerald-900"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-slate-700 block mb-1">Basic Plan Yearly (₦)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={platformSettings.basicPriceYearly ?? 15000}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, basicPriceYearly: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-emerald-900"
                         />
                       </div>
 
@@ -2038,9 +2250,43 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         <label className="text-xs font-semibold text-slate-700 block mb-1">Pro Plan Monthly (₦)</label>
                         <input
                           type="number"
+                          min="0"
                           value={platformSettings.proPriceMonthly}
-                          onChange={(e) => setPlatformSettings({ ...platformSettings, proPriceMonthly: Number(e.target.value) })}
-                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold"
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, proPriceMonthly: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-amber-950"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-slate-700 block mb-1">Pro Plan Yearly (₦)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={platformSettings.proPriceYearly ?? 39000}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, proPriceYearly: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-amber-950"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-slate-700 block mb-1">Business AI Monthly (₦)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={platformSettings.businessPriceMonthly ?? 25000}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, businessPriceMonthly: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-violet-950"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-slate-700 block mb-1">Business AI Yearly (₦)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={platformSettings.businessPriceYearly ?? 200000}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, businessPriceYearly: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-violet-950"
                         />
                       </div>
                     </div>

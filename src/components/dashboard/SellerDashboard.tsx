@@ -63,7 +63,7 @@ import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsApp
 import { AddEditProductModal } from './AddEditProductModal';
 import { ProductLimitModal } from '../modals/ProductLimitModal';
 import { VerifiedBadge } from '../common/VerifiedBadge';
-import { getProductLimitByTier, getPlanNameByTier } from '../../utils/planLimits';
+import { getProductLimitByTier, getPlanNameByTier, getActivePlanConfigs, getPlanAmount } from '../../utils/planLimits';
 import { getStorePlanStatus } from '../../utils/planStatus';
 import { PaystackModal } from '../modals/PaystackModal';
 import { SocialShareModal } from '../modals/SocialShareModal';
@@ -347,6 +347,19 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [isPaystackOpen, setIsPaystackOpen] = useState(false);
   const [paystackInitialPlan, setPaystackInitialPlan] = useState<'starter' | 'basic' | 'badge' | 'pro' | 'business'>('pro');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [planConfigs, setPlanConfigs] = useState(() => getActivePlanConfigs());
+
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      setPlanConfigs(getActivePlanConfigs());
+    };
+    window.addEventListener('tashop:settings_updated', handleSettingsUpdate);
+    window.addEventListener('storage', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('tashop:settings_updated', handleSettingsUpdate);
+      window.removeEventListener('storage', handleSettingsUpdate);
+    };
+  }, []);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isAiMarketingOpen, setIsAiMarketingOpen] = useState(false);
   const [selectedAiProduct, setSelectedAiProduct] = useState<Product | null>(null);
@@ -3195,13 +3208,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 <div>
                   <h4 className="font-bold text-slate-900 text-sm">Starter Plan</h4>
                   <div className="mt-2 text-2xl font-black font-mono">
-                    {billingCycle === 'monthly' ? '₦500' : '₦6,000'}
+                    ₦{billingCycle === 'monthly' ? planConfigs.starter.priceMonthly.toLocaleString() : planConfigs.starter.priceYearly.toLocaleString()}
                     <span className="text-xs font-normal text-slate-400">
                       {billingCycle === 'monthly' ? ' / month' : ' / year'}
                     </span>
                   </div>
                   {billingCycle === 'yearly' && (
-                    <span className="text-[11px] text-slate-500 block mt-0.5">Standard annual rate (₦500/mo)</span>
+                    <span className="text-[11px] text-slate-500 block mt-0.5">Standard annual rate</span>
                   )}
                   <ul className="mt-4 space-y-2 text-xs text-slate-600">
                     <li className="flex items-center gap-2">✓ Up to 10 products</li>
@@ -3225,13 +3238,15 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     </span>
                   </div>
                   <div className="mt-2 text-2xl font-black font-mono">
-                    {billingCycle === 'monthly' ? '₦1,500' : '₦15,000'}
+                    ₦{billingCycle === 'monthly' ? planConfigs.basic.priceMonthly.toLocaleString() : planConfigs.basic.priceYearly.toLocaleString()}
                     <span className="text-xs font-normal text-slate-400">
                       {billingCycle === 'monthly' ? ' / month' : ' / year'}
                     </span>
                   </div>
                   {billingCycle === 'yearly' && (
-                    <span className="text-[11px] text-emerald-700 block mt-0.5 font-semibold">Save ₦3,000/yr (2 Months Free)</span>
+                    <span className="text-[11px] text-emerald-700 block mt-0.5 font-semibold">
+                      Save ₦{(planConfigs.basic.priceMonthly * 12 - planConfigs.basic.priceYearly).toLocaleString()}/yr
+                    </span>
                   )}
                   <ul className="mt-4 space-y-2 text-xs text-slate-700">
                     <li className="flex items-center gap-2 font-medium">✓ <strong>Up to 30 products</strong></li>
@@ -3250,7 +3265,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     }}
                     className="mt-5 w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
                   >
-                    Activate Basic ({billingCycle === 'yearly' ? '₦15k/yr' : '₦1.5k/mo'})
+                    Activate Basic (₦{billingCycle === 'yearly' ? planConfigs.basic.priceYearly.toLocaleString() + '/yr' : planConfigs.basic.priceMonthly.toLocaleString() + '/mo'})
                   </button>
                 )}
               </div>
@@ -3269,7 +3284,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   </div>
 
                   <div className="mt-2 text-2xl font-black font-mono">
-                    {billingCycle === 'monthly' ? '₦4,900' : '₦39,000'}
+                    ₦{billingCycle === 'monthly' ? planConfigs.pro.priceMonthly.toLocaleString() : planConfigs.pro.priceYearly.toLocaleString()}
                     <span className="text-xs font-normal text-slate-400">
                       {billingCycle === 'monthly' ? ' / month' : ' / year'}
                     </span>
@@ -3277,12 +3292,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
                   {billingCycle === 'yearly' && (
                     <div className="mt-1 flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md inline-flex">
-                      <span>Save ₦19,800/yr (2 Months Free)</span>
+                      <span>Save ₦{(planConfigs.pro.priceMonthly * 12 - planConfigs.pro.priceYearly).toLocaleString()}/yr</span>
                     </div>
                   )}
 
                   <ul className="mt-4 space-y-2 text-xs text-slate-700">
                     <li className="flex items-center gap-2 font-medium">✓ <strong>Up to 70 products</strong> with variants</li>
+                    <li className="flex items-center gap-2 font-bold text-blue-900 bg-blue-50/80 px-2 py-0.5 rounded-md">✓ <strong>Verified Blue Tick Badge</strong></li>
                     <li className="flex items-center gap-2 font-medium">✓ Customer reviews collection & ratings</li>
                     <li className="flex items-center gap-2 font-medium">✓ Priority WhatsApp click analytics</li>
                     <li className="flex items-center gap-2 font-medium">✓ Multi-photo uploads & item UID search</li>
@@ -3298,7 +3314,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     }}
                     className="mt-5 w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
                   >
-                    Activate Pro ({billingCycle === 'yearly' ? '₦39k/yr' : '₦4.9k/mo'})
+                    Activate Pro (₦{billingCycle === 'yearly' ? planConfigs.pro.priceYearly.toLocaleString() + '/yr' : planConfigs.pro.priceMonthly.toLocaleString() + '/mo'})
                   </button>
                 )}
               </div>
@@ -3317,7 +3333,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   </div>
 
                   <div className="mt-2 text-2xl font-black font-mono">
-                    {billingCycle === 'monthly' ? '₦25,000' : '₦200,000'}
+                    ₦{billingCycle === 'monthly' ? planConfigs.business.priceMonthly.toLocaleString() : planConfigs.business.priceYearly.toLocaleString()}
                     <span className="text-xs font-normal text-slate-400">
                       {billingCycle === 'monthly' ? ' / month' : ' / year'}
                     </span>
@@ -3325,13 +3341,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
                   {billingCycle === 'yearly' && (
                     <div className="mt-1 flex items-center gap-1 text-[11px] font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md inline-flex">
-                      <span>Save ₦100,000/yr (2 Months Free)</span>
+                      <span>Save ₦{(planConfigs.business.priceMonthly * 12 - planConfigs.business.priceYearly).toLocaleString()}/yr</span>
                     </div>
                   )}
 
                   <ul className="mt-4 space-y-2 text-xs text-slate-700">
                     <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg">✓ <strong>UNLIMITED Products</strong> (Only plan with no limit)</li>
-                    <li className="flex items-center gap-2 font-bold text-blue-800 bg-blue-50 px-2 py-1 rounded-lg">✓ <strong>Verified Merchant Blue Tick</strong> (Exclusive to Business)</li>
+                    <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-300 px-2 py-1 rounded-lg">✓ <strong>Official Golden Tick Badge</strong> (Exclusive to Business AI)</li>
                     <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by Tá.shop"</strong> (100% white-label)</li>
                     <li className="flex items-center gap-2 font-medium">✓ <strong>24/7 AI WhatsApp Bot</strong> auto-replies with photos & prices</li>
                     <li className="flex items-center gap-2 font-medium">✓ Instant WhatsApp order receipts & merchant alerts</li>
@@ -3347,7 +3363,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     }}
                     className="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white text-xs font-semibold shadow transition cursor-pointer"
                   >
-                    Activate Business AI ({billingCycle === 'yearly' ? '₦200k/yr' : '₦25k/mo'})
+                    Activate Business AI (₦{billingCycle === 'yearly' ? planConfigs.business.priceYearly.toLocaleString() + '/yr' : planConfigs.business.priceMonthly.toLocaleString() + '/mo'})
                   </button>
                 )}
               </div>
@@ -4647,7 +4663,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         initialCycle={billingCycle}
         onUpgradeSuccess={async (plan) => {
           const allStores = getStoredStores();
-          const durationDays = billingCycle === 'annual' ? 365 : 30;
+          const durationDays = (billingCycle === 'yearly' || (billingCycle as any) === 'annual') ? 365 : 30;
           const planExpiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
           const updatedStore: Store = {
             ...store,

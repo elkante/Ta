@@ -230,8 +230,17 @@ export interface PlatformSettings {
   rootDomain?: string;
   supportWhatsApp: string;
   defaultCurrency: CurrencyCode;
+  // Plan pricing in NGN
   starterPriceMonthly: number;
+  starterPriceYearly: number;
+  basicPriceMonthly: number;
+  basicPriceYearly: number;
   proPriceMonthly: number;
+  proPriceYearly: number;
+  businessPriceMonthly: number;
+  businessPriceYearly: number;
+  badgePriceMonthly?: number;
+  badgePriceYearly?: number;
   globalAnnouncement: string;
   allowRegistrations: boolean;
   maintenanceMode: boolean;

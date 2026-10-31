@@ -475,13 +475,21 @@ export const SUPER_ADMIN_DEFAULT_KEY = 'admin123';
 export const DEFAULT_ROOT_DOMAIN = 'taaa.com.ng';
 export const DEFAULT_PLATFORM_BRAND = 'Taaa.shop';
 
-const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
+export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   platformName: 'Taaa.shop',
   rootDomain: 'taaa.com.ng',
   supportWhatsApp: '+2348039874521',
   defaultCurrency: 'NGN',
   starterPriceMonthly: 500,
-  proPriceMonthly: 3500,
+  starterPriceYearly: 6000,
+  basicPriceMonthly: 1500,
+  basicPriceYearly: 15000,
+  proPriceMonthly: 4900,
+  proPriceYearly: 39000,
+  businessPriceMonthly: 25000,
+  businessPriceYearly: 200000,
+  badgePriceMonthly: 2000,
+  badgePriceYearly: 20000,
   globalAnnouncement: '⚡ Welcome to Taaa.shop - The multi-tenant social commerce platform for WhatsApp & Instagram sellers.',
   allowRegistrations: true,
   maintenanceMode: false,
@@ -528,7 +536,14 @@ export function authenticateSuperAdmin(password: string, email?: string): {
 export function getPlatformSettings(): PlatformSettings {
   try {
     const raw = localStorage.getItem(PLATFORM_SETTINGS_KEY);
-    if (raw) return { ...DEFAULT_PLATFORM_SETTINGS, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Migrate old proPriceMonthly if it was the legacy 3500
+      if (parsed.proPriceMonthly === 3500) {
+        parsed.proPriceMonthly = 4900;
+      }
+      return { ...DEFAULT_PLATFORM_SETTINGS, ...parsed };
+    }
   } catch (e) {
     // ignore
   }
@@ -537,6 +552,9 @@ export function getPlatformSettings(): PlatformSettings {
 
 export function savePlatformSettings(settings: PlatformSettings) {
   localStorage.setItem(PLATFORM_SETTINGS_KEY, JSON.stringify(settings));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tashop:settings_updated', { detail: settings }));
+  }
 }
 
 export function updateStore(updatedStore: Store): void {

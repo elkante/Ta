@@ -3,6 +3,7 @@ import { AlertCircle, BadgeCheck, Bot, Check, CheckCircle2, CreditCard, Lock, Sh
 import confetti from 'canvas-confetti';
 import { Store, StoreIdVerification } from '../../types';
 import { getStoredStores, saveStores, getRootDomain } from '../../utils/storage';
+import { getPlanAmount } from '../../utils/planLimits';
 
 const PAYSTACK_LIVE_KEY = 'pk_live_9a7abd38ef91afffaf83a4d550f0c6e597eb22a1';
 
@@ -74,25 +75,9 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Pricing matrix:
-  // Starter: ₦500/mo, ₦6,000/yr (No discount)
-  // Verified Badge: ₦2,000/mo, ₦20,000/yr (Save ₦4,000 / 2 Months Free)
-  // Pro: ₦4,900/mo, ₦39,000/yr (Save 20% / ₦19,800 off)
-  // Business Store Bot: ₦25,000/mo, ₦200,000/yr (Save 20% / ₦100,000 off — Verified Badge included FREE)
+  // Live Dynamic Pricing from Super Admin PlatformSettings
   const getAmount = () => {
-    if (selectedPlan === 'starter') {
-      return billingCycle === 'monthly' ? 500 : 6000;
-    }
-    if (selectedPlan === 'basic') {
-      return billingCycle === 'monthly' ? 1500 : 15000;
-    }
-    if (selectedPlan === 'badge') {
-      return billingCycle === 'monthly' ? 2000 : 20000;
-    }
-    if (selectedPlan === 'pro') {
-      return billingCycle === 'monthly' ? 4900 : 39000;
-    }
-    return billingCycle === 'monthly' ? 25000 : 200000;
+    return getPlanAmount(selectedPlan, billingCycle);
   };
 
   const activeAmount = getAmount();
@@ -419,7 +404,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-slate-500 italic">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Tip: Included 100% FREE in the ₦25,000 Store Bot plan!</span>
+                    <span>Tip: Verified badge is included 100% FREE in Business AI!</span>
                   </div>
                 </>
               ) : selectedPlan === 'pro' ? (
@@ -497,7 +482,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                       </span>
                     </h4>
                     <p className="text-[11px] text-slate-600 mt-0.5">
-                      Upgrading from the ₦500 plan requires uploading Front and Back of your ID. Super Admin will verify and activate your verified blue tick.
+                      Upgrading requires uploading Front and Back of your ID. Super Admin will verify and activate your verified blue tick.
                     </p>
                   </div>
                 </div>
