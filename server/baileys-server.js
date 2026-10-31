@@ -120,6 +120,77 @@ const messageStore = new Map();
 // Map<`${storeId}:${remoteJid}`, { timestamp: number, budget: number|null, recipient: string|null }>
 const customerSessions = new Map();
 
+// Map<`${storeId}:${remoteJid}`, number> pause expiration timestamp when customer requests a human seller
+const humanHandovers = new Map();
+
+function getTimeGreeting() {
+  // West Africa Time (UTC+1)
+  const now = new Date();
+  const utcHour = now.getUTCHours();
+  const watHour = (utcHour + 1) % 24;
+  if (watHour >= 4 && watHour < 12) return 'Good morning ☀️';
+  if (watHour >= 12 && watHour < 17) return 'Good afternoon 🌤️';
+  return 'Good evening 🌙';
+}
+
+function findMatchingProducts(query, catalog) {
+  if (!query || !catalog || catalog.length === 0) return [];
+  const qClean = query.toLowerCase().trim();
+
+  // 1. Exact UID match (e.g. #TA-TOS-435 or TA-TOS-435)
+  const uidMatch = qClean.match(/#?(ta-[a-z0-9-]+)/i);
+  if (uidMatch) {
+    const targetUid = uidMatch[1].toUpperCase();
+    const exact = catalog.find((p) => p.uid && p.uid.toUpperCase() === targetUid);
+    if (exact) return [exact];
+  }
+
+  // 2. Exact or substring name match
+  const exactMatches = catalog.filter((p) => p.name && qClean.includes(p.name.toLowerCase()));
+  if (exactMatches.length > 0) return exactMatches;
+
+  // 3. Token-based relevance scoring for multi-word or fuzzy searches
+  const stopwords = new Set([
+    'a', 'an', 'the', 'is', 'are', 'i', 'we', 'you', 'want', 'need', 'show', 'me', 'do',
+    'have', 'get', 'can', 'please', 'for', 'to', 'in', 'at', 'of', 'and', 'or', 'with',
+    'give', 'look', 'looking', 'buy', 'item', 'product', 'price', 'much', 'cost', 'sell',
+    'any', 'some', 'there'
+  ]);
+
+  const tokens = qClean
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length > 2 && !stopwords.has(t));
+
+  if (tokens.length === 0) return [];
+
+  const scored = [];
+  for (const product of catalog) {
+    const nameLower = (product.name || '').toLowerCase();
+    const catLower = (product.category || '').toLowerCase();
+    const descLower = (product.description || '').toLowerCase();
+
+    let score = 0;
+    for (const token of tokens) {
+      const singular = token.endsWith('s') && token.length > 3 ? token.slice(0, -1) : token;
+      if (nameLower.includes(token) || nameLower.includes(singular)) {
+        score += 5;
+      } else if (catLower.includes(token) || catLower.includes(singular)) {
+        score += 3;
+      } else if (descLower.includes(token) || descLower.includes(singular)) {
+        score += 1;
+      }
+    }
+
+    if (score >= 3) {
+      scored.push({ product, score });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map((s) => s.product);
+}
+
 function extractBudget(text) {
   if (!text) return null;
   const kMatch = text.match(/(?:under|around|budget|below|less than|within|max|about)?\s*(?:₦|N|NGN)?\s*(\d+(?:\.\d+)?)\s*k\b/i);
@@ -538,15 +609,41 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
         ? `https://${info.customDomain.replace(/^https?:\/\//, '')}`
         : `${siteBaseUrl}/?store=${encodeURIComponent(resolvedStoreParam)}`;
 
-      const matchedProduct = currentCatalog.find(
-        (p) =>
-          (p.uid && p.uid.toUpperCase() === queryUid) ||
-          cleanText.toLowerCase().includes(p.name.toLowerCase())
-      );
+      // 0. Check Human Handover Pause
+      const handoverKey = `${storeId}:${remoteJid}`;
+      const handoverTime = humanHandovers.get(handoverKey);
+      const isExplicitResume = /^(menu|bot|restart|catalog|start|hi|hello|hey|#?ta-)/i.test(cleanText);
 
-      if (matchedProduct) {
-        await sendProductCard(sock, remoteJid, matchedProduct, storeName, storeBaseUrl, storeId);
+      if (handoverTime && Date.now() - handoverTime < 45 * 60 * 1000) {
+        if (!isExplicitResume) {
+          console.log(`[Store: ${storeId}] Bot auto-replies paused for ${remoteJid} (human handover active).`);
+          continue;
+        } else {
+          console.log(`[Store: ${storeId}] Customer resumed bot interaction for ${remoteJid}.`);
+          humanHandovers.delete(handoverKey);
+        }
+      }
+
+      // 1. Human Handover Request
+      const isHandoverQuery = /\b(human|person|agent|seller|owner|customer care|speak with someone|talk to someone|call me|real person|rep|representative|who am i talking to)\b/i.test(cleanText);
+      if (isHandoverQuery) {
+        humanHandovers.set(handoverKey, Date.now());
+        const reply =
+          `👋 *You're chatting with the official AI Concierge for ${storeName}.* 🤖\n\n` +
+          `I have paused my automated replies for the next 45 minutes so the store owner / merchant can reply to you directly! 💬\n\n` +
+          `Feel free to send your inquiry, phone number, or specific order details here.\n\n` +
+          `_Want to resume browsing with me at any time? Just type *"menu"* or send any *#Item Code*._`;
+        await safeSendMessage(sock, remoteJid, { text: reply });
         continue;
+      }
+
+      // 2. Direct Item UID match (e.g. #TA-TOS-435)
+      if (queryUid) {
+        const itemByUid = currentCatalog.find((p) => p.uid && p.uid.toUpperCase() === queryUid);
+        if (itemByUid) {
+          await sendProductCard(sock, remoteJid, itemByUid, storeName, storeBaseUrl, storeId);
+          continue;
+        }
       }
 
       // ─── SMART GUIDED SHOPPING CONCIERGE & GIFT / BUDGET ASSISTANT ─────────
@@ -620,56 +717,86 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
       }
       // ─────────────────────────────────────────────────────────────────────────
 
-      // Category search (e.g. "show me bags", "do you have shoes")
-      const categoryKeywords = ['show me', 'do you have', 'looking for', 'i need', 'any'];
-      const isCategoryQuery = categoryKeywords.some((kw) => cleanText.toLowerCase().startsWith(kw));
-      if (isCategoryQuery || /\b(bags?|shoes?|dress(es)?|tops?|jewel|watches?|accessories|phones?|electronics?|cloth(es|ing)?)\b/i.test(cleanText)) {
-        const searchTerm = cleanText
-          .toLowerCase()
-          .replace(/^(show me|do you have|looking for|i need|any)\s*/i, '')
-          .trim();
-        const matches = currentCatalog.filter(
-          (p) =>
-            p.name.toLowerCase().includes(searchTerm) ||
-            (p.category && p.category.toLowerCase().includes(searchTerm)) ||
-            (p.description && p.description.toLowerCase().includes(searchTerm))
-        );
-        if (matches.length === 1) {
-          await sendProductCard(sock, remoteJid, matches[0], storeName, storeBaseUrl, storeId);
-          continue;
-        }
-        if (matches.length > 1) {
-          const listText = matches
-            .slice(0, 5)
-            .map((p) => `• *#${p.uid}* - ${p.name} (₦${Number(p.price).toLocaleString()}) ${p.inStock ? '✅' : '❌'}`)
-            .join('\n');
-          const reply =
-            `🔍 Here's what we found at *${storeName}* for "*${searchTerm}*":\n\n` +
-            `${listText}\n\n` +
-            `Reply with any *#Item Code* for full details & photos, or visit:\n${storeBaseUrl}`;
-          await safeSendMessage(sock, remoteJid, { text: reply });
-          continue;
-        }
+      // 4. How to Order / Purchasing Steps
+      const isHowToOrder = /\b(how to order|how do i order|how to buy|how do i buy|i want to buy|place order|order now|how to purchase|guide me to order|order process|steps to buy)\b/i.test(cleanText);
+      if (isHowToOrder) {
+        const sampleUid = currentCatalog[0]?.uid || 'TA-ITEM';
+        const reply =
+          `🛍️ *How to Order from ${storeName} in 3 Easy Steps:*\n\n` +
+          `1️⃣ *Select your item:* Browse our catalog at ${storeBaseUrl} or reply with any *#Item Code* (e.g. *#${sampleUid}*) right here.\n` +
+          `2️⃣ *Provide Delivery Info:* Drop your delivery address & phone number right here on WhatsApp or at checkout.\n` +
+          `3️⃣ *Make Payment:* Complete payment via Bank Transfer (all banks, OPay, PalmPay) or online card, and receive your receipt!\n\n` +
+          `🚚 Fast dispatch straight to your location!\n\n` +
+          `👉 *Browse Catalog Now:* ${storeBaseUrl}`;
+        await safeSendMessage(sock, remoteJid, { text: reply });
+        continue;
       }
 
-      // Delivery / location / shipping inquiry
-      if (/\b(deliver|delivery|shipping|ship|location|address|where|pickup|how long|dispatch|lagos|abuja)\b/i.test(cleanText)) {
+      // 5. Payment Options & Bank Transfer Inquiry
+      const isPaymentQuery = /\b(payment|pay|bank|transfer|account number|account details|opay|palmpay|send acct|how to pay|paystack)\b/i.test(cleanText);
+      if (isPaymentQuery) {
+        const reply =
+          `💳 *Payment Options at ${storeName}*\n\n` +
+          `We accept 100% verified & secure payments:\n` +
+          `✅ Instant Bank Transfer (All Nigerian Commercial Banks, OPay, PalmPay)\n` +
+          `✅ Secure Online Card Checkout (Mastercard, Visa, Verve)\n\n` +
+          `🛒 *To Pay & Order:*\n` +
+          `1. Choose your items on our storefront:\n` +
+          `${storeBaseUrl}\n` +
+          `2. Complete checkout to get immediate payment instructions & instant WhatsApp confirmation.\n` +
+          `3. After payment, your order moves directly to dispatch! 🚚💨`;
+        await safeSendMessage(sock, remoteJid, { text: reply });
+        continue;
+      }
+
+      // 6. Price Negotiation / Nigerian "How much last" / Discount
+      const isLastPrice = /\b(how much last|last price|discount|reduce am|cheaper|best price|negotiat|promo code|coupon)\b/i.test(cleanText);
+      if (isLastPrice) {
+        const reply =
+          `🤝 *Best Price Guarantee at ${storeName}*\n\n` +
+          `All our prices are direct from our inventory at the best quality-to-price ratio! ✨\n\n` +
+          `📦 *Looking for bulk / wholesale pricing or special packages?*\n` +
+          `Type *"human"* or reply with the items & quantity you need, and the merchant will review your custom deal directly!\n\n` +
+          `👉 *See current promo prices:* ${storeBaseUrl}`;
+        await safeSendMessage(sock, remoteJid, { text: reply });
+        continue;
+      }
+
+      // 7. Nigerian Pidgin greeting / inquiries
+      const isPidgin = /\b(wetin una get|wetin dey|abeg|how far|una get)\b/i.test(cleanText);
+      if (isPidgin) {
+        const topProducts = currentCatalog.filter((p) => p.inStock).slice(0, 4);
+        const listText = topProducts
+          .map((p) => `• *#${p.uid}* - ${p.name} (₦${Number(p.price).toLocaleString()})`)
+          .join('\n');
+        const reply =
+          `👋 *How far! Welcome to ${storeName}!* 🙌\n\n` +
+          `We get quality items ready for dispatch sharp-sharp! 🚀\n\n` +
+          `Check some of our hot items:\n${listText || 'No items listed yet'}\n\n` +
+          `👉 *Check everything we get here:* ${storeBaseUrl}\n` +
+          `Reply with any *#Item Code* to see full pictures and price!`;
+        await safeSendMessage(sock, remoteJid, { text: reply });
+        continue;
+      }
+
+      // 8. Delivery / Location / Shipping / Pickup
+      if (/\b(deliver|delivery|shipping|ship|location|address|where are you|where una dey|pickup|pick up|how long|dispatch|lagos|abuja|waybill|interstate)\b/i.test(cleanText)) {
         const deliveryText = info.deliveryInfo
           ? `🚚 *Delivery Info:*\n${info.deliveryInfo}`
-          : `🚚 We offer delivery! Please contact us to confirm your location and arrange delivery.`;
+          : `🚚 Fast delivery available across the city and nationwide waybill!`;
         const locationText = info.location ? `\n\n📍 *We're located at:* ${info.location}` : '';
         const hoursText = info.openHours ? `\n\n🕐 *Opening Hours:* ${info.openHours}` : '';
         const reply =
           `👋 Hi! Thanks for reaching out to *${storeName}*.\n\n` +
           `${deliveryText}${locationText}${hoursText}\n\n` +
-          `Shop our full catalog: ${storeBaseUrl}`;
+          `👉 *Shop our full catalog:* ${storeBaseUrl}`;
         await safeSendMessage(sock, remoteJid, { text: reply });
         continue;
       }
 
-      // Price inquiry
-      if (/\b(price|cost|how much|charge|rate|fee)\b/i.test(cleanText)) {
-        const topProducts = currentCatalog.filter((p) => p.inStock).slice(0, 5);
+      // 9. Specific Price List inquiry
+      if (/^(price list|prices|how much are your items|all prices|all products)/i.test(cleanText)) {
+        const topProducts = currentCatalog.filter((p) => p.inStock).slice(0, 6);
         if (topProducts.length > 0) {
           const listText = topProducts
             .map((p) => `• *#${p.uid}* - ${p.name}: ₦${Number(p.price).toLocaleString()}`)
@@ -677,15 +804,16 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
           const reply =
             `💰 *Price List — ${storeName}*\n\n` +
             `${listText}\n\n` +
-            `Reply with an *#Item Code* for full details & photos, or view all: ${storeBaseUrl}`;
+            `Reply with any *#Item Code* for full details & photos, or view all items online:\n${storeBaseUrl}`;
           await safeSendMessage(sock, remoteJid, { text: reply });
           continue;
         }
       }
 
-      // Greetings or Catalog request
-      if (/^(hi|hello|hey|catalog|products|price list|start|menu)/i.test(cleanText)) {
-        const topProducts = currentCatalog.slice(0, 5);
+      // 10. Greetings or General Menu / Catalog request
+      if (/^(hi|hello|hey|yo|good morning|good afternoon|good evening|catalog|products|start|menu|help)/i.test(cleanText)) {
+        const timeGreeting = getTimeGreeting();
+        const topProducts = currentCatalog.filter((p) => p.inStock).slice(0, 5);
         const listText = topProducts
           .map((p) => `• *#${p.uid}* - ${p.name} (₦${Number(p.price).toLocaleString()})`)
           .join('\n');
@@ -693,14 +821,66 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
         const locationLine = info.location ? `\n📍 *Location:* ${info.location}` : '';
 
         const reply =
-          `👋 Welcome to *${storeName}*! 🛍️${openHoursLine}${locationLine}\n\n` +
-          `Here are some popular items:\n${listText}\n\n` +
-          `👉 *Browse our full catalog:* ${storeBaseUrl}\n` +
-          `Reply with any *#Item Code* (e.g. #${topProducts[0]?.uid || 'TA-ITEM'}) for details & photos!\n\n` +
-          `You can also ask me:\n• "Do you have bags?" — category search\n• "Delivery info" — shipping & location\n• "Price list" — current prices`;
+          `👋 *${timeGreeting}! Welcome to ${storeName}!* 🛍️${openHoursLine}${locationLine}\n\n` +
+          `Here are some popular items ready for you:\n${listText || 'Browse our catalog below!'}\n\n` +
+          `👉 *Tap to browse full catalog:* ${storeBaseUrl}\n\n` +
+          `Reply with any *#Item Code* (e.g. #${topProducts[0]?.uid || 'TA-ITEM'}) for photos & details!\n\n` +
+          `💡 *You can also ask:*\n` +
+          `• "Do you have shoes?" — category search\n` +
+          `• "How to order" — step by step guide\n` +
+          `• "Delivery info" — shipping & pickup details\n` +
+          `• "Payment info" — bank transfer & card options\n` +
+          `• "Human" — chat directly with the store owner`;
 
         await safeSendMessage(sock, remoteJid, { text: reply });
+        continue;
       }
+
+      // 11. Fuzzy & Multi-word Product Search (matching title, category, description, tokens)
+      const matchedProducts = findMatchingProducts(cleanText, currentCatalog);
+      if (matchedProducts.length === 1) {
+        await sendProductCard(sock, remoteJid, matchedProducts[0], storeName, storeBaseUrl, storeId);
+        continue;
+      }
+      if (matchedProducts.length > 1) {
+        const topOne = matchedProducts[0];
+        const otherMatches = matchedProducts.slice(1, 5);
+        // Send image card for top product
+        await sendProductCard(sock, remoteJid, topOne, storeName, storeBaseUrl, storeId);
+
+        if (otherMatches.length > 0) {
+          const listText = otherMatches
+            .map((p) => `• *#${p.uid}* - ${p.name} (₦${Number(p.price).toLocaleString()}) ${p.inStock ? '✅' : '❌'}`)
+            .join('\n');
+          const reply =
+            `🔍 *We also found these matching items at ${storeName}:*\n\n` +
+            `${listText}\n\n` +
+            `Reply with any *#Item Code* for full details & photos, or browse all:\n${storeBaseUrl}`;
+          await safeSendMessage(sock, remoteJid, { text: reply });
+        }
+        continue;
+      }
+
+      // 12. Smart Concierge Fallback (Never Stay Silent!)
+      const topProducts = currentCatalog.filter((p) => p.inStock).slice(0, 4);
+      const listText = topProducts
+        .map((p) => `• *#${p.uid}* - ${p.name} (₦${Number(p.price).toLocaleString()})`)
+        .join('\n');
+      const sampleUid = topProducts[0]?.uid || 'TA-ITEM';
+
+      const fallbackReply =
+        `👋 *Hello! Thanks for messaging ${storeName}.*\n\n` +
+        `I'm your 24/7 AI shopping assistant. I couldn't find an exact match for "${cleanText.slice(0, 40)}", but here is how I can help:\n\n` +
+        `🔥 *Popular in our store right now:*\n${listText || 'Check out our full collection online!'}\n\n` +
+        `👉 *Tap to view full store & prices:*\n${storeBaseUrl}\n\n` +
+        `💬 *Quick options:*\n` +
+        `• Send an *#Item Code* (e.g. *#${sampleUid}*) to see photos & details\n` +
+        `• Search any item (e.g. *"Men Combo"*, *"perfume"*, *"shoes"*)\n` +
+        `• Type *"How to order"* or *"Payment info"*\n` +
+        `• Type *"Delivery info"* for shipping rates & location\n` +
+        `• Type *"human"* to speak with the store owner`;
+
+      await safeSendMessage(sock, remoteJid, { text: fallbackReply });
     }
   });
 

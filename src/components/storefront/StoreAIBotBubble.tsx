@@ -50,6 +50,8 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
     suggestedQuestions: [
       'What are your bestsellers?',
       `Show products under ${store.currencySymbol || '₦'}60,000`,
+      'How do I order?',
+      'Payment methods?',
       'How does delivery work?',
     ],
     enabled: false,
@@ -84,6 +86,23 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
   const generateStoreAIResponse = (userPrompt: string): { text: string; matchedProducts?: Product[] } => {
     const q = userPrompt.toLowerCase().trim();
 
+    // 0. Human handover / Speak directly with the store merchant
+    if (
+      q.includes('human') ||
+      q.includes('person') ||
+      q.includes('agent') ||
+      q.includes('seller') ||
+      q.includes('owner') ||
+      q.includes('customer care') ||
+      q.includes('speak to someone') ||
+      q.includes('talk to someone') ||
+      q.includes('call')
+    ) {
+      return {
+        text: `💬 You can connect with the owner/team of *${store.name}* directly on WhatsApp! Tap the button below to start a 1-on-1 WhatsApp chat with the merchant.`,
+      };
+    }
+
     // 1. Check for specific Item UID match
     const uidMatch = products.find((p) => q.includes(p.uid.toLowerCase()));
     if (uidMatch) {
@@ -97,7 +116,80 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
       };
     }
 
-    // 2. Check for Price / Budget Queries (e.g. "under 50k", "under 100000", "cheap", "affordable")
+    // 2. How to order / Purchasing Flow
+    if (
+      q.includes('how to order') ||
+      q.includes('how do i order') ||
+      q.includes('how to buy') ||
+      q.includes('how do i buy') ||
+      q.includes('i want to buy') ||
+      q.includes('place order') ||
+      q.includes('steps to order') ||
+      q.includes('order process')
+    ) {
+      return {
+        text: `🛍️ *How to Order at ${store.name} in 3 Simple Steps:*\n\n` +
+          `1️⃣ Select any item below to view options & details.\n` +
+          `2️⃣ Tap *"Order on WhatsApp"* or *"Add to Cart"*.\n` +
+          `3️⃣ Fill in your delivery details and choose your preferred payment method (Bank Transfer or Card).\n\n` +
+          `📦 Once confirmed, your order is dispatched immediately!`,
+        matchedProducts: products.slice(0, 3),
+      };
+    }
+
+    // 3. Payment Methods & Bank Transfer Inquiry
+    if (
+      q.includes('payment') ||
+      q.includes('pay') ||
+      q.includes('bank') ||
+      q.includes('transfer') ||
+      q.includes('account number') ||
+      q.includes('opay') ||
+      q.includes('palmpay') ||
+      q.includes('paystack')
+    ) {
+      return {
+        text: `💳 *Payment Options at ${store.name}:*\n\n` +
+          `We accept 100% verified & secure payments:\n` +
+          `✅ Instant Direct Bank Transfer (All Nigerian Commercial Banks, OPay, PalmPay)\n` +
+          `✅ Secure Online Card Payment via Paystack (Mastercard, Visa, Verve)\n\n` +
+          `When you place your order, official payment instructions and confirmation receipts are generated automatically!`,
+      };
+    }
+
+    // 4. Price Negotiation / Nigerian "How much last" / Discount
+    if (
+      q.includes('how much last') ||
+      q.includes('last price') ||
+      q.includes('discount') ||
+      q.includes('reduce') ||
+      q.includes('cheaper') ||
+      q.includes('negotiat') ||
+      q.includes('promo code') ||
+      q.includes('coupon')
+    ) {
+      return {
+        text: `🤝 *Best Price Guarantee at ${store.name}*\n\n` +
+          `Our items are listed directly at our best wholesale/fair retail rates to guarantee premium quality!\n\n` +
+          `📦 *Buying in bulk or multiple items?* You can negotiate a custom package deal directly with the merchant on WhatsApp!`,
+        matchedProducts: products.slice(0, 2),
+      };
+    }
+
+    // 5. Nigerian Pidgin greetings & inquiries
+    if (
+      q.includes('wetin una get') ||
+      q.includes('wetin dey') ||
+      q.includes('how far') ||
+      q.includes('abeg')
+    ) {
+      return {
+        text: `👋 *How far! Welcome to ${store.name}!* 🙌\n\nWe get original, high-quality items ready for fast dispatch! Check some of our top items below:`,
+        matchedProducts: products.slice(0, 3),
+      };
+    }
+
+    // 6. Check for Price / Budget Queries (e.g. "under 50k", "under 100000", "cheap", "affordable")
     const priceUnderMatch = q.match(/(?:under|below|less than|<)\s*(?:₦|\$|£|€)?\s*(\d+)(?:k)?/i);
     if (priceUnderMatch) {
       let limit = parseInt(priceUnderMatch[1], 10);
@@ -116,7 +208,7 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
       }
     }
 
-    // 3. Check for Delivery / Shipping / Dispatch / Location queries
+    // 7. Check for Delivery / Shipping / Dispatch / Location queries
     if (
       q.includes('deliver') ||
       q.includes('dispatch') ||
@@ -125,20 +217,21 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
       q.includes('where are you') ||
       q.includes('address') ||
       q.includes('pick up') ||
-      q.includes('pickup')
+      q.includes('pickup') ||
+      q.includes('waybill')
     ) {
       return {
         text: `🚚 *Delivery & Dispatch Information for ${store.name}:*\n\n` +
           `📍 *Store Location:* ${store.location}\n` +
           `📦 *Dispatch Terms:* ${store.deliveryInfo || 'Fast same-day dispatch nationwide.'}\n\n` +
           `${botConfig.storeKnowledge ? `ℹ️ *Store Policies:* ${botConfig.storeKnowledge}\n\n` : ''}` +
-          `You can specify your exact delivery landmark when ordering directly on WhatsApp!`,
+          `You can specify your exact delivery landmark when ordering!`,
       };
     }
 
-    // 4. Check for Best Sellers / Popular / Top picks
+    // 8. Check for Best Sellers / Popular / Top picks
     if (q.includes('best') || q.includes('popular') || q.includes('top') || q.includes('recommend')) {
-      const bestSellers = products.filter((p) => p.badge?.toLowerCase().includes('best') || p.badge?.toLowerCase().includes('top') || p.inquiryCount > 20);
+      const bestSellers = products.filter((p) => p.badge?.toLowerCase().includes('best') || p.badge?.toLowerCase().includes('top') || (p.inquiryCount || 0) > 20);
       const toShow = bestSellers.length > 0 ? bestSellers : products.slice(0, 3);
       return {
         text: `🌟 Here are the most coveted bestseller picks at *${store.name}*:`,
@@ -146,7 +239,7 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
       };
     }
 
-    // 5. Check for Category or Product Keyword matches in this store
+    // 9. Exact / Substring Category or Product Keyword matches
     const matched = products.filter(
       (p) =>
         q.includes(p.name.toLowerCase()) ||
@@ -161,12 +254,52 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
       };
     }
 
-    // 6. Generic or Store Overview query
+    // 10. Fuzzy Token Matching across Name, Category, Description
+    const stopwords = new Set([
+      'a', 'an', 'the', 'is', 'are', 'i', 'we', 'you', 'want', 'need', 'show', 'me', 'do',
+      'have', 'get', 'can', 'please', 'for', 'to', 'in', 'at', 'of', 'and', 'or', 'with',
+      'give', 'look', 'looking', 'buy', 'item', 'product', 'price', 'much', 'cost', 'sell'
+    ]);
+    const tokens = q
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((t) => t.length > 2 && !stopwords.has(t));
+
+    if (tokens.length > 0) {
+      const scored: { product: Product; score: number }[] = [];
+      for (const p of products) {
+        let score = 0;
+        const nameLower = p.name.toLowerCase();
+        const catLower = p.category.toLowerCase();
+        const descLower = (p.description || '').toLowerCase();
+
+        for (const token of tokens) {
+          const singular = token.endsWith('s') && token.length > 3 ? token.slice(0, -1) : token;
+          if (nameLower.includes(token) || nameLower.includes(singular)) score += 5;
+          if (catLower.includes(token) || catLower.includes(singular)) score += 3;
+          if (descLower.includes(token) || descLower.includes(singular)) score += 1;
+        }
+
+        if (score >= 3) {
+          scored.push({ product: p, score });
+        }
+      }
+
+      scored.sort((a, b) => b.score - a.score);
+      if (scored.length > 0) {
+        return {
+          text: `🔍 Here is what we found at *${store.name}* matching your search:`,
+          matchedProducts: scored.slice(0, 3).map((s) => s.product),
+        };
+      }
+    }
+
+    // 11. Generic or Store Overview query
     return {
       text: `Thanks for asking! At *${store.name}*, we specialize in authentic, verified products.\n\n` +
         `• We have *${products.length} catalog items* ready for order.\n` +
         `• All items have unique #Item UIDs for fast WhatsApp ordering.\n` +
-        `• Dispatch: ${store.deliveryInfo}\n\n` +
+        `• Dispatch: ${store.deliveryInfo || 'Fast dispatch across all locations'}\n\n` +
         `Feel free to ask me for any product name, budget, or click one of the suggestions below!`,
       matchedProducts: products.slice(0, 2),
     };
@@ -308,6 +441,25 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
                   }`}
                 >
                   <p className="whitespace-pre-line text-xs">{m.text}</p>
+
+                  {/* Direct Merchant WhatsApp Button */}
+                  {m.text.includes('connect with the owner/team') && (
+                    <div className="mt-2.5">
+                      <a
+                        href={generateWhatsAppLink(
+                          store.whatsappCountryCode,
+                          store.whatsappNumber,
+                          `Hello ${store.name}, I was browsing your store and would like to speak directly with the merchant.`
+                        )}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-xs transition"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>Chat with Merchant on WhatsApp</span>
+                      </a>
+                    </div>
+                  )}
 
                   {/* Matched Product Cards */}
                   {m.matchedProducts && m.matchedProducts.length > 0 && (
