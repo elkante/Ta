@@ -422,8 +422,13 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
 
       const currentCatalog = sessionData.catalog || [];
       const info = sessionData.storeInfo || {};
-      const storeName = info.name || 'our store';
       const storeSlug = info.slug || storeId;
+
+      // Prettify store name: use the real name from storeInfo if available,
+      // otherwise convert the slug/storeId (e.g. "js-fashion-hub" → "Js Fashion Hub")
+      const rawName = info.name || storeSlug || storeId;
+      const storeName = rawName.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
       const rootDomain = process.env.ROOT_DOMAIN || 'taaa.com.ng';
       const siteBaseUrl = process.env.SITE_URL || `https://${rootDomain}`;
 
@@ -953,7 +958,7 @@ app.post('/api/orders/notify/:storeId', async (req, res) => {
 
       const buyerReceipt =
         `🎉 Hello *${order.buyerName}*!\n\n` +
-        `Your order *#${order.id}* has been successfully received by *${store.name || 'our store'}*!\n\n` +
+        `Your order *#${order.id}* has been successfully received by *${(store.name || store.slug || 'our store').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}*!\n\n` +
         `📦 *Ordered Items:*\n${itemsText}\n\n` +
         `💰 *Total:* ₦${Number(order.totalAmount).toLocaleString()}\n` +
         `📍 *Destination:* ${order.deliveryAddress || order.fulfillmentMethod}\n\n` +
