@@ -109,6 +109,11 @@ async function safeSendMessage(sock, jid, content, options) {
  * Supports base64 data URLs, remote HTTP URLs, and graceful text fallback.
  */
 async function sendProductCard(sock, remoteJid, product, storeName, storeBaseUrl, storeId) {
+  // Build product link: storeBaseUrl may already contain ?store=slug, so use & for product param
+  const productLink = storeBaseUrl.includes('?')
+    ? `${storeBaseUrl}&product=${product.id}`
+    : `${storeBaseUrl}/?product=${product.id}`;
+
   const reply =
     `👋 Hello! Here is the item you requested from *${storeName}*:\n\n` +
     `🏷️ *${product.name}*\n` +
@@ -116,7 +121,7 @@ async function sendProductCard(sock, remoteJid, product, storeName, storeBaseUrl
     `📦 *Status:* ${product.inStock ? '✅ In Stock (Ready to dispatch)' : '❌ Sold Out'}\n` +
     `🔑 *Item Code:* #${product.uid}\n\n` +
     `👉 *Tap here to view photos & complete order:*\n` +
-    `${storeBaseUrl}/?product=${product.id}`;
+    `${productLink}`;
 
   const images = Array.isArray(product.images) ? product.images : [];
   const rawImg = images[0] || product.image || null;
@@ -420,9 +425,14 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
       const storeName = info.name || 'our store';
       const storeSlug = info.slug || storeId;
       const rootDomain = process.env.ROOT_DOMAIN || 'taaa.com.ng';
+      const siteBaseUrl = process.env.SITE_URL || `https://${rootDomain}`;
+
+      // Build store URL: use custom domain if set, otherwise use main site with ?store= param.
+      // We always include ?store=slug so the router works on Vercel / plain domains
+      // where subdomain routing isn't available.
       const storeBaseUrl = info.customDomain
         ? `https://${info.customDomain.replace(/^https?:\/\//, '')}`
-        : `https://${storeSlug}.${rootDomain}`;
+        : `${siteBaseUrl}/?store=${storeSlug}`;
 
       const matchedProduct = currentCatalog.find(
         (p) =>
@@ -920,7 +930,7 @@ app.post('/api/orders/notify/:storeId', async (req, res) => {
       (order.buyerNotes ? `💬 *Note:* "${order.buyerNotes}"\n` : '') +
       `\n📦 *PACKING LIST:*\n${itemsText}\n\n` +
       `💰 *Total Amount:* ₦${Number(order.totalAmount).toLocaleString()}\n\n` +
-      `⚡ *View Dispatch Waybill in your Dashboard:* https://${store.slug || storeId}.${rootDomain}/admin`;
+      `⚡ *View your Dashboard:* ${process.env.SITE_URL ? `${process.env.SITE_URL}/?store=${store.slug || storeId}&view=dashboard` : `https://${store.slug || storeId}.${rootDomain}/?view=dashboard`}`;
 
     await safeSendMessage(sock, merchantJid, { text: merchantAlert });
     console.log(`[Store: ${storeId}] Instant merchant WhatsApp notification sent to ${merchantJid}`);

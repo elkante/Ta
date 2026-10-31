@@ -15,6 +15,7 @@ import { SuperAdminDashboard } from './components/admin/SuperAdminDashboard';
 import { SuperAdminLoginModal } from './components/admin/SuperAdminLoginModal';
 import { SysHqPage } from './components/admin/SysHqPage';
 import { SplashScreen } from './components/common/SplashScreen';
+import { PWAInstallBanner } from './components/common/PWAInstallBanner';
 import { OnboardingGuide } from './components/onboarding/OnboardingGuide';
 import { LegalModal, LegalTab } from './components/legal/LegalModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -257,6 +258,18 @@ export default function App() {
       targetStore = stores.find((s) => s.slug.toLowerCase() === urlStoreSlug.toLowerCase()) || null;
     }
 
+    // ⚡ INSTANT BOOT: If we already have the store in localStorage cache, render it NOW
+    // before any Supabase network call so the storefront shows immediately with no flash.
+    if (targetStore && hasExplicitStore) {
+      setCurrentStore(targetStore);
+      setCurrentTenantSlug(targetStore.slug);
+      setStoreProducts(getProductsByStore(targetStore.id));
+      setStoreInquiries(getInquiriesByStore(targetStore.id));
+      setStoreReviews(getReviewsByStore(targetStore.id));
+      setActiveView('storefront');
+      setIsBootingStore(false); // ← show storefront immediately, Supabase fills in fresh data below
+    }
+
     // 🌐 CUSTOM DOMAIN RESOLUTION (e.g. amakajewels.com.ng or brand.com)
     // If visitor accesses via a custom domain, load that specific merchant's storefront directly!
     const currentHost = window.location.hostname.toLowerCase();
@@ -440,6 +453,9 @@ export default function App() {
   }, [currentStore?.id]);
 
   // â”€â”€â”€ PWA ONLY on Landing Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── PWA manifest link ────────────────────────────────────────────────────
+  // PWAInstallBanner (common/PWAInstallBanner.tsx) now owns the beforeinstallprompt
+  // event and shows a proper top-of-page banner — no longer suppressed here.
   useEffect(() => {
     const isLanding = !currentStore || activeView === 'landing';
     const existing = document.querySelector('link[data-pwa="landing"]');
@@ -457,19 +473,6 @@ export default function App() {
         existing.remove();
       }
     }
-
-    const handleBeforeInstallPrompt = (e: Event) => {
-      if (!isLanding) {
-        // Suppress browser install prompt completely on customer storefronts and seller dashboards
-        e.preventDefault();
-        return false;
-      }
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
   }, [currentStore, activeView]);
 
   // Internal helper â€” bypasses the buyer guard (used by login/signup flows)
@@ -759,6 +762,9 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900 overflow-x-clip w-full max-w-full">
       {/* App Splash Screen on Initial Load */}
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+
+      {/* PWA Install Banner — top of page, dismissible per session, gone once installed */}
+      <PWAInstallBanner />
 
       {/* Top Multi-Tenant Navigation Header — shown on storefront & dashboard; hidden on landing */}
       {activeView !== 'landing' && (
