@@ -115,6 +115,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   const [pairingError, setPairingError] = useState<string | null>(null);
   const [serverMessage, setServerMessage] = useState<string>('');
   const [copiedPairingCode, setCopiedPairingCode] = useState(false);
+  const hasSyncedMetadataRef = useRef(false);
 
   // Auto-detect whether local server or Render is responsive
   useEffect(() => {
@@ -265,6 +266,24 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         const data = await res.json();
         if (data.connected || data.status === 'connected') {
           handleConnectedEvent(data.phone || '');
+          if (!hasSyncedMetadataRef.current) {
+            hasSyncedMetadataRef.current = true;
+            fetch(`${serverEndpoint}/api/whatsapp/sync/${store.id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                catalog: products,
+                storeInfo: {
+                  name: store.name,
+                  slug: store.slug,
+                  customDomain: store.customDomain,
+                  deliveryInfo: store.deliveryInfo,
+                  location: store.location,
+                  openHours: store.openHours,
+                },
+              }),
+            }).catch(() => {});
+          }
         } else if (data.qrDataUrl && baileysStatus === 'waiting_scan' && pairingMethod === 'qr') {
           setBaileysQr(data.qrDataUrl);
           setQrScannedConfirming(false);
@@ -392,6 +411,15 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phoneNumber: clean,
+          catalog: products,
+          storeInfo: {
+            name: store.name,
+            slug: store.slug,
+            customDomain: store.customDomain,
+            deliveryInfo: store.deliveryInfo,
+            location: store.location,
+            openHours: store.openHours,
+          },
         }),
       });
 

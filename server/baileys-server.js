@@ -59,6 +59,55 @@ function saveRegistry(registry) {
   }
 }
 
+// ─── SUPABASE INTEGRATION (Auto-resolve store name, slug & catalog) ────────
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://hbestsjsqvfilhbeymbf.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_Wit92S4u1YwX7SwBCbnKHQ_Gf_-dQ07';
+
+async function fetchStoreFromSupabase(storeIdOrSlug) {
+  try {
+    const isStoreId = String(storeIdOrSlug).startsWith('store_');
+    const param = isStoreId ? `id=eq.${storeIdOrSlug}` : `slug=eq.${storeIdOrSlug}`;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/stores?${param}&select=*`, {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data && data.length > 0 ? data[0] : null;
+  } catch (e) {
+    console.warn(`[Supabase] Failed to fetch store ${storeIdOrSlug}:`, e.message);
+    return null;
+  }
+}
+
+async function fetchProductsFromSupabase(storeId) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/products?store_id=eq.${storeId}&select=*`, {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data || []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price || 0),
+      uid: p.uid,
+      images: p.images || [],
+      inStock: p.in_stock !== false,
+      category: p.category || '',
+      description: p.description || '',
+    }));
+  } catch (e) {
+    console.warn(`[Supabase] Failed to fetch products for ${storeId}:`, e.message);
+    return [];
+  }
+}
+
 // In-memory registry of active store WhatsApp sessions
 // Map<storeId, { sock, status: 'connecting'|'connected'|'disconnected', qrDataUrl: string|null, phone: string|null, catalog: Array }>
 const activeSessions = new Map();
@@ -252,6 +301,29 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
   }
   const { state, saveCreds } = await useMultiFileAuthState(storeSessionDir);
 
+  let effectiveStoreInfo = storeInfo && Object.keys(storeInfo).length > 0 ? { ...storeInfo } : {};
+  if (!effectiveStoreInfo.name || !effectiveStoreInfo.slug || String(effectiveStoreInfo.name).startsWith('store_')) {
+    const dbStore = await fetchStoreFromSupabase(storeId);
+    if (dbStore) {
+      effectiveStoreInfo = {
+        name: dbStore.name,
+        slug: dbStore.slug,
+        customDomain: dbStore.custom_domain,
+        deliveryInfo: dbStore.delivery_info,
+        location: dbStore.location,
+        openHours: dbStore.open_hours,
+        ...effectiveStoreInfo,
+      };
+      if (dbStore.name) effectiveStoreInfo.name = dbStore.name;
+      if (dbStore.slug) effectiveStoreInfo.slug = dbStore.slug;
+    }
+  }
+
+  let effectiveCatalog = storeCatalog && storeCatalog.length > 0 ? storeCatalog : [];
+  if (!effectiveCatalog || effectiveCatalog.length === 0) {
+    effectiveCatalog = await fetchProductsFromSupabase(storeId);
+  }
+
   const sessionData = {
     sock: null,
     status: 'connecting',
@@ -259,8 +331,8 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
     qrRaw: null,
     qrGeneratedAt: null,
     phone: null,
-    catalog: storeCatalog,
-    storeInfo: storeInfo || {},
+    catalog: effectiveCatalog,
+    storeInfo: effectiveStoreInfo,
   };
   activeSessions.set(storeId, sessionData);
 
@@ -420,24 +492,51 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
       const uidMatch = cleanText.match(/#?(TA-[A-Z0-9-]+)/i);
       const queryUid = uidMatch ? uidMatch[1].toUpperCase() : null;
 
-      const currentCatalog = sessionData.catalog || [];
-      const info = sessionData.storeInfo || {};
-      const storeSlug = info.slug || storeId;
+      let currentCatalog = sessionData.catalog || [];
+      let info = sessionData.storeInfo || {};
 
-      // Prettify store name: use the real name from storeInfo if available,
-      // otherwise convert the slug/storeId (e.g. "js-fashion-hub" → "Js Fashion Hub")
-      const rawName = info.name || storeSlug || storeId;
-      const storeName = rawName.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      // Live Supabase lookup if storeInfo is missing, incomplete, or contains a raw store ID
+      if (!info.name || !info.slug || String(info.name).startsWith('store_') || String(info.slug).startsWith('store_')) {
+        const dbStore = await fetchStoreFromSupabase(storeId);
+        if (dbStore) {
+          info = {
+            name: dbStore.name,
+            slug: dbStore.slug,
+            customDomain: dbStore.custom_domain,
+            deliveryInfo: dbStore.delivery_info,
+            location: dbStore.location,
+            openHours: dbStore.open_hours,
+          };
+          sessionData.storeInfo = info;
+          const reg = loadRegistry();
+          if (reg[storeId]) {
+            reg[storeId].storeInfo = info;
+            saveRegistry(reg);
+          }
+        }
+      }
+
+      if (!currentCatalog || currentCatalog.length === 0) {
+        currentCatalog = await fetchProductsFromSupabase(storeId);
+        sessionData.catalog = currentCatalog;
+      }
+
+      const storeSlug = info.slug || '';
+      // Prettify store name: use the verified name from storeInfo / Supabase
+      let storeName = info.name;
+      if (!storeName || String(storeName).startsWith('store_')) {
+        const cleanSlug = String(storeSlug).startsWith('store_') ? '' : storeSlug;
+        storeName = cleanSlug ? cleanSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Our Store';
+      }
 
       const rootDomain = process.env.ROOT_DOMAIN || 'taaa.com.ng';
       const siteBaseUrl = process.env.SITE_URL || `https://${rootDomain}`;
 
-      // Build store URL: use custom domain if set, otherwise use main site with ?store= param.
-      // We always include ?store=slug so the router works on Vercel / plain domains
-      // where subdomain routing isn't available.
+      // Build store URL using custom domain or the verified store slug
+      const resolvedStoreParam = storeSlug || storeId;
       const storeBaseUrl = info.customDomain
         ? `https://${info.customDomain.replace(/^https?:\/\//, '')}`
-        : `${siteBaseUrl}/?store=${storeSlug}`;
+        : `${siteBaseUrl}/?store=${encodeURIComponent(resolvedStoreParam)}`;
 
       const matchedProduct = currentCatalog.find(
         (p) =>
@@ -691,6 +790,33 @@ app.get('/api/whatsapp/status/:storeId', async (req, res) => {
 });
 
 /**
+ * Update / Sync store metadata & catalog for an active WhatsApp session
+ */
+app.post('/api/whatsapp/sync/:storeId', async (req, res) => {
+  const { storeId } = req.params;
+  const { catalog = [], storeInfo = {} } = req.body;
+
+  let session = activeSessions.get(storeId);
+  if (session) {
+    if (catalog && catalog.length > 0) session.catalog = catalog;
+    if (storeInfo && Object.keys(storeInfo).length > 0) {
+      session.storeInfo = { ...(session.storeInfo || {}), ...storeInfo };
+    }
+  }
+
+  const registry = loadRegistry();
+  if (registry[storeId]) {
+    if (catalog && catalog.length > 0) registry[storeId].catalog = catalog;
+    if (storeInfo && Object.keys(storeInfo).length > 0) {
+      registry[storeId].storeInfo = { ...(registry[storeId].storeInfo || {}), ...storeInfo };
+    }
+    saveRegistry(registry);
+  }
+
+  res.json({ success: true, message: 'Store metadata synced successfully' });
+});
+
+/**
  * Start pairing session — emits live QR code to dashboard
  */
 app.post('/api/whatsapp/connect/:storeId', async (req, res) => {
@@ -732,7 +858,7 @@ app.post('/api/whatsapp/connect/:storeId', async (req, res) => {
  */
 app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
   const { storeId } = req.params;
-  const { phoneNumber } = req.body;
+  const { phoneNumber, catalog = [], storeInfo = {} } = req.body;
 
   if (!phoneNumber) {
     return res.status(400).json({ error: 'Phone number is required' });
@@ -759,8 +885,10 @@ app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
       });
     }
 
-    // Force a fresh session for phone pairing code so WhatsApp registers fresh key material
-    session = await initStoreSession(storeId, session?.catalog || [], session?.storeInfo || {}, { forceRefresh: true });
+    // Force a fresh session for phone pairing code with provided catalog and store info
+    const effectiveCat = catalog && catalog.length > 0 ? catalog : (session?.catalog || []);
+    const effectiveInfo = storeInfo && Object.keys(storeInfo).length > 0 ? storeInfo : (session?.storeInfo || {});
+    session = await initStoreSession(storeId, effectiveCat, effectiveInfo, { forceRefresh: true });
 
     // Wait until socket is ready to accept pairing request
     let waitCount = 0;

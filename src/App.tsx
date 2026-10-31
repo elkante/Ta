@@ -70,7 +70,11 @@ export default function App() {
         const subSlug = getSubdomainFromHostname();
         const targetSlug = storeParam || subSlug;
         if (targetSlug) {
-          const match = stores.find((s) => s.slug.toLowerCase() === targetSlug.toLowerCase());
+          const match = stores.find(
+            (s) =>
+              s.slug.toLowerCase() === targetSlug.toLowerCase() ||
+              s.id.toLowerCase() === targetSlug.toLowerCase()
+          );
           if (match) return match;
         }
       }
@@ -94,7 +98,11 @@ export default function App() {
         const urlParams = new URLSearchParams(window.location.search);
         const storeParam = urlParams.get('store') || getSubdomainFromHostname();
         if (storeParam) {
-          const s = stores.find((x) => x.slug.toLowerCase() === storeParam.toLowerCase());
+          const s = stores.find(
+            (x) =>
+              x.slug.toLowerCase() === storeParam.toLowerCase() ||
+              x.id.toLowerCase() === storeParam.toLowerCase()
+          );
           if (s) matchedStoreId = s.id;
         }
       }
