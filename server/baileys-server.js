@@ -15,6 +15,7 @@ import cors from 'cors';
 import pino from 'pino';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import QRCode from 'qrcode';
 import makeWASocket, {
   DisconnectReason,
@@ -24,6 +25,9 @@ import makeWASocket, {
   Browsers,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
@@ -1078,29 +1082,41 @@ app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
       });
     }
 
+    // Clean any previous session credentials so registered: true doesn't block pairing code generation
+    const storeSessionDir = path.join(SESSIONS_DIR, storeId);
+    try {
+      if (session?.sock) {
+        session.sock.ev.removeAllListeners('connection.update');
+        session.sock.ev.removeAllListeners('creds.update');
+        session.sock.end?.();
+      }
+      fs.rmSync(storeSessionDir, { recursive: true, force: true });
+    } catch (e) {}
+
     // Force a fresh session for phone pairing code with provided catalog and store info
     const effectiveCat = catalog && catalog.length > 0 ? catalog : (session?.catalog || []);
     const effectiveInfo = storeInfo && Object.keys(storeInfo).length > 0 ? storeInfo : (session?.storeInfo || {});
     session = await initStoreSession(storeId, effectiveCat, effectiveInfo, { forceRefresh: true });
 
-    // Wait until socket is ready to accept pairing request
-    let waitCount = 0;
-    while ((!session.sock || !session.sock.requestPairingCode) && waitCount < 10) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      waitCount++;
+    // Wait for the socket to establish connection with WhatsApp and emit the ready/QR event
+    if (session.sock?.waitForConnectionUpdate) {
+      try {
+        await session.sock.waitForConnectionUpdate((u) => Boolean(u.qr || u.connection === 'open'), 12000);
+      } catch (waitErr) {
+        console.warn(`[Store: ${storeId}] waitForConnectionUpdate timed out, proceeding with fallback...`);
+      }
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
     }
 
     session.pairingRequested = true;
-
-    // Small delay so socket initial registration completes
-    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     let code = '';
     try {
       code = await session.sock.requestPairingCode(cleanPhone);
     } catch (pairErr) {
-      console.warn(`[Store: ${storeId}] First pairing code attempt failed (${pairErr?.message}), retrying in 2s...`);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      console.warn(`[Store: ${storeId}] First pairing code attempt failed (${pairErr?.message}), retrying in 2.5s...`);
+      await new Promise((resolve) => setTimeout(resolve, 2500));
       if (session.sock) {
         code = await session.sock.requestPairingCode(cleanPhone);
       }

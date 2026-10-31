@@ -152,7 +152,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       try {
         setServerStatus('checking');
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 3500);
+        const t = setTimeout(() => ctrl.abort(), 8000);
         const renderRes = await fetch(`${PRIMARY_RENDER_ENDPOINT}/health`, { signal: ctrl.signal });
         clearTimeout(t);
         if (renderRes.ok && isMounted) {
@@ -422,7 +422,11 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (_) {}
+
       if (data.pairingCode) {
         setPairingCode(data.pairingCode);
         setServerMessage('Enter this code in WhatsApp -> Linked Devices -> Link with phone number');
@@ -430,9 +434,11 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         handleConnectedEvent(data.phone || `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || ''}`);
       } else if (data.error) {
         setPairingError(data.error);
+      } else if (!res.ok) {
+        setPairingError(`Server responded with ${res.status}: ${res.statusText || 'Unable to generate code'}. Please try scanning the QR code.`);
       }
     } catch (e: any) {
-      setPairingError('Failed to generate pairing code. Please ensure WhatsApp server is reachable or try scanning the QR code.');
+      setPairingError('Failed to generate pairing code. Please ensure the WhatsApp bot server is running or try scanning the QR code.');
     } finally {
       setPairingCodeLoading(false);
     }
