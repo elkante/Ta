@@ -3,6 +3,7 @@ import { AlertCircle, BadgeCheck, Bot, Check, CheckCircle2, CreditCard, Lock, Sh
 import confetti from 'canvas-confetti';
 import { Store, StoreIdVerification } from '../../types';
 import { getStoredStores, saveStores, getRootDomain } from '../../utils/storage';
+import { dbSaveStore } from '../../utils/supabase';
 import { getPlanAmount } from '../../utils/planLimits';
 
 const PAYSTACK_LIVE_KEY = 'pk_live_9a7abd38ef91afffaf83a4d550f0c6e597eb22a1';
@@ -82,7 +83,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
 
   const activeAmount = getAmount();
 
-  const completePaymentFlow = (_reference?: string) => {
+  const completePaymentFlow = async (_reference?: string) => {
     setIsProcessing(false);
     setStep('success');
 
@@ -107,6 +108,14 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
         submittedAt: store.idVerification?.submittedAt || new Date().toISOString(),
       } : store.idVerification,
     };
+
+    // 1. Persist to Supabase FIRST — authoritative source of truth
+    try {
+      await dbSaveStore(updatedStore);
+    } catch (e) {
+      console.warn('[PaystackModal] Supabase plan save failed:', e);
+    }
+    // 2. Update localStorage cache (cache-only)
     saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
 
     try {

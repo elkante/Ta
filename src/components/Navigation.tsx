@@ -178,9 +178,8 @@ export const Navigation: React.FC<NavigationProps> = ({
                           onClick={() => {
                             onSelectStore(s);
                             setStoreDropdownOpen(false);
-                            if (activeView === 'landing') {
-                              onViewChange('storefront');
-                            }
+                            // When admin switches store, navigate to storefront view
+                            onViewChange('storefront');
                           }}
                           className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition cursor-pointer ${
                             s.id === currentStore.id

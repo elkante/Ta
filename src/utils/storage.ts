@@ -72,9 +72,14 @@ export function getStoredStores(): Store[] {
   return INITIAL_STORES;
 }
 
+/**
+ * ⚠️ CACHE ONLY: Writes stores to localStorage for offline/fast-boot use.
+ * Does NOT write to Supabase. All Supabase writes must be done explicitly
+ * via dbSaveStore(store) at the call site. This prevents stale local data
+ * from ever overwriting the live Supabase database.
+ */
 export function saveStores(stores: Store[]) {
   localStorage.setItem(STORES_KEY, JSON.stringify(stores));
-  stores.forEach((st) => dbSaveStore(st).catch(() => {}));
 }
 
 export function getStoredProducts(): Product[] {
@@ -557,10 +562,18 @@ export function savePlatformSettings(settings: PlatformSettings) {
   }
 }
 
+/**
+ * Updates a store in the localStorage cache AND persists it to Supabase.
+ * This is the correct single-store update path for all components.
+ */
 export function updateStore(updatedStore: Store): void {
   const stores = getStoredStores();
   const next = stores.map((s) => (s.id === updatedStore.id ? updatedStore : s));
-  saveStores(next);
+  saveStores(next); // cache only — no Supabase push
+  // Fire-and-forget Supabase save so the change is durable
+  dbSaveStore(updatedStore).catch((e) =>
+    console.warn('[updateStore] Supabase save failed:', e)
+  );
 }
 
 export function deleteStoreAndData(storeId: string): void {

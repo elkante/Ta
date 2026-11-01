@@ -568,17 +568,17 @@ export default function App() {
     let stores = getStoredStores();
     let matchedStore = stores.find((s) => s.id === session.storeId || s.slug === session.storeSlug);
 
-    if (!matchedStore) {
-      try {
-        // Fetch ONLY the seller's specific store â€” not all stores
-        const liveStore = await dbFetchStoreBySlug(session.storeSlug);
-        if (liveStore) {
-          matchedStore = liveStore;
-          const merged = [...stores.filter((s) => s.id !== liveStore.id), liveStore];
-          saveStores(merged);
-          setAllStores(merged);
-        }
-      } catch (e) {}
+    // Always fetch fresh from Supabase on login to ensure we have the latest store data
+    try {
+      const liveStore = await dbFetchStoreBySlug(session.storeSlug);
+      if (liveStore) {
+        matchedStore = liveStore; // prefer live Supabase data over stale cache
+        const merged = [...stores.filter((s) => s.id !== liveStore.id), liveStore];
+        saveStores(merged); // update local cache with authoritative data (no Supabase re-write)
+        setAllStores(merged);
+      }
+    } catch (e) {
+      console.warn('Login: failed to fetch fresh store from Supabase, using cache:', e);
     }
 
     if (!matchedStore) {
@@ -657,26 +657,43 @@ export default function App() {
       setStoreReviews(getReviewsByStore(currentStore.id));
     }
 
-    // 2. Re-fetch from Supabase in background so SuperAdmin approvals & edits sync across devices
+    // 2. Re-fetch from Supabase — Supabase is source of truth; update cache with what comes back.
+    //    We do NOT write the cache back to Supabase (saveStores is cache-only now).
     try {
-      const liveStores = await dbFetchStores();
-      if (liveStores && liveStores.length > 0) {
-        saveStores(liveStores);
-        setAllStores(liveStores);
-        if (currentStore) {
-          const refreshedCurrent = liveStores.find((s) => s.id === currentStore.id) || liveStores[0];
-          if (refreshedCurrent) {
-            setCurrentStore(refreshedCurrent);
-            // Also re-fetch products for current store from Supabase
-            try {
-              const liveProds = await dbFetchProducts(refreshedCurrent.id);
-              if (liveProds && liveProds.length > 0) {
-                setStoreProducts(liveProds);
-              }
-            } catch (_) {}
+      // For sellers/guests: only fetch the current store (strict isolation)
+      if (superAdminSession) {
+        // Super admin needs all stores
+        const liveStores = await dbFetchStores();
+        if (liveStores && liveStores.length > 0) {
+          saveStores(liveStores); // update cache from authoritative source
+          setAllStores(liveStores);
+          if (currentStore) {
+            const refreshedCurrent = liveStores.find((s) => s.id === currentStore.id);
+            if (refreshedCurrent) {
+              setCurrentStore(refreshedCurrent);
+              try {
+                const liveProds = await dbFetchProducts(refreshedCurrent.id);
+                if (liveProds && liveProds.length > 0) setStoreProducts(liveProds);
+              } catch (_) {}
+            }
           }
+          return;
         }
-        return;
+      } else if (currentStore) {
+        // Seller/guest: only fetch the specific store
+        const liveStore = await dbFetchStoreBySlug(currentStore.slug);
+        if (liveStore) {
+          const cachedStores = getStoredStores();
+          const merged = [...cachedStores.filter((s) => s.id !== liveStore.id), liveStore];
+          saveStores(merged); // update cache from authoritative source
+          setAllStores(merged);
+          setCurrentStore(liveStore);
+          try {
+            const liveProds = await dbFetchProducts(liveStore.id);
+            if (liveProds && liveProds.length > 0) setStoreProducts(liveProds);
+          } catch (_) {}
+          return;
+        }
       }
     } catch (e) {
       console.warn('Supabase refresh failed, falling back to localStorage:', e);

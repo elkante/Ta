@@ -1067,7 +1067,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                         </p>
                         <button
                           type="button"
-                          onClick={handleStartBaileysPairing}
+                          onClick={() => handleStartBaileysPairing(true)}
                           className="mt-3 text-[10px] font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-md hover:bg-slate-100 cursor-pointer"
                         >
                           Retry Connect

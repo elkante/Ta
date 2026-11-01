@@ -51,6 +51,8 @@ interface StorefrontProps {
   onOpenLanding?: () => void;
   onRefreshData?: () => void;
   onOpenLegal?: (tab: 'terms' | 'privacy' | 'cookies') => void;
+  /** Navigates the owner to their seller dashboard */
+  onOpenDashboard?: () => void;
   /** Product ID from ?product= URL param — auto-opens product detail on load */
   initialProductId?: string | null;
 }
@@ -65,6 +67,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
   onOpenLanding,
   onRefreshData,
   onOpenLegal,
+  onOpenDashboard,
   initialProductId,
 }) => {
   // Search & Filters

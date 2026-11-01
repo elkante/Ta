@@ -142,7 +142,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   // Search & Filter state for Stores
   const [storeSearch, setStoreSearch] = useState('');
-  const [tierFilter, setTierFilter] = useState<'all' | 'free' | 'starter' | 'pro' | 'business'>('all');
+  const [tierFilter, setTierFilter] = useState<'all' | 'free' | 'starter' | 'basic' | 'pro' | 'business'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'featured' | 'suspended'>('all');
 
   // KYC ID Verification Queue state
@@ -160,7 +160,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   // Plan override modal state
   const [planOverrideStore, setPlanOverrideStore] = useState<Store | null>(null);
-  const [planOverrideTier, setPlanOverrideTier] = useState<'free' | 'starter' | 'pro' | 'business'>('starter');
+  const [planOverrideTier, setPlanOverrideTier] = useState<'free' | 'starter' | 'basic' | 'pro' | 'business'>('starter');
   const [planOverrideDays, setPlanOverrideDays] = useState('30');
   const [planOverrideNote, setPlanOverrideNote] = useState('');
 
@@ -303,20 +303,21 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setTimeout(() => setActionSuccessMessage(null), 3500);
   };
 
-  // ── Unified store save: localStorage + Supabase + local liveStores state ──────
+  // ── Unified store save: Supabase first, then localStorage cache ────────────
   const saveStoreEverywhere = async (updated: Store) => {
     // 1. Optimistic UI update — immediately reflect in liveStores so no flicker/revert
     setLiveStores((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-    // 2. Persist to localStorage (update within the full list)
-    const currentStores = liveStores.map((s) => (s.id === updated.id ? updated : s));
-    saveStores(currentStores);
-    // 3. Persist to Supabase
+    // 2. Persist to Supabase FIRST — authoritative source of truth
     try {
-      await dbSaveStore(updated);
+      const ok = await dbSaveStore(updated);
+      if (!ok) console.warn('[saveStoreEverywhere] dbSaveStore returned false for', updated.id);
     } catch (e) {
       console.warn('Supabase store save error:', e);
     }
-    // 4. Tell parent to refresh (background sync, won't override liveStores unless more stores found)
+    // 3. Update localStorage cache (cache-only, no Supabase re-write)
+    const currentStores = liveStores.map((s) => (s.id === updated.id ? updated : s));
+    saveStores(currentStores);
+    // 4. Tell parent to refresh in background
     onRefreshData();
   };
 
@@ -398,7 +399,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     );
   };
 
-  const handleSetPlan = async (store: Store, tier: 'free' | 'starter' | 'pro' | 'business', daysOverride?: number) => {
+  const handleSetPlan = async (store: Store, tier: 'free' | 'starter' | 'basic' | 'pro' | 'business', daysOverride?: number) => {
     const now = new Date();
     const expiry = new Date(now);
     expiry.setDate(expiry.getDate() + (daysOverride ?? 30));
@@ -2798,6 +2799,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 {[
                   { id: 'free', label: 'Free Tier', badge: '₦0' },
                   { id: 'starter', label: 'Starter', badge: '₦500/mo' },
+                  { id: 'basic', label: 'Basic Plan', badge: '₦1,500/mo' },
                   { id: 'pro', label: '⚡ Pro Plan', badge: '₦4,900/mo' },
                   { id: 'business', label: '🤖 Business Bot', badge: '₦25,000/mo' },
                 ].map((t) => (

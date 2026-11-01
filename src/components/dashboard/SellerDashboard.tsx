@@ -664,15 +664,25 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       },
     };
 
-    const allStores = getStoredStores();
-    const updatedStores = allStores.map((s) => (s.id === store.id ? updatedStore : s));
-    saveStores(updatedStores);
-    onSelectStore(updatedStore);
+    // 1. Persist to Supabase FIRST — single source of truth
     try {
-      await dbSaveStore(updatedStore);
+      const saved = await dbSaveStore(updatedStore);
+      if (!saved) {
+        console.warn('Supabase store settings save returned false');
+      }
     } catch (e) {
       console.warn('Supabase store settings save error:', e);
     }
+
+    // 2. Update local cache (cache-only, no Supabase re-write)
+    const allStores = getStoredStores();
+    const updatedStores = allStores.map((s) => (s.id === store.id ? updatedStore : s));
+    saveStores(updatedStores);
+
+    // 3. Update parent state so UI reflects immediately
+    onSelectStore(updatedStore);
+
+    // 4. Background refresh to sync any other cross-device changes
     onRefreshData();
 
     setSettingsSavedToast(true);
@@ -700,13 +710,17 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       submittedAt: new Date().toISOString(),
     };
     const updatedStore: Store = { ...store, idVerification: kycData };
-    updateStore(updatedStore);
-    onSelectStore(updatedStore);
+    // 1. Supabase first
     try {
       await dbSaveStore(updatedStore);
     } catch (e) {
       console.warn('Supabase KYC save error:', e);
     }
+    // 2. Update local cache
+    const allStores = getStoredStores();
+    saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
+    // 3. Update UI
+    onSelectStore(updatedStore);
     onRefreshData();
     setKycSaving(false);
     setSettingsSavedToast(true);
@@ -4674,11 +4688,16 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             hasVerifiedBadgeAddon: plan === 'pro' || plan === 'business' ? true : store.hasVerifiedBadgeAddon,
             planExpiresAt,
           };
-          saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
-          onSelectStore(updatedStore);
+          // 1. Supabase first — authoritative
           try {
             await dbSaveStore(updatedStore);
-          } catch (e) {}
+          } catch (e) {
+            console.warn('Supabase plan upgrade save failed:', e);
+          }
+          // 2. Update local cache
+          saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
+          // 3. Update UI
+          onSelectStore(updatedStore);
           onRefreshData();
         }}
       />
