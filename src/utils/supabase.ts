@@ -131,7 +131,7 @@ export function mapProductFromDB(row: any): Product {
     variants: row.variants || [],
     attributes: cleanAttrs,
     inquiryCount: row.inquiry_count || 0,
-    approvalStatus: (_approval_status as 'pending' | 'approved' | 'rejected') || 'pending',
+    approvalStatus: (_approval_status as 'pending' | 'approved' | 'rejected') || 'approved',
     approvalRejectionReason: _approval_rejection_reason || undefined,
     createdAt: row.created_at || new Date().toISOString(),
   };
@@ -141,7 +141,7 @@ export function mapProductToDB(product: Product): any {
   // Merge approval state into attributes JSONB as hidden _prefixed keys
   const attrs: Record<string, any> = {
     ...(product.attributes || {}),
-    _approval_status: product.approvalStatus || 'pending',
+    _approval_status: product.approvalStatus || 'approved',
   };
   if (product.approvalRejectionReason) {
     attrs._approval_rejection_reason = product.approvalRejectionReason;

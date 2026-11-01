@@ -37,6 +37,7 @@ import {
   getSellerSession,
   getStoreBySlug,
   getStoredStores,
+  getStoredProducts,
   getSuperAdminSession,
   getSubdomainFromHostname,
   saveStores,
@@ -409,10 +410,11 @@ export default function App() {
 
       try {
         const liveProds = await dbFetchProducts(targetStore.id);
-        if (liveProds && liveProds.length > 0) {
+        if (Array.isArray(liveProds)) {
           prods = liveProds;
           setStoreProducts(liveProds);
-          saveProducts(liveProds);
+          const otherProds = getStoredProducts().filter((p) => p.storeId !== targetStore.id);
+          saveProducts([...liveProds, ...otherProds]);
         }
       } catch (e) {}
 
@@ -528,8 +530,10 @@ export default function App() {
     // Also fetch latest live products & reviews from Supabase
     dbFetchProducts(store.id)
       .then((live) => {
-        if (live && live.length > 0) {
+        if (Array.isArray(live)) {
           setStoreProducts(live);
+          const otherProds = getStoredProducts().filter((p) => p.storeId !== store.id);
+          saveProducts([...live, ...otherProds]);
         }
       })
       .catch(() => {});
@@ -673,7 +677,11 @@ export default function App() {
               setCurrentStore(refreshedCurrent);
               try {
                 const liveProds = await dbFetchProducts(refreshedCurrent.id);
-                if (liveProds && liveProds.length > 0) setStoreProducts(liveProds);
+                if (Array.isArray(liveProds)) {
+                  setStoreProducts(liveProds);
+                  const otherProds = getStoredProducts().filter((p) => p.storeId !== refreshedCurrent.id);
+                  saveProducts([...liveProds, ...otherProds]);
+                }
               } catch (_) {}
             }
           }
@@ -690,7 +698,11 @@ export default function App() {
           setCurrentStore(liveStore);
           try {
             const liveProds = await dbFetchProducts(liveStore.id);
-            if (liveProds && liveProds.length > 0) setStoreProducts(liveProds);
+            if (Array.isArray(liveProds)) {
+              setStoreProducts(liveProds);
+              const otherProds = getStoredProducts().filter((p) => p.storeId !== liveStore.id);
+              saveProducts([...liveProds, ...otherProds]);
+            }
           } catch (_) {}
           return;
         }

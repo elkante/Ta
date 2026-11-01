@@ -502,10 +502,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     const allProducts = getStoredProducts();
     const updated = allProducts.map((p) => (p.id === product.id ? updatedProd : p));
     saveProducts(updated);
-    onRefreshData(); // 0ms instant UI update
     try {
       await dbSaveProduct(updatedProd);
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Supabase stock toggle error:', e);
+    }
+    onRefreshData();
   };
 
   const handleDeleteProduct = async (productId: string) => {
@@ -513,12 +515,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       const allProducts = getStoredProducts();
       const updated = allProducts.filter((p) => p.id !== productId);
       saveProducts(updated);
-      onRefreshData(); // 0ms instant UI update
       try {
         await dbDeleteProduct(productId);
       } catch (err) {
         console.warn('Failed deleting product from Supabase:', err);
       }
+      onRefreshData();
     }
   };
 
@@ -531,13 +533,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       name: `${product.name} (Copy)`,
       inquiryCount: 0,
       createdAt: new Date().toISOString(),
-      approvalStatus: 'pending',
+      approvalStatus: 'approved',
     };
     saveProducts([duplicated, ...allProducts]);
-    onRefreshData(); // 0ms instant UI update
     try {
       await dbSaveProduct(duplicated);
     } catch (e) {}
+    onRefreshData();
   };
 
   const handleSaveProduct = async (payload: Partial<Product>) => {
@@ -559,6 +561,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         ...payload,
         price: safePrice,
         images: sanitizedImages,
+        approvalStatus: productToEdit.approvalStatus || 'approved',
       };
       const updated = allProducts.map((p) =>
         p.id === productToEdit.id ? savedProd : p
@@ -590,20 +593,21 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         variants: payload.variants || [],
         inquiryCount: 0,
         createdAt: new Date().toISOString(),
-        approvalStatus: 'pending', // Must be approved by super admin before going live
+        approvalStatus: 'approved',
       };
       saveProducts([savedProd, ...allProducts]);
     }
 
     setProductToEdit(null);
-    onRefreshData(); // 0ms instant UI update for seller!
 
-    // Persist to Supabase in background
+    // 🔒 Persist to Supabase FIRST before notifying parent refresh
     try {
       await dbSaveProduct(savedProd);
     } catch (e) {
       console.warn('Supabase product save error:', e);
     }
+
+    onRefreshData();
   };
 
   // Inquiry Status Change

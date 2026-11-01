@@ -105,14 +105,21 @@ export function getStoredProducts(): Product[] {
   return INITIAL_PRODUCTS;
 }
 
+/**
+ * ⚠️ CACHE ONLY: Writes products to localStorage for offline/fast-boot use.
+ * Does NOT write to Supabase. Supabase writes are explicitly performed via
+ * dbSaveProduct() / dbDeleteProduct() to prevent stale snapshots from overwriting the cloud.
+ */
 export function saveProducts(products: Product[]) {
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-  // Dispatch a custom event so App.tsx can instantly re-render the storefront
-  // without waiting for Supabase round-trip (0ms latency for sellers/buyers)
+  try {
+    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+  } catch (e) {
+    console.error('Failed saving products to local cache', e);
+  }
+  // Dispatch a custom event so App.tsx can instantly re-render without delay
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('tashop:products_updated'));
   }
-  products.forEach((p) => dbSaveProduct(p).catch(() => {}));
 }
 
 export function getStoredInquiries(): WhatsAppInquiryLog[] {
