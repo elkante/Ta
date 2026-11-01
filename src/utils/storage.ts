@@ -234,7 +234,10 @@ export function saveReviews(reviews: StoreReview[]): void {
   try {
     localStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
   } catch (e) {
-    console.error('Failed reading reviews', e);
+    console.error('Failed saving reviews to local cache', e);
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tashop:reviews_updated'));
   }
 }
 
@@ -242,7 +245,9 @@ export function addStoreReview(review: StoreReview): void {
   const current = getStoredReviews();
   const next = [review, ...current.filter((r) => r.id !== review.id)];
   saveReviews(next);
-  dbSaveReview(review).catch(() => {});
+  dbSaveReview(review).catch((err) => {
+    console.warn('Supabase review save error:', err);
+  });
 }
 
 export function getStoreBySlug(slug: string): Store | undefined {

@@ -38,10 +38,12 @@ import {
   getStoreBySlug,
   getStoredStores,
   getStoredProducts,
+  getStoredReviews,
   getSuperAdminSession,
   getSubdomainFromHostname,
   saveStores,
   saveProducts,
+  saveReviews,
   saveOrders,
   setCurrentTenantSlug,
   getRootDomain,
@@ -475,9 +477,9 @@ export default function App() {
     } catch (e) {}
   }, [activeView, currentStore]);
 
-  // ─── Instant storefront product refresh on save (no Supabase wait) ──────
-  // Listens for the custom event fired by saveProducts() in storage.ts
-  // so the storefront re-renders within milliseconds of a seller saving a product
+  // ─── Instant storefront product & review refresh on save (no Supabase wait) ──────
+  // Listens for custom events fired by saveProducts() and saveReviews() in storage.ts
+  // so the storefront re-renders with 0ms latency
   useEffect(() => {
     const handler = () => {
       if (currentStore) {
@@ -486,6 +488,16 @@ export default function App() {
     };
     window.addEventListener('tashop:products_updated', handler);
     return () => window.removeEventListener('tashop:products_updated', handler);
+  }, [currentStore?.id]);
+
+  useEffect(() => {
+    const handler = () => {
+      if (currentStore) {
+        setStoreReviews(getReviewsByStore(currentStore.id));
+      }
+    };
+    window.addEventListener('tashop:reviews_updated', handler);
+    return () => window.removeEventListener('tashop:reviews_updated', handler);
   }, [currentStore?.id]);
 
   // â”€â”€â”€ PWA ONLY on Landing Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -683,6 +695,14 @@ export default function App() {
                   saveProducts([...liveProds, ...otherProds]);
                 }
               } catch (_) {}
+              try {
+                const liveRevs = await dbFetchReviews(refreshedCurrent.id);
+                if (Array.isArray(liveRevs)) {
+                  setStoreReviews(liveRevs);
+                  const otherRevs = getStoredReviews().filter((r) => r.storeId !== refreshedCurrent.id);
+                  saveReviews([...liveRevs, ...otherRevs]);
+                }
+              } catch (_) {}
             }
           }
           return;
@@ -702,6 +722,14 @@ export default function App() {
               setStoreProducts(liveProds);
               const otherProds = getStoredProducts().filter((p) => p.storeId !== liveStore.id);
               saveProducts([...liveProds, ...otherProds]);
+            }
+          } catch (_) {}
+          try {
+            const liveRevs = await dbFetchReviews(liveStore.id);
+            if (Array.isArray(liveRevs)) {
+              setStoreReviews(liveRevs);
+              const otherRevs = getStoredReviews().filter((r) => r.storeId !== liveStore.id);
+              saveReviews([...liveRevs, ...otherRevs]);
             }
           } catch (_) {}
           return;

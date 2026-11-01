@@ -114,7 +114,7 @@ export const CustomerReviewModal: React.FC<CustomerReviewModalProps> = ({
       setTimeout(() => {
         setIsSuccess(false);
         onClose();
-      }, 2400);
+      }, 600);
     } catch (err: any) {
       setErrorMessage(err?.message || 'Failed to submit review. Please try again.');
     } finally {
