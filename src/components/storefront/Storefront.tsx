@@ -798,22 +798,22 @@ export const Storefront: React.FC<StorefrontProps> = ({
 
         {/* Footer & Platform Branding */}
         <footer className="mt-16 text-center text-xs text-slate-400 space-y-4">
-          {/* Explore Stores & Platform Hub */}
-          <div className="flex flex-wrap items-center justify-center gap-2.5">
-            {onOpenLanding && (
-              <button
-                onClick={onOpenLanding}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md shadow-slate-900/10 transition active:scale-95 cursor-pointer"
-                title="Explore all stores on Tá.shop"
-              >
-                <div className="w-5 h-5 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-black text-[10px]">
-                  Tá
-                </div>
-                <span>Explore Stores on Tá.shop</span>
-              </button>
-            )}
+          {/* Explore Stores & Platform Hub — Hidden for Gold Tick Business Plan stores */}
+          {store.tier !== 'business' && (
+            <div className="flex flex-wrap items-center justify-center gap-2.5">
+              {onOpenLanding && (
+                <button
+                  onClick={onOpenLanding}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md shadow-slate-900/10 transition active:scale-95 cursor-pointer"
+                  title="Explore all stores on Tá.shop"
+                >
+                  <div className="w-5 h-5 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-black text-[10px]">
+                    Tá
+                  </div>
+                  <span>Explore Stores on Tá.shop</span>
+                </button>
+              )}
 
-            {store.tier !== 'business' && (
               <button
                 onClick={onOpenCreateStore}
                 className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-2xl text-slate-700 font-semibold text-xs transition cursor-pointer border border-slate-200"
@@ -822,14 +822,12 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 <span className="text-slate-300">•</span>
                 <span className="text-amber-700 font-bold">Launch your store</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[11px] text-slate-500">
             <span>© {new Date().getFullYear()} {store.name}</span>
-            <span>•</span>
-            <span className="text-slate-400">Customer View (Login-Free)</span>
-            {onOpenLanding && (
+            {store.tier !== 'business' && onOpenLanding && (
               <>
                 <span>•</span>
                 <button
