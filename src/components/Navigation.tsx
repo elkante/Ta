@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Check,
   ChevronDown,
@@ -101,6 +102,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <header className="sticky top-0 z-[100] bg-white/95 backdrop-blur-md border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2">
         {/* Left: Brand & Tenant Switcher */}
@@ -365,9 +367,11 @@ export const Navigation: React.FC<NavigationProps> = ({
         </div>
       </div>
 
-      {/* Mobile Navigation Drawer (Slides cleanly over everything at highest z-index) */}
-      {mobileMenuOpen && (
-        <div className="sm:hidden fixed inset-0 z-[99999] bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 flex flex-col justify-start">
+      {/* Mobile Navigation Drawer rendered via portal to escape header's backdrop-filter stacking context */}
+    </header>
+
+    {mobileMenuOpen && createPortal(
+      <div className="fixed inset-0 z-[99999] bg-slate-950/70 backdrop-blur-sm flex flex-col justify-start">
           <div
             className="absolute inset-0"
             onClick={() => setMobileMenuOpen(false)}
@@ -505,7 +509,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             </div>
           </div>
         </div>
-      )}
-    </header>
+      , document.body)}
+    </>
   );
 };
