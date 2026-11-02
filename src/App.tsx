@@ -675,7 +675,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900 overflow-x-clip w-full max-w-full">
+    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900 w-full max-w-full">
       {showSplash && <SplashScreen onFinish={() => {
         setShowSplash(false);
         try { sessionStorage.setItem('ta_seen_splash', '1'); } catch (e) {}

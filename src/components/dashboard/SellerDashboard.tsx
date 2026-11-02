@@ -1055,7 +1055,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 overflow-x-hidden w-full max-w-full">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 w-full max-w-full">
 
       {/* ── DESKTOP SIDEBAR ── */}
       <aside className="hidden md:flex flex-col w-60 min-h-screen bg-slate-900 flex-shrink-0 sticky top-0 overflow-y-auto">
