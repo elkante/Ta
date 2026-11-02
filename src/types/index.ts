@@ -20,6 +20,7 @@ export interface Product {
   originalPrice?: number;
   category: string;
   images: string[];
+  videoUrl?: string; // Optional product video link (YouTube, TikTok, Vimeo, Cloudinary, or direct MP4)
   inStock: boolean;
   isLowStock?: boolean;
   badge?: string; // "Bestseller", "New Arrival", "Viral", "Limited"
@@ -128,6 +129,14 @@ export interface StoreAIBotConfig {
   whatsappConnected?: boolean;
   whatsappPhone?: string;
   lastConnectedAt?: string;
+  /** Pause bot without unlinking WhatsApp */
+  isPaused?: boolean;
+  /** ISO string — if set, bot auto-resumes at this time; null = paused indefinitely */
+  pausedUntil?: string | null;
+  /** 'always' = reply to every DM; 'commerce_only' = only reply to order-intent messages */
+  replyTriggerMode?: 'always' | 'commerce_only';
+  /** Phone numbers (digits only, no +) whose DMs the bot will silently ignore */
+  ignoredPhones?: string[];
 }
 
 export interface WhatsAppInquiryLog {

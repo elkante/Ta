@@ -4,12 +4,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Image as ImageIcon,
   MapPin,
   MessageCircle,
+  Play,
   Share2,
   ShoppingBag,
   Sparkles,
   Truck,
+  Video,
   X,
 } from 'lucide-react';
 import { Product, ProductVariant, Store } from '../../types';
@@ -25,6 +28,43 @@ interface ProductDetailModalProps {
   onShareProduct: (product: Product) => void;
 }
 
+const getEmbedUrl = (rawUrl?: string): { type: 'iframe' | 'video'; embedUrl: string } | null => {
+  if (!rawUrl) return null;
+  const url = rawUrl.trim();
+  if (!url) return null;
+
+  // YouTube (standard, youtu.be, shorts, embed)
+  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/i);
+  if (ytMatch && ytMatch[1]) {
+    return {
+      type: 'iframe',
+      embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&rel=0`,
+    };
+  }
+
+  // Vimeo
+  const vimeoMatch = url.match(/vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/(?:[^\/]*)\/videos\/|album\/(?:\d+)\/video\/|video\/|)(\d+)/i);
+  if (vimeoMatch && vimeoMatch[1]) {
+    return {
+      type: 'iframe',
+      embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`,
+    };
+  }
+
+  // Direct video file
+  if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url)) {
+    return {
+      type: 'video',
+      embedUrl: url,
+    };
+  }
+
+  return {
+    type: 'iframe',
+    embedUrl: url,
+  };
+};
+
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   isOpen,
   onClose,
@@ -35,6 +75,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onShareProduct,
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [mediaTab, setMediaTab] = useState<'photos' | 'video'>('photos');
   const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>(() => {
     return product?.variants && product.variants.length > 0 ? [product.variants[0].id] : [];
   });
@@ -60,6 +101,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const currentPrice = primaryVariant ? primaryVariant.price : product.price;
   const currentOriginalPrice = primaryVariant?.originalPrice || product.originalPrice;
   const isAvailable = primaryVariant ? primaryVariant.inStock : product.inStock;
+  const videoEmbed = product.videoUrl ? getEmbedUrl(product.videoUrl) : null;
 
   const images =
     product.images.length > 0
@@ -109,21 +151,73 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         {/* Mobile drag pill */}
         <div className="w-10 h-1.5 bg-slate-200 rounded-full mx-auto mt-3 mb-1 sm:hidden shrink-0" />
 
-        {/* ── IMAGE GALLERY ───────────────────────────── */}
-        <div className="relative bg-slate-100 shrink-0" style={{ aspectRatio: '16/9' }}>
-          <img
-            key={activeImageIndex}
-            src={images[activeImageIndex]}
-            alt={product.name}
-            className={`w-full h-full object-cover transition-opacity duration-200 ${!isAvailable ? 'grayscale opacity-70' : ''}`}
-            onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80';
-            }}
-          />
+        {/* ── IMAGE / VIDEO GALLERY ───────────────────────────── */}
+        <div className="relative bg-slate-900 shrink-0" style={{ aspectRatio: '16/9' }}>
+          {mediaTab === 'video' && videoEmbed ? (
+            <div className="w-full h-full relative flex items-center justify-center bg-black">
+              {videoEmbed.type === 'video' ? (
+                <video
+                  src={videoEmbed.embedUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <iframe
+                  src={videoEmbed.embedUrl}
+                  title={product.name}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full border-0"
+                />
+              )}
+            </div>
+          ) : (
+            <img
+              key={activeImageIndex}
+              src={images[activeImageIndex]}
+              alt={product.name}
+              className={`w-full h-full object-cover transition-opacity duration-200 ${!isAvailable ? 'grayscale opacity-70' : ''}`}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src =
+                  'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80';
+              }}
+            />
+          )}
 
-          {/* Prev / Next */}
-          {images.length > 1 && (
+          {/* Photo / Video Switcher (only if product has videoUrl) */}
+          {product.videoUrl && videoEmbed && (
+            <div className="absolute bottom-3 left-3 z-20 flex items-center p-1 bg-black/60 backdrop-blur-md rounded-full border border-white/20 shadow-md">
+              <button
+                type="button"
+                onClick={() => setMediaTab('photos')}
+                className={`px-3 py-1 rounded-full text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                  mediaTab === 'photos'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-white/80 hover:text-white'
+                }`}
+              >
+                <ImageIcon className="w-3 h-3" />
+                <span>Photos ({images.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMediaTab('video')}
+                className={`px-3 py-1 rounded-full text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                  mediaTab === 'video'
+                    ? 'bg-amber-400 text-slate-950 shadow-xs'
+                    : 'text-white/80 hover:text-white'
+                }`}
+              >
+                <Play className="w-3 h-3 fill-current" />
+                <span>Watch Video</span>
+              </button>
+            </div>
+          )}
+
+          {/* Prev / Next (only in photo mode) */}
+          {mediaTab === 'photos' && images.length > 1 && (
             <>
               <button
                 onClick={prevImage}
@@ -138,7 +232,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <ChevronRight className="w-4 h-4" />
               </button>
               {/* Dot indicators */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+              <div className="absolute bottom-3 right-3 flex items-center gap-1.5 z-10">
                 {images.map((_, i) => (
                   <button
                     key={i}
@@ -181,7 +275,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </button>
           </div>
 
-          {!isAvailable && (
+          {!isAvailable && mediaTab === 'photos' && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
               <span className="bg-white text-slate-900 text-sm font-black px-4 py-2 rounded-full uppercase tracking-widest shadow-xl">
                 Sold Out
@@ -237,6 +331,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
           {/* Description */}
           <p className="text-sm text-slate-600 leading-relaxed">{product.description}</p>
+
+          {/* Watch Video Banner */}
+          {product.videoUrl && videoEmbed && mediaTab !== 'video' && (
+            <button
+              type="button"
+              onClick={() => {
+                setMediaTab('video');
+                // Scroll modal to top so video is in view
+                const container = document.querySelector('.overflow-y-auto');
+                if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="w-full py-2.5 px-3 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-2xs"
+            >
+              <Play className="w-3.5 h-3.5 fill-amber-700 text-amber-700" />
+              <span>Watch Product Video Preview</span>
+            </button>
+          )}
 
           {/* Variants with Checkboxes */}
           {product.variants && product.variants.length > 0 && (

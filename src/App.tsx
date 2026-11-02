@@ -8,6 +8,7 @@ import { Navigation } from './components/Navigation';
 import { Storefront } from './components/storefront/Storefront';
 import { SellerDashboard } from './components/dashboard/SellerDashboard';
 import { LandingPage } from './components/landing/LandingPage';
+import { PricingPage } from './components/landing/PricingPage';
 import { SellerAuthModal } from './components/auth/SellerAuthModal';
 import { CreateStoreModal } from './components/modals/CreateStoreModal';
 import { SocialShareModal } from './components/modals/SocialShareModal';
@@ -55,7 +56,7 @@ export default function App() {
   const [storeInquiries, setStoreInquiries] = useState<WhatsAppInquiryLog[]>([]);
   const [storeReviews, setStoreReviews] = useState<StoreReview[]>([]);
 
-  const [activeView, setActiveView] = useState<'landing' | 'storefront' | 'dashboard' | 'superadmin'>(() => {
+  const [activeView, setActiveView] = useState<'landing' | 'pricing' | 'storefront' | 'dashboard' | 'superadmin'>(() => {
     try {
       if (typeof window !== 'undefined') {
         const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
@@ -74,8 +75,11 @@ export default function App() {
       if (viewParam === 'sys-hq' || viewParam === 'superadmin' || viewParam === 'admin') {
         return 'superadmin';
       }
+      if (viewParam === 'pricing') {
+        return 'pricing';
+      }
       if (viewParam === 'dashboard' || viewParam === 'storefront' || viewParam === 'landing') {
-        return viewParam as 'landing' | 'storefront' | 'dashboard' | 'superadmin';
+        return viewParam as 'landing' | 'pricing' | 'storefront' | 'dashboard' | 'superadmin';
       }
       const subSlug = getSubdomainFromHostname();
       if (urlParams.get('store') || subSlug) {
@@ -229,6 +233,8 @@ export default function App() {
     // Resolve view
     if (viewParam === 'landing') {
       setActiveView('landing');
+    } else if (viewParam === 'pricing') {
+      setActiveView('pricing');
     } else if (viewParam === 'dashboard' && session) {
       setActiveView('dashboard');
       sessionStorage.setItem('ta_last_view', 'dashboard');
@@ -319,6 +325,13 @@ export default function App() {
         sessionStorage.setItem('ta_last_store_slug', currentStore.slug);
         url.searchParams.set('store', currentStore.slug);
         url.searchParams.delete('view');
+        window.history.replaceState({}, '', url.toString());
+      } else if (activeView === 'pricing') {
+        if (url.pathname === '/sys-hq') url.pathname = '/';
+        sessionStorage.removeItem('ta_last_view');
+        sessionStorage.removeItem('ta_last_store_slug');
+        url.searchParams.delete('store');
+        url.searchParams.set('view', 'pricing');
         window.history.replaceState({}, '', url.toString());
       } else if (activeView === 'landing') {
         if (url.pathname === '/sys-hq') url.pathname = '/';
@@ -588,6 +601,34 @@ export default function App() {
   }
 
   if (!currentStore) {
+    if (activeView === 'pricing') {
+      return (
+        <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
+          <PricingPage
+            onOpenSignup={(slug) => {
+              setAuthModalMode('signup');
+              setAuthModalSlug(slug || '');
+              setIsAuthModalOpen(true);
+            }}
+            onBack={() => setActiveView('landing')}
+          />
+          <SellerAuthModal
+            isOpen={isAuthModalOpen}
+            onClose={() => setIsAuthModalOpen(false)}
+            initialMode={authModalMode}
+            initialSlug={authModalSlug}
+            onLoginSuccess={handleLoginSuccess}
+            onStoreCreated={handleStoreCreated}
+          />
+          <LegalModal
+            isOpen={isLegalModalOpen}
+            onClose={() => setIsLegalModalOpen(false)}
+            initialTab={legalModalTab}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen flex flex-col bg-slate-900 text-white font-sans">
         {showSplash && <SplashScreen onFinish={() => {
@@ -603,6 +644,7 @@ export default function App() {
               setActiveView('storefront');
             }
           }}
+          onOpenPricing={() => setActiveView('pricing')}
           onOpenLogin={() => {
             setAuthModalMode('login');
             setIsAuthModalOpen(true);
@@ -641,7 +683,7 @@ export default function App() {
 
       {sellerSession && activeView === 'dashboard' && <PWAInstallBanner />}
 
-      {activeView !== 'landing' && (
+      {activeView !== 'landing' && activeView !== 'pricing' && (
         <Navigation
           currentStore={currentStore}
           allStores={allStores}
@@ -653,6 +695,8 @@ export default function App() {
             const url = new URL(window.location.href);
             if (view === 'landing') {
               url.searchParams.set('view', 'landing');
+            } else if (view === 'pricing') {
+              url.searchParams.set('view', 'pricing');
             } else if (view === 'superadmin') {
               handleOpenSuperAdmin();
               return;
@@ -681,7 +725,16 @@ export default function App() {
 
       <div className="flex-1">
         <ErrorBoundary fallbackTitle="View Loading Error">
-          {activeView === 'landing' ? (
+          {activeView === 'pricing' ? (
+            <PricingPage
+              onOpenSignup={(slug) => {
+                setAuthModalMode('signup');
+                setAuthModalSlug(slug || '');
+                setIsAuthModalOpen(true);
+              }}
+              onBack={() => setActiveView(sellerSession ? 'dashboard' : 'storefront')}
+            />
+          ) : activeView === 'landing' ? (
             <LandingPage
               stores={allStores}
               sellerSession={sellerSession}
@@ -693,6 +746,7 @@ export default function App() {
                   setActiveView('storefront');
                 }
               }}
+              onOpenPricing={() => setActiveView('pricing')}
               onOpenLogin={() => {
                 setAuthModalMode('login');
                 setIsAuthModalOpen(true);

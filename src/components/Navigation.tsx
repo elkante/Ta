@@ -21,10 +21,10 @@ import { VerifiedBadge } from './common/VerifiedBadge';
 interface NavigationProps {
   currentStore: Store;
   allStores: Store[];
-  activeView: 'landing' | 'storefront' | 'dashboard' | 'superadmin';
+  activeView: 'landing' | 'pricing' | 'storefront' | 'dashboard' | 'superadmin';
   sellerSession: SellerSession | null;
   superAdminSession?: SuperAdminSession | null;
-  onViewChange: (view: 'landing' | 'storefront' | 'dashboard' | 'superadmin') => void;
+  onViewChange: (view: 'landing' | 'pricing' | 'storefront' | 'dashboard' | 'superadmin') => void;
   onSelectStore: (store: Store) => void;
   onOpenCreateStore: () => void;
   onOpenShareModal: () => void;

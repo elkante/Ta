@@ -4,11 +4,14 @@ import {
   Bot,
   Check,
   CheckCheck,
+  Clock,
   Copy,
   ExternalLink,
   MessageCircle,
+  Pause,
   Phone,
   Play,
+  Plus,
   QrCode,
   RefreshCw,
   RotateCcw,
@@ -19,6 +22,8 @@ import {
   Sparkles,
   ToggleLeft,
   ToggleRight,
+  Trash2,
+  UserX,
   Wifi,
   Zap,
 } from 'lucide-react';
@@ -69,6 +74,10 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       'Delivery options and locations',
     ],
     enabled: false,
+    isPaused: false,
+    pausedUntil: null,
+    replyTriggerMode: 'commerce_only',
+    ignoredPhones: [],
   };
 
   // Editable Bot State
@@ -77,6 +86,11 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   const [storeKnowledge, setStoreKnowledge] = useState(existingConfig.storeKnowledge);
   const [botTone, setBotTone] = useState<'luxury' | 'friendly' | 'fast' | 'professional'>(existingConfig.tone);
   const [bubbleEnabled, setBubbleEnabled] = useState(existingConfig.enabled);
+  const [isPaused, setIsPaused] = useState(Boolean(existingConfig.isPaused));
+  const [pausedUntil, setPausedUntil] = useState<string | null>(existingConfig.pausedUntil || null);
+  const [replyTriggerMode, setReplyTriggerMode] = useState<'always' | 'commerce_only'>(existingConfig.replyTriggerMode || 'commerce_only');
+  const [ignoredPhones, setIgnoredPhones] = useState<string[]>(existingConfig.ignoredPhones || []);
+  const [newIgnoredPhone, setNewIgnoredPhone] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Baileys WhatsApp Connection State (persisted so logout/reload never breaks pairing)
@@ -524,6 +538,10 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       tone: botTone,
       suggestedQuestions: existingConfig.suggestedQuestions,
       enabled: bubbleEnabled,
+      isPaused,
+      pausedUntil,
+      replyTriggerMode,
+      ignoredPhones,
     };
 
     const updatedStore: Store = {
@@ -537,6 +555,98 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2500);
   };
+
+  const handleTogglePause = (paused: boolean, durationHours?: number) => {
+    let until: string | null = null;
+    if (paused && durationHours) {
+      until = new Date(Date.now() + durationHours * 3600 * 1000).toISOString();
+    }
+    setIsPaused(paused);
+    setPausedUntil(until);
+
+    const updatedConfig: StoreAIBotConfig = {
+      ...(store.aiBotConfig || existingConfig),
+      isPaused: paused,
+      pausedUntil: until,
+      replyTriggerMode,
+      ignoredPhones,
+    };
+
+    updateStore({
+      ...store,
+      aiBotConfig: updatedConfig,
+    });
+
+    if (serverEndpoint) {
+      fetch(`${serverEndpoint}/api/whatsapp/sync/${store.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isPaused: paused,
+          pausedUntil: until,
+          replyTriggerMode,
+          ignoredPhones,
+        }),
+      }).catch(() => {});
+    }
+
+    if (onRefreshData) onRefreshData();
+  };
+
+  const handleAddIgnoredPhone = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const clean = newIgnoredPhone.replace(/\D/g, '');
+    if (!clean || clean.length < 7) return;
+    if (ignoredPhones.includes(clean)) {
+      setNewIgnoredPhone('');
+      return;
+    }
+    const updated = [...ignoredPhones, clean];
+    setIgnoredPhones(updated);
+    setNewIgnoredPhone('');
+
+    const updatedConfig: StoreAIBotConfig = {
+      ...(store.aiBotConfig || existingConfig),
+      isPaused,
+      pausedUntil,
+      replyTriggerMode,
+      ignoredPhones: updated,
+    };
+    updateStore({ ...store, aiBotConfig: updatedConfig });
+    if (onRefreshData) onRefreshData();
+  };
+
+  const handleRemoveIgnoredPhone = (phoneToRemove: string) => {
+    const updated = ignoredPhones.filter((p) => p !== phoneToRemove);
+    setIgnoredPhones(updated);
+    const updatedConfig: StoreAIBotConfig = {
+      ...(store.aiBotConfig || existingConfig),
+      isPaused,
+      pausedUntil,
+      replyTriggerMode,
+      ignoredPhones: updated,
+    };
+    updateStore({ ...store, aiBotConfig: updatedConfig });
+    if (onRefreshData) onRefreshData();
+  };
+
+  // Auto-resume check if paused with expiry
+  useEffect(() => {
+    if (isPaused && pausedUntil) {
+      const expiresAt = new Date(pausedUntil).getTime();
+      if (Date.now() > expiresAt) {
+        setIsPaused(false);
+        setPausedUntil(null);
+        const updatedConfig: StoreAIBotConfig = {
+          ...(store.aiBotConfig || existingConfig),
+          isPaused: false,
+          pausedUntil: null,
+        };
+        updateStore({ ...store, aiBotConfig: updatedConfig });
+        if (onRefreshData) onRefreshData();
+      }
+    }
+  }, [isPaused, pausedUntil]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1084,28 +1194,195 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
 
             {/* Content when Connected */}
             {baileysStatus === 'connected' && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                    <CheckCheck className="w-5 h-5 text-amber-300" />
+              <div className={`p-4 sm:p-5 rounded-2xl border flex flex-col gap-4 animate-in fade-in duration-200 ${
+                isPaused ? 'bg-amber-50/80 border-amber-300' : 'bg-emerald-50 border-emerald-200'
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white ${
+                      isPaused ? 'bg-amber-600' : 'bg-emerald-600'
+                    }`}>
+                      {isPaused ? <Pause className="w-5 h-5 text-white" /> : <CheckCheck className="w-5 h-5 text-amber-300" />}
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                        <span>{isPaused ? 'Auto-Replies Temporarily Paused' : 'WhatsApp Connected & Active!'}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isPaused ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'
+                        }`}>
+                          {isPaused ? 'WhatsApp Still Linked' : 'Listening'}
+                        </span>
+                      </h4>
+                      <p className="text-xs text-slate-600">
+                        {isPaused
+                          ? pausedUntil
+                            ? `Bot will auto-resume at ${new Date(pausedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Chat with friends freely!`
+                            : 'Bot is paused indefinitely. You can chat with personal friends without bot interruptions.'
+                          : `Answering catalog inquiries & Item UIDs (${products.length} products indexed).`}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-extrabold text-emerald-950 text-sm">
-                      WhatsApp Connected & Active!
-                    </h4>
-                    <p className="text-xs text-emerald-800">
-                      Auto-replying to Item UIDs from your catalog ({products.length} products indexed).
-                    </p>
+
+                  {/* 1-Click Pause / Resume Actions */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isPaused ? (
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePause(false)}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-white" />
+                        <span>Resume Bot</span>
+                      </button>
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePause(true)}
+                          className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          title="Pause bot without unlinking your WhatsApp"
+                        >
+                          <Pause className="w-3.5 h-3.5" />
+                          <span>Pause Bot</span>
+                        </button>
+                        <select
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '1h') handleTogglePause(true, 1);
+                            else if (val === '8h') handleTogglePause(true, 8);
+                            else if (val === 'forever') handleTogglePause(true);
+                            e.target.value = '';
+                          }}
+                          defaultValue=""
+                          className="px-2.5 py-2 rounded-xl bg-white border border-slate-200 text-[11px] font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition"
+                        >
+                          <option value="" disabled>Schedule ⏱️</option>
+                          <option value="1h">Pause 1 Hour</option>
+                          <option value="8h">Pause 8 Hours</option>
+                          <option value="forever">Pause Indefinitely</option>
+                        </select>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleDisconnectBaileys}
+                      className="px-3 py-2 rounded-xl bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition cursor-pointer"
+                    >
+                      Unlink
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleDisconnectBaileys}
-                    className="px-3.5 py-2 rounded-xl bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold transition cursor-pointer"
-                  >
-                    Unlink WhatsApp
-                  </button>
+                {/* Smart Chat Privacy & Friends Filter */}
+                <div className="mt-2 pt-3 border-t border-slate-200/60 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <span>Smart Chat Filter (Prevent Interrupting Friends)</span>
+                      </span>
+                      <span className="text-[11px] text-slate-500 block">
+                        Only reply to commerce messages or ignore personal contacts
+                      </span>
+                    </div>
+
+                    <div className="inline-flex items-center p-0.5 bg-white border border-slate-200 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyTriggerMode('commerce_only');
+                          const updatedConfig: StoreAIBotConfig = { ...(store.aiBotConfig || existingConfig), replyTriggerMode: 'commerce_only' };
+                          updateStore({ ...store, aiBotConfig: updatedConfig });
+                          if (onRefreshData) onRefreshData();
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          replyTriggerMode === 'commerce_only' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        🎯 Commerce Only
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyTriggerMode('always');
+                          const updatedConfig: StoreAIBotConfig = { ...(store.aiBotConfig || existingConfig), replyTriggerMode: 'always' };
+                          updateStore({ ...store, aiBotConfig: updatedConfig });
+                          if (onRefreshData) onRefreshData();
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          replyTriggerMode === 'always' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        ⚡ All Messages
+                      </button>
+                    </div>
+                  </div>
+
+                  {replyTriggerMode === 'commerce_only' && (
+                    <div className="p-2.5 rounded-xl bg-white border border-emerald-200 text-[11px] text-emerald-900 flex items-start gap-2">
+                      <span className="text-base shrink-0">💡</span>
+                      <div>
+                        <strong>Commerce Only is Active:</strong> The bot will <strong>silently ignore</strong> casual messages from friends (like &ldquo;how are you&rdquo;, &ldquo;bro&rdquo;, &ldquo;what are you doing&rdquo;) and only answer messages that contain Item UIDs (e.g. <span className="font-mono bg-emerald-50 px-1 py-0.5 rounded">#TA-XXX</span>), price questions, or order keywords. Group chats are always ignored.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ignored Contacts (Friends / Family Numbers) */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <UserX className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Friends & Family Numbers to Always Ignore:</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-normal">Bot will never reply to these numbers</span>
+                    </label>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newIgnoredPhone}
+                        onChange={(e) => setNewIgnoredPhone(e.target.value)}
+                        placeholder="e.g. 2348012345678 (no +)"
+                        className="flex-1 px-3 py-1.5 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddIgnoredPhone();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddIgnoredPhone}
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Number</span>
+                      </button>
+                    </div>
+
+                    {ignoredPhones.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {ignoredPhones.map((phone) => (
+                          <span
+                            key={phone}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 shadow-2xs"
+                          >
+                            <span>+{phone}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveIgnoredPhone(phone)}
+                              className="text-slate-400 hover:text-rose-600 transition cursor-pointer ml-1"
+                              title="Remove number from ignore list"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

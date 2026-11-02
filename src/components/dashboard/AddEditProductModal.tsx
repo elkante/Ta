@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Sparkles, AlertCircle, Check, Image as ImageIcon, Link, Lock, Plus, Star, Tag, Trash2, Upload, X } from 'lucide-react';
+  Sparkles, AlertCircle, Check, Image as ImageIcon, Link, Lock, Plus, Star, Tag, Trash2, Upload, Video, X } from 'lucide-react';
 import { Product, ProductVariant, Store } from '../../types';
 import { addStoreCategory, getStoreCategories } from '../../utils/storage';
 
@@ -44,6 +44,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
   const [newCategoryName, setNewCategoryName] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [imagesList, setImagesList] = useState<string[]>([]);
+  const [videoUrl, setVideoUrl] = useState('');
   const [imageTab, setImageTab] = useState<'upload' | 'url' | 'preset'>('upload');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -179,6 +180,7 @@ Include key selling highlights (quality, finish, durability or feel). Keep it co
       }
       setInStock(productToEdit.inStock);
       setBadge(productToEdit.badge || '');
+      setVideoUrl(productToEdit.videoUrl || '');
       setVariants(productToEdit.variants || []);
     } else {
       setName('');
@@ -192,6 +194,7 @@ Include key selling highlights (quality, finish, durability or feel). Keep it co
       setCategory(cats[0] || 'General');
       setImageUrl('');
       setImagesList([]);
+      setVideoUrl('');
       setImageTab('upload');
       setInStock(true);
       setBadge('');
@@ -369,6 +372,7 @@ Include key selling highlights (quality, finish, durability or feel). Keep it co
       originalPrice: originalPrice ? Number(originalPrice) : undefined,
       category: finalCategory,
       images: finalImages,
+      videoUrl: videoUrl.trim() || undefined,
       inStock,
       badge: badge.trim() || undefined,
       variants,
@@ -812,6 +816,27 @@ Include key selling highlights (quality, finish, durability or feel). Keep it co
 
             <p className="text-[11px] text-slate-400 mt-2">
               If no image is set, a quality preset displays automatically on your storefront.
+            </p>
+          </div>
+
+          {/* Product Video URL (Optional) */}
+          <div className="space-y-1.5 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Video className="w-4 h-4 text-amber-500" />
+                <span>Product Video URL (Optional)</span>
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">YouTube, TikTok, Vimeo, or MP4</span>
+            </div>
+            <input
+              type="url"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="e.g. https://www.youtube.com/watch?v=... or https://youtu.be/..."
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 font-sans"
+            />
+            <p className="text-[10px] text-slate-500">
+              When added, buyers can watch video previews directly inside the storefront details sheet alongside photos.
             </p>
           </div>
 

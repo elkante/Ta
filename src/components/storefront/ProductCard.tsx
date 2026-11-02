@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, ShoppingBag, Sparkles } from 'lucide-react';
+import { Check, Play, ShoppingBag, Sparkles } from 'lucide-react';
 import { Product, ProductVariant, Store } from '../../types';
 import { formatPrice } from '../../utils/whatsapp';
 
@@ -112,6 +112,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {discountPercent && product.inStock && (
           <span className="absolute top-2 right-2 bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-10">
             -{discountPercent}%
+          </span>
+        )}
+
+        {/* Bottom-left: video badge if present */}
+        {product.videoUrl && (
+          <span className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 z-10 shadow-xs border border-white/20">
+            <Play className="w-2.5 h-2.5 fill-white text-white" />
+            <span>Video</span>
           </span>
         )}
 

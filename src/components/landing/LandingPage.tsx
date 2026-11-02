@@ -32,12 +32,12 @@ import {
 import { SellerSession, Store } from '../../types';
 import { validateSlug, getRootDomain, getPlatformBrandName } from '../../utils/storage';
 import { VerifiedBadge } from '../common/VerifiedBadge';
-import { getActivePlanConfigs } from '../../utils/planLimits';
 
 interface LandingPageProps {
   stores: Store[];
   sellerSession?: SellerSession | null;
   onOpenStore: (slug: string) => void;
+  onOpenPricing?: () => void;
   onOpenLogin: () => void;
   onOpenSignup: (initialSlug?: string) => void;
   onOpenDashboard?: () => void;
@@ -49,6 +49,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   stores,
   sellerSession,
   onOpenStore,
+  onOpenPricing,
   onOpenLogin,
   onOpenSignup,
   onOpenDashboard,
@@ -57,8 +58,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 }) => {
   const [handleInput, setHandleInput] = useState('');
   const [handleError, setHandleError] = useState<string | null>(null);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [planConfigs, setPlanConfigs] = useState(() => getActivePlanConfigs());
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
@@ -70,18 +69,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     const isTaken = stores.some((s) => s.slug.toLowerCase() === cleanHandle);
     return isTaken ? 'taken' : 'available';
   }, [cleanHandle, stores]);
-
-  useEffect(() => {
-    const handleSettingsUpdate = () => {
-      setPlanConfigs(getActivePlanConfigs());
-    };
-    window.addEventListener('tashop:settings_updated', handleSettingsUpdate);
-    window.addEventListener('storage', handleSettingsUpdate);
-    return () => {
-      window.removeEventListener('tashop:settings_updated', handleSettingsUpdate);
-      window.removeEventListener('storage', handleSettingsUpdate);
-    };
-  }, []);
 
   // ─── 6-tap easter egg on logo (Mobile & PC) → opens /sys-hq ─────────────────
   // Uses synchronous ref counter and pointer/touch tracking to guarantee every mobile tap registers
@@ -222,12 +209,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               Features
             </a>
-            <a
-              href="#pricing"
-              className="text-xs font-semibold text-slate-600 hover:text-slate-900 hidden md:inline-block transition"
+            <button
+              type="button"
+              onClick={onOpenPricing}
+              className="text-xs font-semibold text-slate-600 hover:text-slate-900 hidden md:inline-block transition cursor-pointer"
             >
               Pricing
-            </a>
+            </button>
 
             {installPrompt && !isInstalled && (
               <button
@@ -845,303 +833,50 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* Pricing Section - All 5 Plans with Live Dynamic Super Admin Rates */}
-      <section id="pricing" className="py-16 sm:py-24 bg-slate-50/70 border-t border-slate-200/80 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto space-y-10">
-          <div className="text-center space-y-3 max-w-2xl mx-auto">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-600 block">
-              Simple Transparent Pricing
-            </span>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-              Start free, upgrade as your orders grow
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600">
-              Pick the catalog capacity and automation tier tailored for your WhatsApp & Instagram storefront.
-            </p>
+      {/* Pricing Teaser Section */}
+      <section className="py-16 sm:py-20 bg-gradient-to-b from-slate-50 to-white border-t border-slate-200/80 px-4 sm:px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-slate-900 rounded-3xl p-8 sm:p-12 text-white relative overflow-hidden shadow-2xl">
+            {/* Ambient background glow */}
+            <div className="absolute -top-24 -right-24 w-96 h-96 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-violet-500/15 rounded-full blur-3xl pointer-events-none" />
 
-            {/* Billing Cycle Switcher */}
-            <div className="pt-2 flex items-center justify-center">
-              <div className="inline-flex items-center gap-1 p-1 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+              <div className="space-y-4 max-w-xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-xs font-bold">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Simple Transparent Pricing</span>
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                  Start free forever, upgrade as your orders surge
+                </h2>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  0% transaction fees. Keep 100% of your earnings. From solo merchants testing the waters to established brands requiring 24/7 AI WhatsApp automation.
+                </p>
+                <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 pt-2">
+                  <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-400" /> Free Plan: ₦0 forever</span>
+                  <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-400" /> Pro & Business AI Available</span>
+                  <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-400" /> Cancel anytime</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row md:flex-col gap-3 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setBillingCycle('monthly')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    billingCycle === 'monthly'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  onClick={onOpenPricing}
+                  className="px-6 py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm transition shadow-lg shadow-amber-400/20 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  Monthly Billing
+                  <span>Explore All Plans & Pricing</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => setBillingCycle('yearly')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                    billingCycle === 'yearly'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  onClick={() => onOpenSignup()}
+                  className="px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs border border-white/20 transition active:scale-95 cursor-pointer text-center"
                 >
-                  <span>Annual (Yearly)</span>
-                  <span className="bg-amber-400 text-slate-950 text-[10px] px-1.5 py-0.2 rounded-full font-black">
-                    SAVE UP TO 20%
-                  </span>
+                  Start Free Store Now
                 </button>
               </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
-            {/* 1. Free Trial Plan */}
-            <div className="p-6 rounded-3xl border border-slate-200 bg-white flex flex-col justify-between shadow-2xs">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Free Trial</h3>
-                <p className="text-xs text-slate-500 mt-1">Test your social catalog with zero upfront cost.</p>
-                <div className="mt-4 text-3xl font-black font-mono text-slate-900">
-                  ₦0
-                  <span className="text-xs font-normal text-slate-400 block mt-0.5">Forever free</span>
-                </div>
-
-                <ul className="mt-6 space-y-2.5 text-xs text-slate-700">
-                  <li className="flex items-center gap-2 font-semibold text-slate-900">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Up to 4 products</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>5 photos per product</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Item UID search (#TA-XXX)</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Direct WhatsApp checkout</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Loud audio order alerts</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Instant waybill generator</span>
-                  </li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => onOpenSignup()}
-                className="mt-6 w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer"
-              >
-                Start Free Store
-              </button>
-            </div>
-
-            {/* 2. Starter Plan */}
-            <div className="p-6 rounded-3xl border border-slate-200 bg-white flex flex-col justify-between shadow-2xs">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Starter</h3>
-                <p className="text-xs text-slate-500 mt-1">Essential social catalog for WhatsApp sellers.</p>
-                <div className="mt-4 text-3xl font-black font-mono text-slate-900">
-                  ₦{billingCycle === 'monthly' ? planConfigs.starter.priceMonthly.toLocaleString() : planConfigs.starter.priceYearly.toLocaleString()}
-                  <span className="text-xs font-normal text-slate-400 block mt-0.5">
-                    / {billingCycle === 'yearly' ? 'year' : 'month'}
-                  </span>
-                </div>
-
-                <ul className="mt-6 space-y-2.5 text-xs text-slate-700">
-                  <li className="flex items-center gap-2 font-semibold text-slate-900">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Up to 10 products with variants</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Custom store web link</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Store banner, logo & address</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Customer inquiry click tracker</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Printable store QR code</span>
-                  </li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => onOpenSignup()}
-                className="mt-6 w-full py-2.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-xl transition cursor-pointer"
-              >
-                Launch Starter
-              </button>
-            </div>
-
-            {/* 3. Basic Plan */}
-            <div className="p-6 rounded-3xl border border-emerald-300 bg-emerald-50/30 flex flex-col justify-between shadow-2xs relative">
-              <span className="absolute -top-3 right-6 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-2xs">
-                Popular Value
-              </span>
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Tá.shop Basic</h3>
-                <p className="text-xs text-slate-500 mt-1">Best value for expanding store inventory.</p>
-                <div className="mt-4 text-3xl font-black font-mono text-emerald-950">
-                  ₦{billingCycle === 'monthly' ? planConfigs.basic.priceMonthly.toLocaleString() : planConfigs.basic.priceYearly.toLocaleString()}
-                  <span className="text-xs font-normal text-slate-400 block mt-0.5">
-                    / {billingCycle === 'yearly' ? 'year' : 'month'}
-                  </span>
-                </div>
-                {billingCycle === 'yearly' && (
-                  <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
-                    Save ₦{(planConfigs.basic.priceMonthly * 12 - planConfigs.basic.priceYearly).toLocaleString()}/yr
-                  </span>
-                )}
-
-                <ul className="mt-6 space-y-2.5 text-xs text-slate-700">
-                  <li className="flex items-center gap-2 font-bold text-emerald-950">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Up to 30 products (3x Starter)</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Up to 5 photos per product</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>AI product descriptions</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Status Studio marketing cards</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Notes & profit calculator</span>
-                  </li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => onOpenSignup()}
-                className="mt-6 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
-              >
-                Choose Basic
-              </button>
-            </div>
-
-            {/* 4. Pro Plan */}
-            <div className="p-6 rounded-3xl border-2 border-slate-900 bg-white relative flex flex-col justify-between shadow-lg">
-              <span className="absolute -top-3 right-6 bg-slate-900 text-amber-300 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
-                Most Popular
-              </span>
-              <div>
-                <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
-                  <span>Tá.shop Pro</span>
-                  <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">For growing brands on WhatsApp & Instagram.</p>
-                <div className="mt-4 text-3xl font-black font-mono text-slate-900">
-                  ₦{billingCycle === 'monthly' ? planConfigs.pro.priceMonthly.toLocaleString() : planConfigs.pro.priceYearly.toLocaleString()}
-                  <span className="text-xs font-normal text-slate-400 block mt-0.5">
-                    / {billingCycle === 'yearly' ? 'year' : 'month'}
-                  </span>
-                </div>
-                {billingCycle === 'yearly' && (
-                  <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                    Save ₦{(planConfigs.pro.priceMonthly * 12 - planConfigs.pro.priceYearly).toLocaleString()}/yr
-                  </span>
-                )}
-
-                <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
-                  <li className="flex items-center gap-2 font-bold text-slate-900">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Up to 70 products</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-bold text-blue-900 bg-blue-50 px-2 py-1 rounded-lg">
-                    <BadgeCheck className="w-4 h-4 text-blue-600 fill-blue-100 shrink-0" />
-                    <span>Verified Blue Tick Badge</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-medium">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Customer reviews & ratings</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-medium">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Priority WhatsApp analytics</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-medium">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Multi-photo uploads & UID search</span>
-                  </li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => onOpenSignup()}
-                className="mt-6 w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
-              >
-                Get Started with Pro
-              </button>
-            </div>
-
-            {/* 5. Business AI Plan */}
-            <div className="p-6 rounded-3xl border-2 border-violet-500 bg-gradient-to-b from-violet-50/60 to-white relative flex flex-col justify-between shadow-lg">
-              <span className="absolute -top-3 right-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-2xs">
-                🤖 AI WhatsApp Bot
-              </span>
-              <div>
-                <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
-                  <span>Business AI</span>
-                  <Bot className="w-4 h-4 text-violet-600" />
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">Autonomous WhatsApp commerce & unlimited inventory.</p>
-                <div className="mt-4 text-3xl font-black font-mono text-violet-950">
-                  ₦{billingCycle === 'monthly' ? planConfigs.business.priceMonthly.toLocaleString() : planConfigs.business.priceYearly.toLocaleString()}
-                  <span className="text-xs font-normal text-slate-400 block mt-0.5">
-                    / {billingCycle === 'yearly' ? 'year' : 'month'}
-                  </span>
-                </div>
-                {billingCycle === 'yearly' && (
-                  <span className="inline-block mt-1 text-[10px] font-bold text-violet-700 bg-violet-100/80 px-2 py-0.5 rounded-md">
-                    Save ₦{(planConfigs.business.priceMonthly * 12 - planConfigs.business.priceYearly).toLocaleString()}/yr
-                  </span>
-                )}
-
-                <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
-                  <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg">
-                    <Check className="w-4 h-4 text-violet-700 shrink-0" />
-                    <span>UNLIMITED Products (No limit)</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-300 px-2 py-1 rounded-lg">
-                    <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" />
-                    <span>Official Golden Tick Badge</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-medium">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>100% White-Label (No branding)</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-medium text-violet-900">
-                    <Bot className="w-4 h-4 text-violet-600 shrink-0" />
-                    <span>24/7 AI Bot (Photos & prices)</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-medium">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Automated WhatsApp receipts</span>
-                  </li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => onOpenSignup()}
-                className="mt-6 w-full py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
-              >
-                Launch Business AI Store
-              </button>
             </div>
           </div>
         </div>
