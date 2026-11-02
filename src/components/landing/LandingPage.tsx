@@ -32,6 +32,7 @@ import {
 import { SellerSession, Store } from '../../types';
 import { validateSlug, getRootDomain, getPlatformBrandName } from '../../utils/storage';
 import { VerifiedBadge } from '../common/VerifiedBadge';
+import { PlatformLeadBotBubble } from './PlatformLeadBotBubble';
 
 interface LandingPageProps {
   stores: Store[];
@@ -1012,6 +1013,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </button>
         </div>
       </footer>
+
+      {/* Platform Lead Concierge Bot (for visitors & platform leads) */}
+      <PlatformLeadBotBubble
+        onOpenSignup={onOpenSignup}
+        onOpenLogin={onOpenLogin}
+        onOpenPricing={onOpenPricing}
+      />
     </div>
   );
 };

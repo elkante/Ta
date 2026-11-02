@@ -3,6 +3,7 @@ import {
   Sparkles, AlertCircle, Check, Image as ImageIcon, Link, Lock, Plus, Star, Tag, Trash2, Upload, Video, X } from 'lucide-react';
 import { Product, ProductVariant, Store } from '../../types';
 import { addStoreCategory, getStoreCategories } from '../../utils/storage';
+import { generateProductDescription, getDescriptionCapByTier } from '../../utils/aiMarketing';
 
 interface AddEditProductModalProps {
   isOpen: boolean;
@@ -56,7 +57,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
   const [aiDescSuccess, setAiDescSuccess] = useState(false);
   const [aiLimitNotice, setAiLimitNotice] = useState<string | null>(null);
 
-  // Daily 5 AI description generations per store
+  // Daily AI description generations — tier-gated
   const getAiDescUsageToday = (): number => {
     try {
       const today = new Date().toISOString().slice(0, 10);
@@ -80,9 +81,14 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
       setError('Please enter a product title first before generating AI description.');
       return;
     }
+    const cap = getDescriptionCapByTier(store.tier);
+    if (cap === 0) {
+      setAiLimitNotice('AI descriptions are not available on the Free or Starter plan. Upgrade to Basic or higher to unlock this feature.');
+      return;
+    }
     const usedToday = getAiDescUsageToday();
-    if (usedToday >= 5) {
-      setAiLimitNotice('Daily limit reached (5 descriptions per store per day). Resets at midnight.');
+    if (usedToday >= cap) {
+      setAiLimitNotice(`Daily limit reached (${cap} description${cap !== 1 ? 's' : ''} per day on your plan). Resets at midnight.`);
       return;
     }
 
@@ -91,49 +97,12 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
     setAiLimitNotice(null);
 
     try {
-      let key = '';
-      try {
-        key = localStorage.getItem('ta_gemini_api_key') || '';
-      } catch {}
-
-      let generated = '';
-      if (key && key.startsWith('AIzaSy')) {
-        const prompt = `Write an attractive, professional 2-3 sentence product description for an African online store.
-Product Name: ${name.trim()}
-Category: ${category || 'General'}
-Price: ${price ? store.currencySymbol + ' ' + price : 'Best market price'}
-
-Include key selling highlights (quality, finish, durability or feel). Keep it concise, engaging, and clear. Do not include markdown headers or bullet points.`;
-
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-        const data = await res.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          generated = text.trim();
-        }
-      }
-
-      // Algorithmic smart marketing generator fallback
-      if (!generated) {
-        const catClean = (category || 'item').toLowerCase();
-        if (catClean.includes('perfume') || catClean.includes('fragrance') || catClean.includes('scent')) {
-          generated = `Immerse yourself in the unforgettable luxury of ${name.trim()}. Masterfully formulated with long-lasting aromatic notes designed to leave an elegant impression from day to night. 100% authentic quality guaranteed.`;
-        } else if (catClean.includes('fashion') || catClean.includes('cloth') || catClean.includes('wear') || catClean.includes('dress')) {
-          generated = `Elevate your wardrobe with ${name.trim()}. Carefully tailored from premium, breathable fabric for superior comfort and an effortlessly stylish silhouette suitable for both casual outings and special occasions.`;
-        } else if (catClean.includes('jewel') || catClean.includes('gold') || catClean.includes('silver') || catClean.includes('ring')) {
-          generated = `Shine bright with the timeless elegance of ${name.trim()}. Beautifully crafted with high-grade, tarnish-resistant finish for everyday glam and celebrations. Comes safely packaged and ready to gift.`;
-        } else if (catClean.includes('gadget') || catClean.includes('tech') || catClean.includes('phone') || catClean.includes('electronic')) {
-          generated = `Experience peak reliability with ${name.trim()}. Built with high-performance components, durable battery efficiency, and sleek modern design to streamline your daily routine.`;
-        } else if (catClean.includes('beauty') || catClean.includes('skin') || catClean.includes('hair')) {
-          generated = `Nourish and glow with ${name.trim()}. Formulated with gentle, skin-loving ingredients to revitalize and enhance your natural radiance. Suitable for everyday care.`;
-        } else {
-          generated = `Discover premium quality and exceptional value with ${name.trim()}. Thoughtfully designed to meet high standards of performance and style. Available for fast nationwide dispatch.`;
-        }
-      }
+      const generated = await generateProductDescription(
+        name.trim(),
+        category,
+        price,
+        store.currencySymbol || '₦'
+      );
 
       setDescription(generated);
       incrementAiDescUsage();
@@ -584,12 +553,12 @@ Include key selling highlights (quality, finish, durability or feel). Keep it co
                 onClick={handleGenerateDescriptionAI}
                 disabled={isGeneratingDesc}
                 className="text-[11px] font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
-                title="Generate with AI (5 free daily per store)"
+                title={`Generate with AI (${getDescriptionCapByTier(store.tier)} daily on your plan)`}
               >
                 <Sparkles className={`w-3 h-3 text-amber-600 ${isGeneratingDesc ? 'animate-spin' : ''}`} />
                 <span>{isGeneratingDesc ? 'Writing Description...' : 'Generate with AI'}</span>
                 <span className="text-[10px] font-semibold text-amber-900 bg-amber-200/70 px-1 py-0.2 rounded">
-                  ${Math.max(0, 5 - getAiDescUsageToday())}/5 left
+                  {Math.max(0, getDescriptionCapByTier(store.tier) - getAiDescUsageToday())}/{getDescriptionCapByTier(store.tier)} left
                 </span>
               </button>
             </div>

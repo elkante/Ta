@@ -71,15 +71,6 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
   const [signupCurrency, setSignupCurrency] = useState<CurrencyCode>('NGN');
   const [isSigningUp, setIsSigningUp] = useState(false);
 
-  // Optional ID collection state (can be added later or now)
-  const [showIdSection, setShowIdSection] = useState(false);
-  const [signupIdType, setSignupIdType] = useState<'nin' | 'drivers_license' | 'passport' | 'voters_card' | 'national_id'>('nin');
-  const [signupIdNumber, setSignupIdNumber] = useState('');
-  const [signupFrontIdUrl, setSignupFrontIdUrl] = useState('');
-  const [signupBackIdUrl, setSignupBackIdUrl] = useState('');
-  const [isUploadingFrontId, setIsUploadingFrontId] = useState(false);
-  const [isUploadingBackId, setIsUploadingBackId] = useState(false);
-
   // Optional social links
   const [socialInstagram, setSocialInstagram] = useState('');
   const [socialFacebook, setSocialFacebook] = useState('');
@@ -89,6 +80,13 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
   const [signupLogoUrl, setSignupLogoUrl] = useState('');
   const [isUploadingSignupLogo, setIsUploadingSignupLogo] = useState(false);
   const signupLogoInputRef = useRef<HTMLInputElement>(null);
+
+  // Optional CAC Business Registration
+  const [showCacSection, setShowCacSection] = useState(false);
+  const [signupCacNumber, setSignupCacNumber] = useState('');
+  const [signupCacBusinessName, setSignupCacBusinessName] = useState('');
+  const [signupCacDocUrl, setSignupCacDocUrl] = useState('');
+  const [isUploadingCacDoc, setIsUploadingCacDoc] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -156,37 +154,30 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleIdFileUpload = (e: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
+  const handleCacDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setError('Please choose a valid image file (JPG, PNG, WebP) for your ID');
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+      setError('Please choose a valid image file (JPG, PNG) or PDF of your CAC certificate');
       return;
     }
-    if (file.size > 7 * 1024 * 1024) {
-      setError('ID photo must be under 7MB');
+    if (file.size > 8 * 1024 * 1024) {
+      setError('CAC document must be under 8MB');
       return;
     }
 
-    if (side === 'front') setIsUploadingFrontId(true);
-    else setIsUploadingBackId(true);
+    setIsUploadingCacDoc(true);
     setError(null);
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      if (side === 'front') {
-        setSignupFrontIdUrl(reader.result as string);
-        setIsUploadingFrontId(false);
-      } else {
-        setSignupBackIdUrl(reader.result as string);
-        setIsUploadingBackId(false);
-      }
+      setSignupCacDocUrl(reader.result as string);
+      setIsUploadingCacDoc(false);
     };
     reader.onerror = () => {
-      setError('Failed to read ID image file.');
-      if (side === 'front') setIsUploadingFrontId(false);
-      else setIsUploadingBackId(false);
+      setError('Failed to read CAC document file.');
+      setIsUploadingCacDoc(false);
     };
     reader.readAsDataURL(file);
   };
@@ -271,11 +262,12 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
       slug: slugCheck.cleanSlug,
       ownerEmail: signupEmail.trim() || `${slugCheck.cleanSlug}@tashop.co`,
       ownerPassword: secureHashedPassword,
-      idVerification: (signupFrontIdUrl && signupBackIdUrl) ? {
-        idType: signupIdType,
-        idNumber: signupIdNumber.trim() || undefined,
-        frontImageUrl: signupFrontIdUrl,
-        backImageUrl: signupBackIdUrl,
+      idVerification: (signupCacDocUrl || signupCacNumber.trim()) ? {
+        idType: 'cac',
+        cacNumber: signupCacNumber.trim() || undefined,
+        businessRegistrationName: signupCacBusinessName.trim() || signupStoreName.trim(),
+        certificateUrl: signupCacDocUrl || undefined,
+        frontImageUrl: signupCacDocUrl || undefined,
         status: 'pending',
         submittedAt: new Date().toISOString(),
       } : undefined,
@@ -640,105 +632,80 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                 </div>
               </div>
 
-              {/* Optional ID Verification (KYC) - Can be added now or later */}
+              {/* Optional CAC Business Registration */}
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <BadgeCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
                     <div>
-                      <span className="text-xs font-bold text-slate-800 block">Identity Verification (KYC)</span>
-                      <span className="text-[11px] text-slate-500">Optional now • Required if upgrading from ₦500 plan</span>
+                      <span className="text-xs font-bold text-slate-800 block">CAC Business Registration</span>
+                      <span className="text-[11px] text-slate-500">Optional • Fast-track Verified Badge from Superadmin</span>
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowIdSection(!showIdSection)}
-                    className="text-xs font-bold text-slate-700 hover:text-slate-900 underline cursor-pointer"
+                    onClick={() => setShowCacSection(!showCacSection)}
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
                   >
-                    {showIdSection ? 'Hide' : '+ Upload ID Now'}
+                    {showCacSection ? 'Hide' : '+ Add CAC (Optional)'}
                   </button>
                 </div>
 
-                {showIdSection && (
+                {showCacSection && (
                   <div className="space-y-3 pt-2 border-t border-slate-200">
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Select ID Document Type</label>
-                      <select
-                        value={signupIdType}
-                        onChange={(e) => setSignupIdType(e.target.value as any)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none cursor-pointer"
-                      >
-                        <option value="nin">National Identification Number (NIN)</option>
-                        <option value="drivers_license">Driver's License</option>
-                        <option value="passport">International Passport</option>
-                        <option value="voters_card">Voter's Card (PVC)</option>
-                        <option value="national_id">Other Government Issued National ID</option>
-                      </select>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                          CAC RC / BN Number
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. RC-1849201 or BN-39201"
+                          value={signupCacNumber}
+                          onChange={(e) => setSignupCacNumber(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                          Registered Business Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="As registered with CAC"
+                          value={signupCacBusinessName}
+                          onChange={(e) => setSignupCacBusinessName(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        />
+                      </div>
                     </div>
 
                     <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">ID / Document Number (Optional)</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 11-digit NIN or License Number"
-                        value={signupIdNumber}
-                        onChange={(e) => setSignupIdNumber(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* Front ID */}
-                      <div>
-                        <span className="text-[11px] font-semibold text-slate-600 block mb-1">Front of ID</span>
-                        <label className="flex flex-col items-center justify-center p-2.5 border-2 border-dashed border-slate-200 rounded-xl hover:border-slate-400 bg-white cursor-pointer transition text-center min-h-[74px]">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleIdFileUpload(e, 'front')}
-                          />
-                          {signupFrontIdUrl ? (
-                            <div className="relative w-full h-14 rounded-lg overflow-hidden">
-                              <img src={signupFrontIdUrl} alt="Front ID" className="w-full h-full object-cover" />
-                              <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5">Change</span>
-                            </div>
-                          ) : (
-                            <div className="space-y-0.5">
-                              <Upload className="w-4 h-4 text-slate-400 mx-auto" />
-                              <span className="text-[10px] text-slate-500 font-medium block">
-                                {isUploadingFrontId ? 'Reading...' : 'Upload Front'}
-                              </span>
-                            </div>
-                          )}
-                        </label>
-                      </div>
-
-                      {/* Back ID */}
-                      <div>
-                        <span className="text-[11px] font-semibold text-slate-600 block mb-1">Back of ID</span>
-                        <label className="flex flex-col items-center justify-center p-2.5 border-2 border-dashed border-slate-200 rounded-xl hover:border-slate-400 bg-white cursor-pointer transition text-center min-h-[74px]">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleIdFileUpload(e, 'back')}
-                          />
-                          {signupBackIdUrl ? (
-                            <div className="relative w-full h-14 rounded-lg overflow-hidden">
-                              <img src={signupBackIdUrl} alt="Back ID" className="w-full h-full object-cover" />
-                              <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5">Change</span>
-                            </div>
-                          ) : (
-                            <div className="space-y-0.5">
-                              <Upload className="w-4 h-4 text-slate-400 mx-auto" />
-                              <span className="text-[10px] text-slate-500 font-medium block">
-                                {isUploadingBackId ? 'Reading...' : 'Upload Back'}
-                              </span>
-                            </div>
-                          )}
-                        </label>
-                      </div>
+                      <span className="text-[11px] font-semibold text-slate-600 block mb-1">
+                        Certificate of Incorporation / Status Report
+                      </span>
+                      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-200 rounded-xl hover:border-slate-400 bg-white cursor-pointer transition text-center min-h-[76px]">
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={handleCacDocUpload}
+                        />
+                        {signupCacDocUrl ? (
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span className="text-xs font-bold text-emerald-800">CAC Document Attached</span>
+                            <span className="text-[10px] text-slate-400 underline ml-2">Change File</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <Upload className="w-4 h-4 text-slate-400 mx-auto" />
+                            <span className="text-[11px] text-slate-500 font-medium block">
+                              {isUploadingCacDoc ? 'Attaching file...' : 'Upload CAC Certificate (JPG, PNG)'}
+                            </span>
+                          </div>
+                        )}
+                      </label>
                     </div>
                   </div>
                 )}

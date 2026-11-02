@@ -9,6 +9,7 @@ import {
   PlatformSettings,
   StoreNote,
   StoreExpense,
+  PlatformLead,
 } from '../types';
 import {
   dbSaveStore,
@@ -378,6 +379,8 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   rootDomain: 'taaa.com.ng',
   supportWhatsApp: '+2348039874521',
   defaultCurrency: 'NGN',
+  geminiApiKey: '',
+  groqApiKey: '',
   starterPriceMonthly: 500,
   starterPriceYearly: 6000,
   basicPriceMonthly: 1500,
@@ -831,3 +834,66 @@ export function saveOrders(_orders: StoreOrder[]): void {}
 
 /** @deprecated Use addStoreReview() */
 export function saveReviews(_reviews: StoreReview[]): void {}
+
+// ─── Platform Lead Generation (Landing Page Lead Bot) ────────────────────────
+const PLATFORM_LEADS_KEY = 'ta_platform_leads_v1';
+
+export function getPlatformLeads(): PlatformLead[] {
+  try {
+    const raw = localStorage.getItem(PLATFORM_LEADS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed reading platform leads', e);
+  }
+  return [];
+}
+
+export function savePlatformLead(lead: PlatformLead): void {
+  try {
+    const leads = getPlatformLeads();
+    // Prepend or update if id exists
+    const idx = leads.findIndex((l) => l.id === lead.id || l.refCode === lead.refCode);
+    if (idx >= 0) {
+      leads[idx] = lead;
+    } else {
+      leads.unshift(lead);
+    }
+    localStorage.setItem(PLATFORM_LEADS_KEY, JSON.stringify(leads));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tashop:lead_created', { detail: lead }));
+    }
+  } catch (e) {
+    console.error('Failed saving platform lead', e);
+  }
+}
+
+export function updatePlatformLeadStatus(
+  leadId: string,
+  status: PlatformLead['status']
+): void {
+  try {
+    const leads = getPlatformLeads();
+    const updated = leads.map((l) => (l.id === leadId ? { ...l, status } : l));
+    localStorage.setItem(PLATFORM_LEADS_KEY, JSON.stringify(updated));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tashop:lead_updated', { detail: { leadId, status } }));
+    }
+  } catch (e) {
+    console.error('Failed updating lead status', e);
+  }
+}
+
+export function deletePlatformLead(leadId: string): void {
+  try {
+    const leads = getPlatformLeads().filter((l) => l.id !== leadId && l.refCode !== leadId);
+    localStorage.setItem(PLATFORM_LEADS_KEY, JSON.stringify(leads));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tashop:lead_deleted', { detail: leadId }));
+    }
+  } catch (e) {
+    console.error('Failed deleting platform lead', e);
+  }
+}

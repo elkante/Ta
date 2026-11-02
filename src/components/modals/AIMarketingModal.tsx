@@ -3,10 +3,7 @@ import {
   AlertCircle,
   Check,
   Copy,
-  Eye,
-  EyeOff,
   Hash,
-  Key,
   MessageCircle,
   Package,
   Search,
@@ -20,11 +17,9 @@ import {
   AIMarketingResult,
   generateLocalMarketingContent,
   generateMarketingContentWithAI,
-  getStoredAIKey,
   getStoreAIUsage,
   incrementStoreAIUsage,
   MarketingTone,
-  saveStoredAIKey,
 } from '../../utils/aiMarketing';
 import { updateStore } from '../../utils/storage';
 
@@ -54,10 +49,6 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
   const [tone, setTone] = useState<MarketingTone>('viral');
   const [activeTab, setActiveTab] = useState<'whatsapp' | 'instagram' | 'tiktok' | 'hashtags' | 'keywords'>('whatsapp');
 
-  const [aiKey, setAiKey] = useState(getStoredAIKey());
-  const [showKeyInput, setShowKeyInput] = useState(false);
-  const [showKeyPassword, setShowKeyPassword] = useState(false);
-
   const [isLoading, setIsLoading] = useState(false);
   const [copiedType, setCopiedType] = useState<string | null>(null);
 
@@ -76,6 +67,7 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
   }, [initialProduct, products]);
 
   const quota = getStoreAIUsage(currentStore);
+  const isNoAccess = quota.cap === 0; // free & starter tiers
 
   const selectedProduct = products.find((p) => p.id === selectedProductId) || {
     name: customName || 'Special Item',
@@ -89,36 +81,24 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
   if (!isOpen) return null;
 
   const handleGenerate = async () => {
+    if (isNoAccess) return; // should not reach here, but guard anyway
     setIsLoading(true);
     try {
-      const trimmedKey = aiKey.trim();
-      const isPersonalKey = Boolean(trimmedKey && trimmedKey.startsWith('AIzaSy') && trimmedKey !== getStoredAIKey());
-
-      // If relying on shared Google AI Studio 1M quota and daily cap is reached:
-      if (!isPersonalKey && quota.isCapReached) {
-        // Generate immediately using local engine
-        const offlineResult = generateLocalMarketingContent(selectedProduct, currentStore, tone);
-        setResult(offlineResult);
-        return;
-      }
-
       const generated = await generateMarketingContentWithAI(
         selectedProduct,
         currentStore,
-        tone,
-        trimmedKey || undefined
+        tone
       );
       setResult(generated);
 
-      // Increment quota usage if using shared quota
-      if (!isPersonalKey) {
+      if (!quota.isCapReached) {
         const { updatedStore } = incrementStoreAIUsage(currentStore);
         updateStore(updatedStore);
         setCurrentStore(updatedStore);
         onStoreUpdated?.(updatedStore);
       }
     } catch (e) {
-      console.error(e);
+      console.error('Marketing generation failed:', e);
     } finally {
       setIsLoading(false);
     }
@@ -130,85 +110,92 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
     setTimeout(() => setCopiedType(null), 2000);
   };
 
-  const handleSaveKey = () => {
-    saveStoredAIKey(aiKey);
-    setShowKeyInput(false);
-  };
-
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="fixed inset-0" onClick={onClose} />
 
-      <div className="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200 z-10 flex flex-col max-h-[92vh]">
+      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden z-10 flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-xs">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-sm font-black">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
-                <span>AI Caption & Hashtag Generator</span>
-                <span className="text-[10px] bg-amber-100 text-amber-800 font-mono font-bold px-2 py-0.5 rounded-full border border-amber-300">
-                  Google AI Studio
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900">AI Viral Marketing Studio</h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                  Smart Copy
                 </span>
-              </h3>
+              </div>
               <p className="text-xs text-slate-500">
-                Generate viral WhatsApp status copy, Instagram posts, TikTok scripts & hashtags in 1 click.
+                Generate high-converting WhatsApp broadcasts, Instagram reels & hashtags in seconds
               </p>
             </div>
           </div>
           <button
-            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Daily Store AI Quota Counter Strip */}
-        <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <Zap className={`w-3.5 h-3.5 ${quota.isCapReached ? 'text-rose-500' : 'text-amber-500'}`} />
-            <span className="font-semibold text-slate-700">
-              Daily AI Quota: <strong className="text-slate-900">{quota.used} / {quota.cap}</strong> used today
-            </span>
-            <span className="text-[11px] text-slate-400 font-medium">({quota.remaining} left • 1M pool)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-20 sm:w-28 bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-300 ${
-                  quota.isCapReached
-                    ? 'bg-rose-500'
-                    : quota.used / quota.cap > 0.8
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-500'
-                }`}
-                style={{ width: `${Math.min(100, Math.round((quota.used / Math.max(1, quota.cap)) * 100))}%` }}
-              />
-            </div>
-            <span className="text-[10px] font-mono text-slate-500 font-bold">
-              {Math.min(100, Math.round((quota.used / Math.max(1, quota.cap)) * 100))}%
-            </span>
-          </div>
-        </div>
+        {/* Body content */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
 
-        {/* Body */}
-        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+          {/* Free / Starter tier — no access */}
+          {isNoAccess ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-4 text-center px-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center">
+                <Sparkles className="w-7 h-7 text-amber-500" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-900 text-base">AI Marketing Studio</p>
+                <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                  AI Viral Marketing is available on the <strong>Basic plan and above</strong>.<br />
+                  Upgrade your store to generate high-converting WhatsApp, Instagram &amp; TikTok captions powered by AI.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5 text-xs text-slate-600 bg-slate-50 rounded-2xl border border-slate-200 p-4 w-full max-w-sm text-left">
+                <p className="font-bold text-slate-800 mb-1">Plan limits:</p>
+                <p>🟡 <strong>Basic</strong> — 5 AI generations / day</p>
+                <p>🟢 <strong>Pro</strong> — 15 AI generations / day</p>
+                <p>🔵 <strong>Business</strong> — 30 AI generations / day</p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition cursor-pointer shadow-sm"
+              >
+                Close &amp; Upgrade Plan
+              </button>
+            </div>
+          ) : (
+            <>
+          {/* Daily Quota Counter */}
+          <div className="flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200">
+            <span className="text-slate-600 font-medium">Daily Store AI Quota:</span>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-900">
+                {quota.remaining} generations left today
+              </span>
+              <span className="text-[11px] text-slate-400">({quota.used}/{quota.cap} used)</span>
+            </div>
+          </div>
+
           {quota.isCapReached && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold">Daily Store AI Quota Reached ({quota.cap}/{quota.cap})</p>
                 <p className="text-[11px] text-amber-800 mt-0.5">
-                  Your store has used its daily quota from our shared 1M token Google AI Studio pool.
-                  Resets tonight at midnight. You can still generate instant viral captions with our offline marketing engine, or use your private key below.
+                  Your store has used its daily quota. Resets tonight at midnight. You can still generate instant viral captions with our built-in marketing engine.
                 </p>
               </div>
             </div>
           )}
+
           {/* Product & Tone Selection Controls */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
             <div>
@@ -280,66 +267,7 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
               )}
               <span>{result ? 'Regenerate Content' : 'Generate Viral Content with AI'}</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setShowKeyInput(!showKeyInput)}
-              className="text-[11px] text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer justify-center"
-            >
-              <Key className="w-3.5 h-3.5 text-slate-400" />
-              <span>Google AI Studio Key Config</span>
-            </button>
           </div>
-
-          {/* Optional Key Configuration toggle */}
-          {showKeyInput && (
-            <div className="p-3.5 bg-amber-50/60 rounded-2xl border border-amber-200 space-y-2 animate-in fade-in">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                  <Key className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Google AI Studio / Gemini API Key</span>
-                </label>
-                <a
-                  href="https://aistudio.google.com/app/apikey"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[11px] font-semibold text-indigo-600 hover:underline"
-                >
-                  Get free key at aistudio.google.com ↗
-                </a>
-              </div>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type={showKeyPassword ? 'text' : 'password'}
-                    value={aiKey}
-                    onChange={(e) => setAiKey(e.target.value)}
-                    placeholder="Paste your AI Studio key (starts with AIzaSy...)"
-                    className="w-full pl-3 pr-10 py-2 text-xs rounded-xl border border-amber-300 bg-white font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKeyPassword(!showKeyPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer p-0.5"
-                    tabIndex={-1}
-                    title={showKeyPassword ? 'Hide key' : 'Show key'}
-                  >
-                    {showKeyPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSaveKey}
-                  className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-xl cursor-pointer shrink-0"
-                >
-                  Save
-                </button>
-              </div>
-              <p className="text-[10px] text-amber-800">
-                Note: Standard Google AI Studio keys start with <code>AIzaSy...</code>. If no external key is active, our built-in high-converting marketing engine produces copy automatically.
-              </p>
-            </div>
-          )}
 
           {/* Generated Result Preview */}
           {result && (
@@ -507,6 +435,8 @@ export const AIMarketingModal: React.FC<AIMarketingModalProps> = ({
                 )}
               </div>
             </div>
+          )}
+            </>
           )}
         </div>
       </div>

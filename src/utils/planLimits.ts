@@ -59,7 +59,8 @@ export const PLAN_CONFIGS: Record<StoreTier, PlanConfig> = {
       'Up to 30 products',
       'Up to 5 photos per product',
       'Everything in Starter',
-      'AI product descriptions (5 daily credits)',
+      'AI product descriptions (3 daily credits)',
+      'AI viral marketing studio (5 daily credits)',
       'WhatsApp Status Studio (marketing cards)',
       'Notes scratchpad & expense tracker',
       'Profit margin calculator',
@@ -76,6 +77,8 @@ export const PLAN_CONFIGS: Record<StoreTier, PlanConfig> = {
     features: [
       'Up to 70 products (more than 2x Basic)',
       'Verified Merchant Blue Tick badge',
+      'AI product descriptions (5 daily credits)',
+      'AI viral marketing studio (15 daily credits)',
       'Everything in Basic',
       'Customer review collection & ratings showcase',
       'Priority WhatsApp click tracking & analytics',
@@ -95,6 +98,8 @@ export const PLAN_CONFIGS: Record<StoreTier, PlanConfig> = {
     features: [
       'UNLIMITED products (the only plan with no cap)',
       'Official Golden Tick Badge (Exclusive to Business AI)',
+      'AI product descriptions (15 daily credits)',
+      'AI viral marketing studio (30 daily credits)',
       'Remove "Powered by Tá.shop" promotion (100% white-label)',
       'Everything in Pro included',
       '24/7 WhatsApp AI Assistant Bot (Baileys connection)',

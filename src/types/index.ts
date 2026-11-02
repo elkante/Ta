@@ -239,11 +239,37 @@ export interface StoreExpense {
   createdAt: string;
 }
 
+export type PlatformLeadIntent = 'talk_to_human' | 'help' | 'tell_me_more' | 'signup' | 'custom';
+
+export interface PlatformLeadMessage {
+  id: string;
+  sender: 'user' | 'bot';
+  text: string;
+  timestamp: string;
+}
+
+export interface PlatformLead {
+  id: string;
+  refCode: string; // e.g. "REF-TALK-7412" or "REF-LEAD-8921"
+  intent: PlatformLeadIntent;
+  name?: string;
+  phone?: string;
+  email?: string;
+  businessType?: string;
+  storeName?: string;
+  summary: string;
+  messages: PlatformLeadMessage[];
+  status: 'new' | 'contacted' | 'resolved';
+  createdAt: string;
+}
+
 export interface PlatformSettings {
   platformName: string;
   rootDomain?: string;
   supportWhatsApp: string;
   defaultCurrency: CurrencyCode;
+  geminiApiKey?: string;
+  groqApiKey?: string;
   // Plan pricing in NGN
   starterPriceMonthly: number;
   starterPriceYearly: number;

@@ -18,6 +18,7 @@ import {
   Filter,
   Globe,
   HardDrive,
+  HelpCircle,
   KeyRound,
   Layers,
   LogIn,
@@ -58,6 +59,7 @@ import {
   StoreOrder,
   SuperAdminSession,
   WhatsAppInquiryLog,
+  PlatformLead,
 } from '../../types';
 import {
   deleteStoreAndData,
@@ -68,6 +70,9 @@ import {
   updateStore,
   getRootDomain,
   getPlatformBrandName,
+  getPlatformLeads,
+  updatePlatformLeadStatus,
+  deletePlatformLead,
 } from '../../utils/storage';
 import { formatPrice } from '../../utils/whatsapp';
 import { getStoreAIUsage } from '../../utils/aiMarketing';
@@ -84,7 +89,7 @@ interface SuperAdminDashboardProps {
   onOpenLanding?: () => void;
 }
 
-type AdminTab = 'stores' | 'products' | 'orders' | 'verifications' | 'plans' | 'notes' | 'settings';
+type AdminTab = 'stores' | 'products' | 'orders' | 'verifications' | 'plans' | 'notes' | 'leads' | 'settings';
 
 const ID_TYPE_LABELS: Record<string, string> = {
   cac: 'CAC (Corporate Affairs Commission)',
@@ -110,11 +115,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     try {
       const url = new URL(window.location.href);
       const urlTab = url.searchParams.get('tab') as AdminTab;
-      if (urlTab && ['stores', 'products', 'orders', 'verifications', 'plans', 'notes', 'settings'].includes(urlTab)) {
+      if (urlTab && ['stores', 'products', 'orders', 'verifications', 'plans', 'notes', 'leads', 'settings'].includes(urlTab)) {
         return urlTab;
       }
       const saved = sessionStorage.getItem('ta_superadmin_active_tab') as AdminTab;
-      if (saved && ['stores', 'products', 'orders', 'verifications', 'plans', 'notes', 'settings'].includes(saved)) {
+      if (saved && ['stores', 'products', 'orders', 'verifications', 'plans', 'notes', 'leads', 'settings'].includes(saved)) {
         return saved;
       }
     } catch (e) {}
@@ -175,6 +180,30 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [storeToDelete, setStoreToDelete] = useState<Store | null>(null);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
   const [isRefreshingStores, setIsRefreshingStores] = useState(false);
+
+  // Platform Leads & Bot Inquiries state
+  const [platformLeads, setPlatformLeads] = useState<PlatformLead[]>(() => getPlatformLeads());
+  const [selectedLead, setSelectedLead] = useState<PlatformLead | null>(null);
+  const [leadSearch, setLeadSearch] = useState('');
+  const [leadStatusFilter, setLeadStatusFilter] = useState<'all' | 'new' | 'contacted' | 'resolved'>('all');
+
+  useEffect(() => {
+    const handleLeadChange = () => {
+      setPlatformLeads(getPlatformLeads());
+    };
+    window.addEventListener('tashop:lead_created', handleLeadChange);
+    window.addEventListener('tashop:lead_updated', handleLeadChange);
+    window.addEventListener('tashop:lead_deleted', handleLeadChange);
+    return () => {
+      window.removeEventListener('tashop:lead_created', handleLeadChange);
+      window.removeEventListener('tashop:lead_updated', handleLeadChange);
+      window.removeEventListener('tashop:lead_deleted', handleLeadChange);
+    };
+  }, []);
+
+  const newLeadsCount = useMemo(() => {
+    return platformLeads.filter((l) => l.status === 'new').length;
+  }, [platformLeads]);
 
   // Live stores - self-fetched from Supabase on mount (not relying on prop from parent)
   const [liveStores, setLiveStores] = useState<Store[]>(allStores);
@@ -530,6 +559,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     savePlatformSettings(platformSettings);
+    if (platformSettings.geminiApiKey) {
+      try { localStorage.setItem('ta_gemini_api_key', platformSettings.geminiApiKey.trim()); } catch {}
+    }
+    if (platformSettings.groqApiKey) {
+      try { localStorage.setItem('ta_groq_api_key', platformSettings.groqApiKey.trim()); } catch {}
+    }
     setSettingsSavedToast(true);
     setTimeout(() => setSettingsSavedToast(false), 2500);
   };
@@ -617,6 +652,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     },
     { id: 'plans', label: 'Plan & Subscriptions', icon: CreditCard, badge: 'Timers', badgeColor: 'bg-amber-400 text-slate-950 font-bold' },
     { id: 'notes', label: 'Private Notes', icon: MessageSquare },
+    {
+      id: 'leads',
+      label: `Platform Leads (${platformLeads.length})`,
+      icon: HelpCircle,
+      badge: newLeadsCount > 0 ? `${newLeadsCount} New` : undefined,
+      badgeColor: 'bg-emerald-400 text-slate-950 font-black animate-pulse',
+    },
     { id: 'settings', label: 'Platform Config', icon: Settings },
   ];
 
@@ -2141,6 +2183,258 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </div>
           )}
 
+          {/* ── TAB: PLATFORM LEADS & INQUIRIES ── */}
+          {activeTab === 'leads' && (
+            <div className="space-y-5">
+              {/* Top Banner & Stats */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                      <HelpCircle className="w-5 h-5 text-emerald-600" />
+                      <span>Platform Leads &amp; Bot Inquiries</span>
+                      {newLeadsCount > 0 && (
+                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          {newLeadsCount} New
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Inquiries and leads captured by the landing page lead gen bot (Talk to Human, Help Desk, Tell Me More, Sign Up)
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlatformLeads(getPlatformLeads());
+                        setActionSuccessMessage('Leads refreshed');
+                        setTimeout(() => setActionSuccessMessage(null), 2000);
+                      }}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Filters & Search */}
+                <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Search by Ref #, name, phone, or message..."
+                      value={leadSearch}
+                      onChange={(e) => setLeadSearch(e.target.value)}
+                      className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                    {(['all', 'new', 'contacted', 'resolved'] as const).map((st) => (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => setLeadStatusFilter(st)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition cursor-pointer shrink-0 ${
+                          leadStatusFilter === st
+                            ? 'bg-slate-900 text-white shadow-2xs'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                        }`}
+                      >
+                        {st}
+                        {st === 'new' && newLeadsCount > 0 && (
+                          <span className="ml-1 px-1.5 py-0.2 bg-emerald-400 text-slate-950 rounded-full text-[9px] font-black">
+                            {newLeadsCount}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Leads List */}
+              {platformLeads.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3 shadow-2xs">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                    <HelpCircle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">No platform leads captured yet</h4>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                      When visitors interact with the chat bubble on your landing page and select "Talk to human", "Help", or "Sign up", their conversations and contact info will appear here.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  {platformLeads
+                    .filter((l) => {
+                      const s = leadSearch.toLowerCase().trim();
+                      const matchSearch =
+                        !s ||
+                        l.refCode.toLowerCase().includes(s) ||
+                        (l.name && l.name.toLowerCase().includes(s)) ||
+                        (l.phone && l.phone.toLowerCase().includes(s)) ||
+                        (l.summary && l.summary.toLowerCase().includes(s)) ||
+                        (l.storeName && l.storeName.toLowerCase().includes(s));
+                      const matchStatus = leadStatusFilter === 'all' || l.status === leadStatusFilter;
+                      return matchSearch && matchStatus;
+                    })
+                    .map((lead) => {
+                      const cleanPhone = (lead.phone || '').replace(/[^0-9]/g, '');
+                      const waLink = cleanPhone
+                        ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                            `Hello ${lead.name || ''}! Reaching out regarding your ${getPlatformBrandName()} inquiry (Ref: #${lead.refCode}). How can we assist you today?`
+                          )}`
+                        : null;
+
+                      return (
+                        <div
+                          key={lead.id}
+                          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs hover:border-slate-300 transition space-y-3"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <span className="font-mono text-xs font-bold bg-slate-900 text-amber-400 px-2.5 py-1 rounded-lg shadow-2xs">
+                                #{lead.refCode}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                  lead.intent === 'talk_to_human'
+                                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                    : lead.intent === 'help'
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                    : lead.intent === 'signup'
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                }`}
+                              >
+                                {lead.intent === 'talk_to_human'
+                                  ? '💬 Talk to Human'
+                                  : lead.intent === 'help'
+                                  ? '❓ Help Desk'
+                                  : lead.intent === 'signup'
+                                  ? '🚀 Store Signup'
+                                  : '💡 Tell Me More'}
+                              </span>
+
+                              <span className="text-[11px] text-slate-400">
+                                {new Date(lead.createdAt).toLocaleString([], {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+
+                            {/* Status Changer */}
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={lead.status}
+                                onChange={(e) => {
+                                  updatePlatformLeadStatus(lead.id, e.target.value as any);
+                                  setPlatformLeads(getPlatformLeads());
+                                }}
+                                className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none cursor-pointer ${
+                                  lead.status === 'new'
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                    : lead.status === 'contacted'
+                                    ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                                }`}
+                              >
+                                <option value="new">🟢 New</option>
+                                <option value="contacted">🟡 Contacted</option>
+                                <option value="resolved">⚪ Resolved</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Visitor & Lead Details */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                            <div>
+                              <span className="text-slate-400 block text-[10px] uppercase font-bold">Visitor Name</span>
+                              <span className="font-bold text-slate-900">{lead.name || 'Anonymous Visitor'}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block text-[10px] uppercase font-bold">Contact Phone / WhatsApp</span>
+                              {lead.phone ? (
+                                <a
+                                  href={`tel:${lead.phone}`}
+                                  className="font-bold text-slate-900 hover:text-emerald-600 font-mono"
+                                >
+                                  {lead.phone}
+                                </a>
+                              ) : (
+                                <span className="text-slate-400 italic">None provided</span>
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block text-[10px] uppercase font-bold">Proposed Brand / Niche</span>
+                              <span className="font-semibold text-slate-800">
+                                {lead.storeName || lead.businessType || 'General inquiry'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {lead.summary && (
+                            <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed">
+                              {lead.summary}
+                            </p>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLead(lead)}
+                              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-slate-600" />
+                              <span>View Full Convo ({lead.messages.length} msgs)</span>
+                            </button>
+
+                            <div className="flex items-center gap-2">
+                              {waLink && (
+                                <a
+                                  href={waLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                  <span>Reply on WhatsApp</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Delete lead #${lead.refCode}?`)) {
+                                    deletePlatformLead(lead.id);
+                                    setPlatformLeads(getPlatformLeads());
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                                title="Delete lead"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── TAB 6: PLATFORM CONFIGURATION & DANGER ZONE ── */}
           {activeTab === 'settings' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -2189,6 +2483,38 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         onChange={(e) => setPlatformSettings({ ...platformSettings, supportWhatsApp: e.target.value })}
                         className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
                       />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Google AI Studio / Gemini API Key
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="AIzaSy... (primary key for AI descriptions)"
+                        value={platformSettings.geminiApiKey || ''}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, geminiApiKey: e.target.value.trim() })}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Primary engine for merchant product descriptions and viral copy.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Alternative Groq API Key (High-Speed Fallback)
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Groq API Key (automatic fallback when Gemini limits are hit)"
+                        value={platformSettings.groqApiKey || ''}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, groqApiKey: e.target.value.trim() })}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Ultra-fast Groq fallback (gpt-oss-120b). Activated automatically if Gemini is slow or fails.
+                      </p>
                     </div>
                   </div>
 
@@ -2502,6 +2828,88 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 <Send className="w-3.5 h-3.5" />
                 <span>Send Note</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── FULL LEAD CONVERSATION TRANSCRIPT MODAL ── */}
+      {selectedLead && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden border border-slate-100">
+            {/* Modal Header */}
+            <div className="px-5 py-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-black bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded-md">
+                    #{selectedLead.refCode}
+                  </span>
+                  <h3 className="font-bold text-sm text-white">{selectedLead.name || 'Visitor Conversation'}</h3>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Captured {new Date(selectedLead.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedLead(null)}
+                className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body - Chat Scroll */}
+            <div className="p-4 overflow-y-auto space-y-3 bg-slate-50 flex-1">
+              {selectedLead.messages.map((m, idx) => {
+                const isUser = m.sender === 'user';
+                return (
+                  <div key={idx} className={`flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                    <div
+                      className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap break-words ${
+                        isUser
+                          ? 'bg-slate-900 text-white rounded-br-xs'
+                          : 'bg-white text-slate-800 border border-slate-200 rounded-bl-xs shadow-2xs'
+                      }`}
+                    >
+                      <div className="text-[10px] font-bold text-amber-500 mb-0.5">
+                        {isUser ? `👤 ${selectedLead.name || 'Visitor'}` : '🤖 Platform Lead Bot'}
+                      </div>
+                      {m.text}
+                      <div className="text-[9px] text-slate-400 text-right mt-1">{m.timestamp}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-white border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+              <div className="text-xs text-slate-500">
+                Contact: <strong className="text-slate-900 font-mono">{selectedLead.phone || 'None'}</strong>
+              </div>
+              <div className="flex items-center gap-2">
+                {selectedLead.phone && (
+                  <a
+                    href={`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                      `Hello ${selectedLead.name || ''}! Reaching out regarding your ${getPlatformBrandName()} inquiry (Ref: #${selectedLead.refCode}).`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>WhatsApp</span>
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedLead(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
