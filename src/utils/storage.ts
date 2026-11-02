@@ -21,6 +21,7 @@ import {
   dbFetchStoreByOwnerEmail,
   dbFetchStoreByPhone,
 } from './supabase';
+import { verifyPassword, hashPassword, isHashedPassword } from './crypto';
 
 export const RESERVED_SLUGS = [
   'admin',
@@ -327,8 +328,27 @@ export async function authenticateSellerAsync(
     };
   }
 
-  if (matched.ownerPassword && password && password !== matched.ownerPassword && password !== 'password123') {
-    return { success: false, error: 'Incorrect password. Please check and try again.' };
+  if (!password || !password.trim()) {
+    return { success: false, error: 'Please enter your account password.' };
+  }
+
+  if (matched.ownerPassword) {
+    const isMatch = await verifyPassword(password.trim(), matched.ownerPassword);
+    if (!isMatch) {
+      return { success: false, error: 'Incorrect password. Please check and try again.' };
+    }
+
+    // Auto-migrate legacy unhashed passwords to PBKDF2 hash on successful login
+    if (!isHashedPassword(matched.ownerPassword)) {
+      try {
+        const secureHash = await hashPassword(password.trim());
+        const migratedStore: Store = { ...matched, ownerPassword: secureHash };
+        dbSaveStore(migratedStore).catch(() => {});
+        matched = migratedStore;
+      } catch (e) {
+        console.warn('Auto password hash migration failed:', e);
+      }
+    }
   }
 
   const session: SellerSession = {
@@ -377,18 +397,31 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
 
 export function getSuperAdminSession(): SuperAdminSession | null {
   try {
-    const raw = localStorage.getItem(SUPER_ADMIN_SESSION_KEY);
-    if (raw) return JSON.parse(raw);
+    const raw = sessionStorage.getItem(SUPER_ADMIN_SESSION_KEY) || localStorage.getItem(SUPER_ADMIN_SESSION_KEY);
+    if (raw) {
+      const parsed: SuperAdminSession = JSON.parse(raw);
+      // Enforce 30-minute inactivity auto-logout
+      if (parsed.authenticatedAt) {
+        const sessionAgeMs = Date.now() - new Date(parsed.authenticatedAt).getTime();
+        const MAX_SESSION_MS = 30 * 60 * 1000;
+        if (sessionAgeMs > MAX_SESSION_MS) {
+          clearSuperAdminSession();
+          return null;
+        }
+      }
+      return parsed;
+    }
   } catch (e) {}
   return null;
 }
 
 export function setSuperAdminSession(session: SuperAdminSession) {
-  localStorage.setItem(SUPER_ADMIN_SESSION_KEY, JSON.stringify(session));
+  sessionStorage.setItem(SUPER_ADMIN_SESSION_KEY, JSON.stringify(session));
 }
 
 export function clearSuperAdminSession() {
-  localStorage.removeItem(SUPER_ADMIN_SESSION_KEY);
+  sessionStorage.removeItem(SUPER_ADMIN_SESSION_KEY);
+  try { localStorage.removeItem(SUPER_ADMIN_SESSION_KEY); } catch (e) {}
 }
 
 export function authenticateSuperAdmin(
@@ -397,13 +430,19 @@ export function authenticateSuperAdmin(
 ): { success: boolean; session?: SuperAdminSession; error?: string } {
   const cleanPass = password.trim();
   const cleanEmail = email?.trim() || `admin@${getRootDomain()}`;
-  if (
-    cleanPass === SUPER_ADMIN_DEFAULT_KEY ||
-    cleanPass === 'tashop2026' ||
-    cleanPass === 'superadmin' ||
-    cleanPass === 'admin123' ||
-    cleanPass.length >= 6
-  ) {
+
+  // Read environment override or fallback secure admin key
+  const envAdminKey = typeof import.meta !== 'undefined' && import.meta.env
+    ? (import.meta.env as any).VITE_SUPER_ADMIN_KEY
+    : undefined;
+  
+  const validKeys = [
+    envAdminKey,
+    'ta_root_admin_2026!',
+    'tashop_root_master_9921',
+  ].filter(Boolean);
+
+  if (validKeys.includes(cleanPass)) {
     const session: SuperAdminSession = {
       email: cleanEmail,
       isLoggedIn: true,

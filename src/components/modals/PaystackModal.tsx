@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AlertCircle, BadgeCheck, Bot, Check, CheckCircle2, CreditCard, Lock, ShieldCheck, Sparkles, Upload, X, Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Store, StoreIdVerification } from '../../types';
-import { getStoredStores, saveStores, getRootDomain } from '../../utils/storage';
+import { getRootDomain } from '../../utils/storage';
 import { dbSaveStore } from '../../utils/supabase';
 import { getPlanAmount } from '../../utils/planLimits';
 
@@ -87,8 +87,6 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
     setIsProcessing(false);
     setStep('success');
 
-    // Persist to storage & calculate subscription validity
-    const allStores = getStoredStores();
     const now = new Date();
     const expiry = new Date(now);
     expiry.setDate(expiry.getDate() + (billingCycle === 'yearly' ? 365 : 30));
@@ -100,6 +98,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
       hasVerifiedBadgeAddon: selectedPlan === 'business' ? true : store.hasVerifiedBadgeAddon,
       planExpiresAt: expiry.toISOString(),
       planActivationSource: 'paystack',
+      lastPaymentRef: _reference || undefined,
       idVerification: (frontIdUrl && backIdUrl) ? {
         idType,
         idNumber: idNumber.trim() || undefined,
@@ -113,11 +112,12 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
     // 1. Persist to Supabase FIRST — authoritative source of truth
     try {
       await dbSaveStore(updatedStore);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tashop:store_updated'));
+      }
     } catch (e) {
       console.warn('[PaystackModal] Supabase plan save failed:', e);
     }
-    // 2. Update localStorage cache (cache-only)
-    saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
 
     try {
       confetti({

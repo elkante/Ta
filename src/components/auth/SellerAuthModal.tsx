@@ -31,6 +31,7 @@ import {
   getRootDomain,
   getPlatformBrandName,
 } from '../../utils/storage';
+import { hashPassword } from '../../utils/crypto';
 import { dbSaveStore, dbSaveProduct, dbFetchStoreBySlug } from '../../utils/supabase';
 
 interface SellerAuthModalProps {
@@ -254,6 +255,14 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
         ? 'KSh'
         : 'GH₵';
 
+    if (!signupPassword || signupPassword.trim().length < 6) {
+      setError('Please choose a secure password with at least 6 characters.');
+      setIsSigningUp(false);
+      return;
+    }
+
+    const secureHashedPassword = await hashPassword(signupPassword.trim());
+
     const storeId = `store_${Date.now()}`;
     const newStore: Store = {
       id: storeId,
@@ -261,7 +270,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
       ownerName: signupOwnerName.trim(),
       slug: slugCheck.cleanSlug,
       ownerEmail: signupEmail.trim() || `${slugCheck.cleanSlug}@tashop.co`,
-      ownerPassword: signupPassword || 'password123',
+      ownerPassword: secureHashedPassword,
       idVerification: (signupFrontIdUrl && signupBackIdUrl) ? {
         idType: signupIdType,
         idNumber: signupIdNumber.trim() || undefined,
