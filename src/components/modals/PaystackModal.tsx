@@ -99,6 +99,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
       verified: selectedPlan === 'pro' || selectedPlan === 'business' ? true : store.verified,
       hasVerifiedBadgeAddon: selectedPlan === 'business' ? true : store.hasVerifiedBadgeAddon,
       planExpiresAt: expiry.toISOString(),
+      planActivationSource: 'paystack',
       idVerification: (frontIdUrl && backIdUrl) ? {
         idType,
         idNumber: idNumber.trim() || undefined,

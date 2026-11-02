@@ -30,22 +30,10 @@ import {
 import {
   clearSellerSession,
   clearSuperAdminSession,
-  getCurrentTenantSlug,
   getInquiriesByStore,
-  getProductsByStore,
-  getReviewsByStore,
   getSellerSession,
-  getStoreBySlug,
-  getStoredStores,
-  getStoredProducts,
-  getStoredReviews,
   getSuperAdminSession,
   getSubdomainFromHostname,
-  saveStores,
-  saveProducts,
-  saveReviews,
-  saveOrders,
-  setCurrentTenantSlug,
   getRootDomain,
 } from './utils/storage';
 import {
@@ -56,65 +44,14 @@ import {
   dbFetchAllOrders,
   dbFetchStoreBySlug,
   dbFetchStoreByCustomDomain,
+  dbSaveOrder,
+  dbUpdateOrderStatus,
 } from './utils/supabase';
 
 export default function App() {
   const [allStores, setAllStores] = useState<Store[]>([]);
-  const [currentStore, setCurrentStore] = useState<Store | null>(() => {
-    try {
-      const session = getSellerSession();
-      const stores = getStoredStores();
-      if (session) {
-        return stores.find((s) => s.id === session.storeId || s.slug === session.storeSlug) || null;
-      }
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        const storeParam = urlParams.get('store');
-        const subSlug = getSubdomainFromHostname();
-        const targetSlug = storeParam || subSlug;
-        if (targetSlug) {
-          const match = stores.find(
-            (s) =>
-              s.slug.toLowerCase() === targetSlug.toLowerCase() ||
-              s.id.toLowerCase() === targetSlug.toLowerCase()
-          );
-          if (match) return match;
-        }
-      }
-      const savedSlug = sessionStorage.getItem('ta_last_store_slug');
-      if (savedSlug) {
-        return stores.find((s) => s.slug.toLowerCase() === savedSlug.toLowerCase()) || null;
-      }
-    } catch (e) {}
-    return null;
-  });
-  const [storeProducts, setStoreProducts] = useState<Product[]>(() => {
-    try {
-      const stores = getStoredStores();
-      let matchedStoreId: string | null = null;
-      const session = getSellerSession();
-      if (session) {
-        const s = stores.find((x) => x.id === session.storeId || x.slug === session.storeSlug);
-        if (s) matchedStoreId = s.id;
-      }
-      if (!matchedStoreId && typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        const storeParam = urlParams.get('store') || getSubdomainFromHostname();
-        if (storeParam) {
-          const s = stores.find(
-            (x) =>
-              x.slug.toLowerCase() === storeParam.toLowerCase() ||
-              x.id.toLowerCase() === storeParam.toLowerCase()
-          );
-          if (s) matchedStoreId = s.id;
-        }
-      }
-      if (matchedStoreId) {
-        return getProductsByStore(matchedStoreId);
-      }
-    } catch (e) {}
-    return [];
-  });
+  const [currentStore, setCurrentStore] = useState<Store | null>(null);
+  const [storeProducts, setStoreProducts] = useState<Product[]>([]);
   const [storeInquiries, setStoreInquiries] = useState<WhatsAppInquiryLog[]>([]);
   const [storeReviews, setStoreReviews] = useState<StoreReview[]>([]);
 
@@ -140,7 +77,6 @@ export default function App() {
       if (viewParam === 'dashboard' || viewParam === 'storefront' || viewParam === 'landing') {
         return viewParam as 'landing' | 'storefront' | 'dashboard' | 'superadmin';
       }
-      // If store param is present in URL or visited via subdomain, immediately route to storefront!
       const subSlug = getSubdomainFromHostname();
       if (urlParams.get('store') || subSlug) {
         return 'storefront';
@@ -152,6 +88,7 @@ export default function App() {
     } catch (e) {}
     return 'landing';
   });
+
   const [sellerSession, setSellerSession] = useState<SellerSession | null>(() => getSellerSession());
   const [superAdminSession, setSuperAdminSessionState] = useState<SuperAdminSession | null>(() => getSuperAdminSession());
 
@@ -173,104 +110,40 @@ export default function App() {
     return true;
   });
   const [showOnboarding, setShowOnboarding] = useState(false);
-  /** Product ID from ?product= URL param; passed to Storefront to auto-open detail modal */
   const [initialProductId, setInitialProductId] = useState<string | null>(null);
   const [isBootingStore, setIsBootingStore] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const sub = getSubdomainFromHostname();
-      const hasStoreParam = !!(urlParams.get('store') || sub);
-      if (!hasStoreParam) return false;
-      // If we already have stores in local cache, boot instantly without showing loading screen
-      try {
-        const cached = localStorage.getItem('ta_stores_cloud_v2') || localStorage.getItem('ta_stores');
-        if (cached && cached.length > 20) return false;
-      } catch (e) {}
-      return true;
+      return !!(urlParams.get('store') || sub);
     }
     return false;
   });
 
-  // Initialize and load store based on URL, Supabase live data or local storage
+  // ─── Core data loader — Supabase only, no localStorage for stores/products/reviews ───
   const loadTenantData = async (slug?: string) => {
-    let stores = getStoredStores();
-    setAllStores(stores);
-
-    // Read sessionStorage for last known view/store (used for refresh restoration)
     const savedView = sessionStorage.getItem('ta_last_view') as typeof activeView | null;
     const savedStoreSlug = sessionStorage.getItem('ta_last_store_slug') || '';
 
-    // Read stored sessions first so we know roles before fetching
     const session = getSellerSession();
     setSellerSession(session);
     const adminSession = getSuperAdminSession();
     setSuperAdminSessionState(adminSession);
 
-    // ðŸ”’ Role-based Supabase fetch â€” strict data isolation:
-    // Super Admin: fetch ALL stores (needs switcher)
-    // Seller/Guest: fetch ONLY the target store by slug
-    const subdomainSlugForFetch = getSubdomainFromHostname();
-    const urlParamsForFetch = new URLSearchParams(window.location.search);
-    const storeParamForFetch = urlParamsForFetch.get('store');
-    const targetFetchSlug = slug || subdomainSlugForFetch || storeParamForFetch || session?.storeSlug || '';
+    const subdomainSlug = getSubdomainFromHostname();
+    const urlParams = new URLSearchParams(window.location.search);
+    const storeParam = urlParams.get('store');
+    const productParam = urlParams.get('product');
+    const viewParam = urlParams.get('view');
+    if (productParam) setInitialProductId(productParam);
+
+    const targetFetchSlug = slug || subdomainSlug || storeParam || session?.storeSlug || '';
 
     const isSysHqRoute =
       window.location.pathname.startsWith('/sys-hq') ||
-      urlParamsForFetch.get('view') === 'sys-hq' ||
-      urlParamsForFetch.get('view') === 'superadmin' ||
-      urlParamsForFetch.get('view') === 'admin';
-
-    try {
-      if (adminSession || isSysHqRoute) {
-        const [liveStores, liveAllProducts, liveAllOrders] = await Promise.all([
-          dbFetchStores(),
-          dbFetchAllProducts(),
-          dbFetchAllOrders(),
-        ]);
-        if (liveStores && liveStores.length > 0) {
-          stores = liveStores;
-          setAllStores(liveStores);
-          saveStores(liveStores);
-        }
-        if (liveAllProducts && liveAllProducts.length > 0) {
-          saveProducts(liveAllProducts);
-        }
-        if (liveAllOrders && liveAllOrders.length > 0) {
-          saveOrders(liveAllOrders);
-        }
-      } else if (targetFetchSlug) {
-        const cachedStore = stores.find(s => s.slug.toLowerCase() === targetFetchSlug.toLowerCase() || s.id === targetFetchSlug);
-        if (!cachedStore) {
-          const liveStore = await dbFetchStoreBySlug(targetFetchSlug);
-          if (liveStore) {
-            const merged = [...stores.filter(s => s.id !== liveStore.id), liveStore];
-            stores = merged;
-            setAllStores(merged);
-            saveStores(merged);
-          }
-        } else {
-          // If already in local cache, background fetch so UI displays instantly
-          dbFetchStoreBySlug(targetFetchSlug).then((liveStore) => {
-            if (liveStore) {
-              const merged = [...stores.filter(s => s.id !== liveStore.id), liveStore];
-              setAllStores(merged);
-              saveStores(merged);
-            }
-          }).catch(() => {});
-        }
-      }
-    } catch (e) {
-      // offline / first load fallback â€” use local cache
-    }
-
-
-    // Read URL params
-    const urlParams = new URLSearchParams(window.location.search);
-    const viewParam = urlParams.get('view');
-    const keyParam  = urlParams.get('key');   // secret admin key: ?view=superadmin&key=ta_root_9921
-    const storeParam = urlParams.get('store');   // from QR codes / shared links
-    const productParam = urlParams.get('product'); // from product QR codes / shared product links
-    if (productParam) setInitialProductId(productParam);
+      viewParam === 'sys-hq' ||
+      viewParam === 'superadmin' ||
+      viewParam === 'admin';
 
     // Direct legal policy views
     if (viewParam === 'terms' || viewParam === 'privacy' || viewParam === 'cookies') {
@@ -278,37 +151,54 @@ export default function App() {
       setIsLegalModalOpen(true);
     }
 
-    // Resolve store slug priority:
-    // 1. Explicit arg passed to loadTenantData (e.g. after creating a store)
-    // 2. Subdomain in hostname (e.g. amaka-perfumes.ta.shop)
-    // 3. ?store= URL param â€” QR code scans / shared links (MUST beat localStorage)
-    // 4. localStorage last-visited store (lowest priority, only for authenticated sellers)
-    const subdomainSlug = getSubdomainFromHostname();
+    // Route to sys-hq if needed
+    const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+    const hash = window.location.hash.toLowerCase();
+    if (
+      pathname === '/sys-hq' ||
+      pathname.endsWith('/sys-hq') ||
+      hash === '#/sys-hq' ||
+      hash === '#sys-hq' ||
+      isSysHqRoute
+    ) {
+      setActiveView('superadmin');
+      // Still fetch all stores for admin
+      try {
+        const [liveStores, liveAllOrders] = await Promise.all([
+          dbFetchStores(),
+          dbFetchAllOrders(),
+        ]);
+        if (liveStores?.length) setAllStores(liveStores);
+      } catch (e) {}
+      return;
+    }
 
-    // Determine if a specific store was explicitly requested
-    let hasExplicitStore = !!(slug || subdomainSlug || storeParam);
-    const urlStoreSlug = slug || subdomainSlug || storeParam || '';
-
-    // Resolve target store only if a slug was explicitly given in the URL or loadTenantData arg
+    let stores: Store[] = [];
     let targetStore: Store | null = null;
-    if (urlStoreSlug) {
-      targetStore = stores.find((s) => s.slug.toLowerCase() === urlStoreSlug.toLowerCase()) || null;
+    const hasExplicitStore = !!(slug || subdomainSlug || storeParam);
+
+    try {
+      if (adminSession) {
+        // Super admin: fetch ALL stores
+        const [liveStores] = await Promise.all([dbFetchStores(), dbFetchAllOrders()]);
+        if (liveStores?.length) {
+          stores = liveStores;
+          setAllStores(liveStores);
+        }
+      } else if (targetFetchSlug) {
+        // Seller/guest: fetch only the target store
+        const liveStore = await dbFetchStoreBySlug(targetFetchSlug);
+        if (liveStore) {
+          stores = [liveStore];
+          setAllStores([liveStore]);
+          targetStore = liveStore;
+        }
+      }
+    } catch (e) {
+      console.warn('[App] Supabase initial fetch error:', e);
     }
 
-    // ⚡ INSTANT BOOT: If we already have the store in localStorage cache, render it NOW
-    // before any Supabase network call so the storefront shows immediately with no flash.
-    if (targetStore && hasExplicitStore) {
-      setCurrentStore(targetStore);
-      setCurrentTenantSlug(targetStore.slug);
-      setStoreProducts(getProductsByStore(targetStore.id));
-      setStoreInquiries(getInquiriesByStore(targetStore.id));
-      setStoreReviews(getReviewsByStore(targetStore.id));
-      setActiveView('storefront');
-      setIsBootingStore(false); // ← show storefront immediately, Supabase fills in fresh data below
-    }
-
-    // 🌐 CUSTOM DOMAIN RESOLUTION (e.g. amakajewels.com.ng or brand.com)
-    // If visitor accesses via a custom domain, load that specific merchant's storefront directly!
+    // Custom domain resolution
     const currentHost = window.location.hostname.toLowerCase();
     const root = getRootDomain();
     const isPaaSOrLocal =
@@ -320,56 +210,38 @@ export default function App() {
       currentHost.endsWith('ta.shop');
 
     if (!isPaaSOrLocal && !targetStore) {
-      const matchedByDomain = stores.find((s) => s.customDomain?.toLowerCase() === currentHost) || null;
-      if (matchedByDomain) {
-        targetStore = matchedByDomain;
-        hasExplicitStore = true;
-      } else {
-        try {
-          const liveCustom = await dbFetchStoreByCustomDomain(currentHost);
-          if (liveCustom) {
-            targetStore = liveCustom;
-            hasExplicitStore = true;
-            stores = [...stores.filter(s => s.id !== liveCustom.id), liveCustom];
-            setAllStores(stores);
-          }
-        } catch (e) {}
-      }
+      try {
+        const liveCustom = await dbFetchStoreByCustomDomain(currentHost);
+        if (liveCustom) {
+          targetStore = liveCustom;
+          stores = [...stores.filter(s => s.id !== liveCustom.id), liveCustom];
+          setAllStores(stores);
+        }
+      } catch (e) {}
     }
 
-    const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
-    const hash = window.location.hash.toLowerCase();
-    if (
-      pathname === '/sys-hq' ||
-      pathname.endsWith('/sys-hq') ||
-      hash === '#/sys-hq' ||
-      hash === '#sys-hq' ||
-      viewParam === 'sys-hq' ||
-      viewParam === 'admin' ||
-      viewParam === 'superadmin'
-    ) {
-      setActiveView('superadmin');
-      return;
+    // If explicit store param and target not found yet, check allStores array
+    if (!targetStore && hasExplicitStore) {
+      const urlStoreSlug = slug || subdomainSlug || storeParam || '';
+      targetStore = stores.find(s => s.slug.toLowerCase() === urlStoreSlug.toLowerCase()) || null;
     }
 
+    // Resolve view
     if (viewParam === 'landing') {
-      // Explicit landing request → show landing page
       setActiveView('landing');
     } else if (viewParam === 'dashboard' && session) {
       setActiveView('dashboard');
       sessionStorage.setItem('ta_last_view', 'dashboard');
     } else if (targetStore && hasExplicitStore) {
-      // ONLY go to storefront if a specific store was explicitly requested AND found in registered stores
-      setActiveView('storefront');
+      setCurrentStore(targetStore);
       sessionStorage.setItem('ta_last_view', 'storefront');
       sessionStorage.setItem('ta_last_store_slug', targetStore.slug);
+      setActiveView('storefront');
     } else if (!viewParam && !hasExplicitStore) {
-      // No URL param and no explicit store â€” try to restore last session view on refresh
       if (savedView === 'dashboard' && session) {
         setActiveView('dashboard');
       } else if (savedView === 'storefront' && savedStoreSlug) {
-        // Restore storefront for last known store slug
-        const restoredStore = stores.find((s) => s.slug.toLowerCase() === savedStoreSlug.toLowerCase()) || null;
+        const restoredStore = stores.find(s => s.slug.toLowerCase() === savedStoreSlug.toLowerCase()) || null;
         if (restoredStore) {
           targetStore = restoredStore;
           setActiveView('storefront');
@@ -377,63 +249,45 @@ export default function App() {
           setActiveView('landing');
         }
       } else {
-        // Main site link (e.g. ta-ruby-five.vercel.app/ or root domain) â†’ ALWAYS landing page!
         setActiveView('landing');
       }
     } else {
       setActiveView('landing');
     }
 
-    // If authenticated seller session exists and no explicit store in URL,
-    // restore their store context strictly for the seller portal without mixing stores
+    // Authenticated seller with no explicit store → restore their store
     if (!targetStore && session) {
-      targetStore = stores.find((s) => s.id === session.storeId || s.slug === session.storeSlug) || null;
+      targetStore = stores.find(s => s.id === session.storeId || s.slug === session.storeSlug) || null;
       if (!targetStore && session.storeSlug) {
         try {
           const liveStore = await dbFetchStoreBySlug(session.storeSlug);
           if (liveStore) {
             targetStore = liveStore;
-            saveStores([liveStore]);
+            stores = [...stores.filter(s => s.id !== liveStore.id), liveStore];
+            setAllStores(stores);
           }
         } catch (e) {}
       }
     }
 
-    // 🔒 STRICT ISOLATION: Never default to arbitrary seed stores (prevents store mixing)
-    // If no store matched and user is a guest, targetStore remains null (Landing page view)
-
     if (targetStore) {
       setCurrentStore(targetStore);
-      setCurrentTenantSlug(targetStore.slug);
+      sessionStorage.setItem('ta_last_store_slug', targetStore.slug);
 
-      // Load isolated products, inquiries and reviews for this tenant
-      let prods = getProductsByStore(targetStore.id);
-      setStoreProducts(prods);
-
+      // Fetch products & reviews directly from Supabase — no localStorage
       try {
         const liveProds = await dbFetchProducts(targetStore.id);
-        if (Array.isArray(liveProds)) {
-          prods = liveProds;
-          setStoreProducts(liveProds);
-          const otherProds = getStoredProducts().filter((p) => p.storeId !== targetStore.id);
-          saveProducts([...liveProds, ...otherProds]);
-        }
+        if (Array.isArray(liveProds)) setStoreProducts(liveProds);
       } catch (e) {}
 
-      const inqs = getInquiriesByStore(targetStore.id);
-      const revs = getReviewsByStore(targetStore.id);
+      setStoreInquiries(getInquiriesByStore(targetStore.id));
 
-      setStoreInquiries(inqs);
-      setStoreReviews(revs);
-
-      // Fetch live cloud reviews from Supabase
       try {
         const liveRevs = await dbFetchReviews(targetStore.id);
-        if (liveRevs && liveRevs.length > 0) {
-          setStoreReviews(liveRevs);
-        }
+        if (Array.isArray(liveRevs)) setStoreReviews(liveRevs);
       } catch (e) {}
     }
+
     setIsBootingStore(false);
   };
 
@@ -441,7 +295,7 @@ export default function App() {
     loadTenantData();
   }, []);
 
-  // 🔒 Persist last active view to sessionStorage AND update URL so browser refresh preserves location
+  // Persist last active view to sessionStorage + URL
   useEffect(() => {
     try {
       const url = new URL(window.location.href);
@@ -477,37 +331,54 @@ export default function App() {
     } catch (e) {}
   }, [activeView, currentStore]);
 
-  // ─── Instant storefront product & review refresh on save (no Supabase wait) ──────
-  // Listens for custom events fired by saveProducts() and saveReviews() in storage.ts
-  // so the storefront re-renders with 0ms latency
+  // Listen for products_updated event (fired after product mutations in SellerDashboard)
   useEffect(() => {
     const handler = () => {
       if (currentStore) {
-        setStoreProducts(getProductsByStore(currentStore.id));
+        dbFetchProducts(currentStore.id)
+          .then(live => { if (Array.isArray(live)) setStoreProducts(live); })
+          .catch(() => {});
       }
     };
     window.addEventListener('tashop:products_updated', handler);
     return () => window.removeEventListener('tashop:products_updated', handler);
   }, [currentStore?.id]);
 
+  // Listen for reviews_updated event
   useEffect(() => {
     const handler = () => {
       if (currentStore) {
-        setStoreReviews(getReviewsByStore(currentStore.id));
+        dbFetchReviews(currentStore.id)
+          .then(live => { if (Array.isArray(live)) setStoreReviews(live); })
+          .catch(() => {});
       }
     };
     window.addEventListener('tashop:reviews_updated', handler);
     return () => window.removeEventListener('tashop:reviews_updated', handler);
   }, [currentStore?.id]);
 
-  // â”€â”€â”€ PWA ONLY on Landing Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // ─── PWA manifest link ────────────────────────────────────────────────────
-  // PWAInstallBanner (common/PWAInstallBanner.tsx) now owns the beforeinstallprompt
-  // event and shows a proper top-of-page banner — no longer suppressed here.
+  // Listen for store_updated event (fired after store settings saves in SellerDashboard)
+  useEffect(() => {
+    const handler = () => {
+      if (currentStore) {
+        dbFetchStoreBySlug(currentStore.slug)
+          .then(live => {
+            if (live) {
+              setCurrentStore(live);
+              setAllStores(prev => prev.map(s => s.id === live.id ? live : s));
+            }
+          })
+          .catch(() => {});
+      }
+    };
+    window.addEventListener('tashop:store_updated', handler);
+    return () => window.removeEventListener('tashop:store_updated', handler);
+  }, [currentStore?.id]);
+
+  // PWA manifest — landing only
   useEffect(() => {
     const isLanding = !currentStore || activeView === 'landing';
     const existing = document.querySelector('link[data-pwa="landing"]');
-
     if (isLanding) {
       if (!existing) {
         const link = document.createElement('link');
@@ -517,95 +388,59 @@ export default function App() {
         document.head.appendChild(link);
       }
     } else {
-      if (existing) {
-        existing.remove();
-      }
+      if (existing) existing.remove();
     }
   }, [currentStore, activeView]);
 
-  // Internal helper â€” bypasses the buyer guard (used by login/signup flows)
   const switchStore = (store: Store) => {
     setCurrentStore(store);
-    setCurrentTenantSlug(store.slug);
     sessionStorage.setItem('ta_last_store_slug', store.slug);
 
-    // Update URL query param smoothly
     const url = new URL(window.location.href);
     url.searchParams.set('store', store.slug);
     window.history.replaceState({}, '', url.toString());
 
-    // Refresh tenant data immediately from local cache
-    setStoreProducts(getProductsByStore(store.id));
-    setStoreInquiries(getInquiriesByStore(store.id));
-    setStoreReviews(getReviewsByStore(store.id));
-
-    // Also fetch latest live products & reviews from Supabase
+    // Fetch fresh data from Supabase
     dbFetchProducts(store.id)
-      .then((live) => {
-        if (Array.isArray(live)) {
-          setStoreProducts(live);
-          const otherProds = getStoredProducts().filter((p) => p.storeId !== store.id);
-          saveProducts([...live, ...otherProds]);
-        }
-      })
+      .then(live => { if (Array.isArray(live)) setStoreProducts(live); })
       .catch(() => {});
-
     dbFetchReviews(store.id)
-      .then((liveRevs) => {
-        if (liveRevs && liveRevs.length > 0) {
-          setStoreReviews(liveRevs);
-        }
-      })
+      .then(live => { if (Array.isArray(live)) setStoreReviews(live); })
       .catch(() => {});
+    setStoreInquiries(getInquiriesByStore(store.id));
   };
 
   const handleSelectStore = (store: Store) => {
-    // ðŸ”’ Role-based guard: buyers cannot switch stores.
-    // Only logged-in sellers or super admin are allowed to switch.
     const isSeller = sellerSession !== null;
     const isAdmin = superAdminSession !== null;
-    if (!isSeller && !isAdmin) {
-      // Silently ignore â€” buyer cannot navigate away to another store
-      return;
-    }
+    if (!isSeller && !isAdmin) return;
     switchStore(store);
   };
 
   const handleStoreCreated = (newStore: Store) => {
     setIsCreateStoreOpen(false);
-    loadTenantData(newStore.slug);
-    switchStore(newStore); // bypasses guard â€” creator is already authenticated
-    setActiveView('dashboard'); // take seller directly to their new dashboard
-    setShowOnboarding(true); // show the platform guide for new store owners
+    setAllStores(prev => [...prev.filter(s => s.id !== newStore.id), newStore]);
+    switchStore(newStore);
+    setActiveView('dashboard');
+    setShowOnboarding(true);
   };
 
   const handleLoginSuccess = async (session: SellerSession) => {
     setSellerSession(session);
-    let stores = getStoredStores();
-    let matchedStore = stores.find((s) => s.id === session.storeId || s.slug === session.storeSlug);
-
-    // Always fetch fresh from Supabase on login to ensure we have the latest store data
     try {
       const liveStore = await dbFetchStoreBySlug(session.storeSlug);
       if (liveStore) {
-        matchedStore = liveStore; // prefer live Supabase data over stale cache
-        const merged = [...stores.filter((s) => s.id !== liveStore.id), liveStore];
-        saveStores(merged); // update local cache with authoritative data (no Supabase re-write)
-        setAllStores(merged);
+        setAllStores(prev => [...prev.filter(s => s.id !== liveStore.id), liveStore]);
+        switchStore(liveStore);
+        sessionStorage.setItem('ta_last_view', 'dashboard');
+        sessionStorage.setItem('ta_last_store_slug', liveStore.slug);
+        setActiveView('dashboard');
+        return;
       }
     } catch (e) {
-      console.warn('Login: failed to fetch fresh store from Supabase, using cache:', e);
+      console.warn('[App] Login store fetch error:', e);
     }
-
-    if (!matchedStore) {
-      alert('Store data could not be found. Please contact support.');
-      return;
-    }
-
-    switchStore(matchedStore); // strictly switches to the merchant's authenticated store
-    sessionStorage.setItem('ta_last_view', 'dashboard');
-    sessionStorage.setItem('ta_last_store_slug', matchedStore.slug);
-    setActiveView('dashboard');
+    alert('Store data could not be found. Please contact support.');
   };
 
   const handleLogout = () => {
@@ -651,104 +486,48 @@ export default function App() {
 
   const handleOpenStorefront = async () => {
     if (currentStore) {
-      // Immediately refresh products from localStorage cache
-      setStoreProducts(getProductsByStore(currentStore.id));
-      // And asynchronously pull fresh approvals from Supabase
       try {
         const liveProds = await dbFetchProducts(currentStore.id);
-        if (liveProds && liveProds.length > 0) {
-          setStoreProducts(liveProds);
-          saveProducts(liveProds);
-        }
+        if (Array.isArray(liveProds)) setStoreProducts(liveProds);
       } catch (e) {}
     }
     setActiveView('storefront');
   };
 
   const handleRefreshData = async () => {
-    // 1. Immediately refresh in-memory state from localStorage so changes reflect with 0ms latency
-    if (currentStore) {
-      setStoreProducts(getProductsByStore(currentStore.id));
-      setStoreInquiries(getInquiriesByStore(currentStore.id));
-      setStoreReviews(getReviewsByStore(currentStore.id));
-    }
-
-    // 2. Re-fetch from Supabase — Supabase is source of truth; update cache with what comes back.
-    //    We do NOT write the cache back to Supabase (saveStores is cache-only now).
     try {
-      // For sellers/guests: only fetch the current store (strict isolation)
       if (superAdminSession) {
-        // Super admin needs all stores
         const liveStores = await dbFetchStores();
-        if (liveStores && liveStores.length > 0) {
-          saveStores(liveStores); // update cache from authoritative source
+        if (liveStores?.length) {
           setAllStores(liveStores);
           if (currentStore) {
-            const refreshedCurrent = liveStores.find((s) => s.id === currentStore.id);
+            const refreshedCurrent = liveStores.find(s => s.id === currentStore.id);
             if (refreshedCurrent) {
               setCurrentStore(refreshedCurrent);
-              try {
-                const liveProds = await dbFetchProducts(refreshedCurrent.id);
-                if (Array.isArray(liveProds)) {
-                  setStoreProducts(liveProds);
-                  const otherProds = getStoredProducts().filter((p) => p.storeId !== refreshedCurrent.id);
-                  saveProducts([...liveProds, ...otherProds]);
-                }
-              } catch (_) {}
-              try {
-                const liveRevs = await dbFetchReviews(refreshedCurrent.id);
-                if (Array.isArray(liveRevs)) {
-                  setStoreReviews(liveRevs);
-                  const otherRevs = getStoredReviews().filter((r) => r.storeId !== refreshedCurrent.id);
-                  saveReviews([...liveRevs, ...otherRevs]);
-                }
-              } catch (_) {}
+              const [liveProds, liveRevs] = await Promise.all([
+                dbFetchProducts(refreshedCurrent.id).catch(() => [] as Product[]),
+                dbFetchReviews(refreshedCurrent.id).catch(() => [] as StoreReview[]),
+              ]);
+              if (Array.isArray(liveProds)) setStoreProducts(liveProds);
+              if (Array.isArray(liveRevs)) setStoreReviews(liveRevs);
             }
           }
-          return;
         }
       } else if (currentStore) {
-        // Seller/guest: only fetch the specific store
         const liveStore = await dbFetchStoreBySlug(currentStore.slug);
         if (liveStore) {
-          const cachedStores = getStoredStores();
-          const merged = [...cachedStores.filter((s) => s.id !== liveStore.id), liveStore];
-          saveStores(merged); // update cache from authoritative source
-          setAllStores(merged);
           setCurrentStore(liveStore);
-          try {
-            const liveProds = await dbFetchProducts(liveStore.id);
-            if (Array.isArray(liveProds)) {
-              setStoreProducts(liveProds);
-              const otherProds = getStoredProducts().filter((p) => p.storeId !== liveStore.id);
-              saveProducts([...liveProds, ...otherProds]);
-            }
-          } catch (_) {}
-          try {
-            const liveRevs = await dbFetchReviews(liveStore.id);
-            if (Array.isArray(liveRevs)) {
-              setStoreReviews(liveRevs);
-              const otherRevs = getStoredReviews().filter((r) => r.storeId !== liveStore.id);
-              saveReviews([...liveRevs, ...otherRevs]);
-            }
-          } catch (_) {}
-          return;
+          setAllStores(prev => prev.map(s => s.id === liveStore.id ? liveStore : s));
+          const [liveProds, liveRevs] = await Promise.all([
+            dbFetchProducts(liveStore.id).catch(() => [] as Product[]),
+            dbFetchReviews(liveStore.id).catch(() => [] as StoreReview[]),
+          ]);
+          if (Array.isArray(liveProds)) setStoreProducts(liveProds);
+          if (Array.isArray(liveRevs)) setStoreReviews(liveRevs);
         }
       }
     } catch (e) {
-      console.warn('Supabase refresh failed, falling back to localStorage:', e);
-    }
-    // Fallback to localStorage
-    const stores = getStoredStores();
-    setAllStores(stores);
-    if (currentStore) {
-      const refreshedCurrent = stores.find((s) => s.id === currentStore.id) || stores[0];
-      if (refreshedCurrent) {
-        setCurrentStore(refreshedCurrent);
-        setStoreProducts(getProductsByStore(refreshedCurrent.id));
-        setStoreInquiries(getInquiriesByStore(refreshedCurrent.id));
-        setStoreReviews(getReviewsByStore(refreshedCurrent.id));
-      }
+      console.warn('[App] Supabase refresh failed:', e);
     }
   };
 
@@ -758,8 +537,6 @@ export default function App() {
   };
 
   // ── /sys-hq bypass ────────────────────────────────────────────────────────
-  // Must come BEFORE the !currentStore guard so the superadmin page renders
-  // even when no store is selected (e.g. direct navigation to /sys-hq).
   if (activeView === 'superadmin') {
     return (
       <ErrorBoundary fallbackTitle="Super Admin HQ Error">
@@ -857,16 +634,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900 overflow-x-clip w-full max-w-full">
-      {/* App Splash Screen on Initial Load */}
       {showSplash && <SplashScreen onFinish={() => {
         setShowSplash(false);
         try { sessionStorage.setItem('ta_seen_splash', '1'); } catch (e) {}
       }} />}
 
-      {/* PWA Install Banner — only for sellers (dashboard), not buyers on storefront */}
       {sellerSession && activeView === 'dashboard' && <PWAInstallBanner />}
 
-      {/* Top Multi-Tenant Navigation Header — shown on storefront & dashboard; hidden on landing */}
       {activeView !== 'landing' && (
         <Navigation
           currentStore={currentStore}
@@ -905,11 +679,9 @@ export default function App() {
         />
       )}
 
-      {/* Main View Area */}
       <div className="flex-1">
         <ErrorBoundary fallbackTitle="View Loading Error">
           {activeView === 'landing' ? (
-            /* PLATFORM LANDING PAGE */
             <LandingPage
               stores={allStores}
               sellerSession={sellerSession}
@@ -935,7 +707,6 @@ export default function App() {
             />
           ) : activeView === 'storefront' ? (
             isMobileDeviceFrame ? (
-              /* Mobile Device Frame Simulation (Shows Instagram/WhatsApp in-app browser view) */
               <div className="py-8 px-4 flex flex-col items-center justify-center bg-slate-800 min-h-[calc(100vh-64px)]">
                 <div className="mb-3 text-center">
                   <span className="text-xs font-semibold text-slate-300 bg-white/10 px-3 py-1 rounded-full">
@@ -943,33 +714,22 @@ export default function App() {
                   </span>
                 </div>
                 <div className="relative w-full max-w-[400px] h-[820px] bg-black rounded-[48px] p-3 shadow-2xl border-4 border-slate-700 overflow-hidden ring-1 ring-white/10 flex flex-col">
-                  {/* Speaker & camera notch */}
                   <div className="absolute top-4 left-1/2 -translate-x-1/2 w-28 h-4 bg-black rounded-full z-30 flex items-center justify-center">
                     <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800 mr-2" />
                     <div className="w-8 h-1 rounded-full bg-slate-900" />
                   </div>
-
-                  {/* In-app Browser URL bar */}
                   <div className="bg-slate-900 text-slate-300 text-[11px] font-mono py-1.5 px-3 rounded-full mt-3 mb-2 mx-2 text-center truncate flex items-center justify-center gap-1.5 border border-slate-800 z-20">
                     <span className="text-emerald-400">🔒</span>
                     <span>{currentStore.customDomain || `${currentStore.slug}.${getRootDomain()}`}</span>
                   </div>
-
-                  {/* Inner Screen */}
                   <div className="flex-1 bg-white rounded-[36px] overflow-y-auto overflow-x-hidden relative [transform:translateZ(0)]">
                     <Storefront
                       store={currentStore}
                       products={storeProducts}
                       reviews={storeReviews}
                       isStoreOwner={Boolean(sellerSession && currentStore && (sellerSession.storeId === currentStore.id || sellerSession.storeSlug === currentStore.slug))}
-                      onOpenCreateStore={() => {
-                        setAuthModalMode('signup');
-                        setIsAuthModalOpen(true);
-                      }}
-                      onOpenLogin={() => {
-                        setAuthModalMode('login');
-                        setIsAuthModalOpen(true);
-                      }}
+                      onOpenCreateStore={() => { setAuthModalMode('signup'); setIsAuthModalOpen(true); }}
+                      onOpenLogin={() => { setAuthModalMode('login'); setIsAuthModalOpen(true); }}
                       onOpenLanding={() => setActiveView('landing')}
                       onRefreshData={handleRefreshData}
                       onOpenLegal={handleOpenLegal}
@@ -979,20 +739,13 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              /* Full Width Responsive View */
               <Storefront
                 store={currentStore}
                 products={storeProducts}
                 reviews={storeReviews}
                 isStoreOwner={Boolean(sellerSession && currentStore && (sellerSession.storeId === currentStore.id || sellerSession.storeSlug === currentStore.slug))}
-                onOpenCreateStore={() => {
-                  setAuthModalMode('signup');
-                  setIsAuthModalOpen(true);
-                }}
-                onOpenLogin={() => {
-                  setAuthModalMode('login');
-                  setIsAuthModalOpen(true);
-                }}
+                onOpenCreateStore={() => { setAuthModalMode('signup'); setIsAuthModalOpen(true); }}
+                onOpenLogin={() => { setAuthModalMode('login'); setIsAuthModalOpen(true); }}
                 onOpenLanding={() => setActiveView('landing')}
                 onRefreshData={handleRefreshData}
                 onOpenLegal={handleOpenLegal}
@@ -1013,7 +766,6 @@ export default function App() {
         </ErrorBoundary>
       </div>
 
-      {/* Seller Login & Signup Modal */}
       <SellerAuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
@@ -1023,28 +775,24 @@ export default function App() {
         onStoreCreated={handleStoreCreated}
       />
 
-      {/* Create New Store Modal (Secondary trigger) */}
       <CreateStoreModal
         isOpen={isCreateStoreOpen}
         onClose={() => setIsCreateStoreOpen(false)}
         onStoreCreated={handleStoreCreated}
       />
 
-      {/* Social Share & QR Modal */}
       <SocialShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         store={currentStore}
       />
 
-      {/* Super Admin Login Modal */}
       <SuperAdminLoginModal
         isOpen={isSuperAdminModalOpen}
         onClose={() => setIsSuperAdminModalOpen(false)}
         onLoginSuccess={handleSuperAdminLoginSuccess}
       />
 
-      {/* Onboarding Guide â€” shown automatically after store creation */}
       {showOnboarding && currentStore && (
         <OnboardingGuide
           store={currentStore}
@@ -1053,7 +801,6 @@ export default function App() {
         />
       )}
 
-      {/* Terms, Privacy, and Cookie Legal Modal */}
       <LegalModal
         isOpen={isLegalModalOpen}
         onClose={() => setIsLegalModalOpen(false)}

@@ -61,18 +61,10 @@ import {
 } from '../../types';
 import {
   deleteStoreAndData,
-  getOrdersByStore,
   getPlatformSettings,
-  getProductsByStore,
-  getStoredOrders,
-  getStoredProducts,
-  getStoredStores,
   impersonateStoreAsSeller,
   resetPlatformToSeedData,
   savePlatformSettings,
-  saveProducts,
-  saveOrders,
-  saveStores,
   updateStore,
   getRootDomain,
   getPlatformBrandName,
@@ -192,7 +184,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         const stores = await dbFetchStores();
         if (mounted && stores && stores.length > 0) {
           setLiveStores(stores);
-          saveStores(stores); // refresh localStorage with complete store list
         }
       } catch (err) {
         console.warn('SuperAdmin: failed to fetch all stores from Supabase:', err);
@@ -210,8 +201,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   }, [allStores]);
 
   // Live products & orders across entire system from Supabase cloud database
-  const [liveProducts, setLiveProducts] = useState<Product[]>(() => getStoredProducts());
-  const [liveOrders, setLiveOrders] = useState<StoreOrder[]>(() => getStoredOrders());
+  const [liveProducts, setLiveProducts] = useState<Product[]>([]);
+  const [liveOrders, setLiveOrders] = useState<StoreOrder[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -224,11 +215,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         if (mounted) {
           if (cloudProducts && cloudProducts.length > 0) {
             setLiveProducts(cloudProducts);
-            saveProducts(cloudProducts);
           }
           if (cloudOrders && cloudOrders.length > 0) {
             setLiveOrders(cloudOrders);
-            saveOrders(cloudOrders);
           }
         }
       } catch (err) {
@@ -303,7 +292,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setTimeout(() => setActionSuccessMessage(null), 3500);
   };
 
-  // ── Unified store save: Supabase first, then localStorage cache ────────────
+  // ── Unified store save: Supabase authoritative ────────────
   const saveStoreEverywhere = async (updated: Store) => {
     // 1. Optimistic UI update — immediately reflect in liveStores so no flicker/revert
     setLiveStores((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
@@ -314,10 +303,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     } catch (e) {
       console.warn('Supabase store save error:', e);
     }
-    // 3. Update localStorage cache (cache-only, no Supabase re-write)
-    const currentStores = liveStores.map((s) => (s.id === updated.id ? updated : s));
-    saveStores(currentStores);
-    // 4. Tell parent to refresh in background
+    // 3. Tell parent to refresh in background
     onRefreshData();
   };
 
@@ -327,7 +313,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       const stores = await dbFetchStores();
       if (stores && stores.length > 0) {
         setLiveStores(stores);
-        saveStores(stores);
         triggerToast(`Synced ${stores.length} store(s) from Supabase.`);
       } else {
         triggerToast('No stores returned from Supabase.');
@@ -409,6 +394,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       tier,
       verified: tier === 'business' ? true : store.verified,
       planExpiresAt: tier === 'free' ? undefined : expiry.toISOString(),
+      planActivationSource: tier === 'free' ? undefined : 'superadmin',
     };
     await saveStoreEverywhere(updated);
     triggerToast(`"${store.name}" → ${tier.toUpperCase()} plan for ${daysOverride ?? 30} day(s).`);
@@ -421,12 +407,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     const updated: Product = { ...product, approvalStatus: 'approved', approvalRejectionReason: undefined };
     // Update local state immediately so UI reflects change without waiting
     setLiveProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
-    // Persist to localStorage
-    const allProds = getStoredProducts();
-    const updatedAll = allProds.some((p) => p.id === product.id)
-      ? allProds.map((p) => (p.id === product.id ? updated : p))
-      : [updated, ...allProds];
-    saveProducts(updatedAll);
     // Persist to Supabase (approval stored in attributes JSONB via mapProductToDB)
     try {
       const ok = await dbSaveProduct(updated);
@@ -442,12 +422,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     const updated: Product = { ...product, approvalStatus: 'rejected', approvalRejectionReason: reason };
     // Update local state immediately so UI reflects change without waiting
     setLiveProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
-    // Persist to localStorage
-    const allProds = getStoredProducts();
-    const updatedAll = allProds.some((p) => p.id === product.id)
-      ? allProds.map((p) => (p.id === product.id ? updated : p))
-      : [updated, ...allProds];
-    saveProducts(updatedAll);
     // Persist to Supabase
     try {
       const ok = await dbSaveProduct(updated);
@@ -933,8 +907,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     <div className="p-8 text-center text-slate-400 text-xs">No stores match your search criteria.</div>
                   ) : (
                     filteredStores.map((store) => {
-                      const storeProds = getProductsByStore(store.id);
-                      const storeOrds = getOrdersByStore(store.id);
+                      const storeProds = allProducts.filter((p) => p.storeId === store.id);
+                      const storeOrds = allOrders.filter((o) => o.storeId === store.id);
                       const isSuspended = store.status === 'suspended';
                       const planTime = getPlanTimeRemaining(store);
 

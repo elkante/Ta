@@ -93,6 +93,7 @@ export interface Store {
   };
   status?: 'active' | 'suspended' | 'deleted';
   planExpiresAt?: string;
+  planActivationSource?: 'paystack' | 'superadmin';
   adminNotes?: string[];
   aiBotConfig?: StoreAIBotConfig;
   whatsappBotConnected?: boolean;

@@ -14,7 +14,17 @@ export interface StorePlanStatus {
   hasExpiredPastGrace: boolean;
   maxVisibleProducts: number;
   expiryDateStr?: string;
+  expiryDateTimeStr?: string;
   graceEndDateStr?: string;
+  // Live Active Plan Timer fields
+  isActivePaid: boolean;
+  daysRemaining: number;
+  hoursRemaining: number;
+  minutesRemaining: number;
+  secondsRemaining: number;
+  totalSecondsRemaining: number;
+  formattedTimeRemaining: string;
+  planSource?: 'paystack' | 'superadmin';
 }
 
 /**
@@ -41,6 +51,14 @@ export function getStorePlanStatus(store: Partial<Store>): StorePlanStatus {
       daysSinceExpiry: 0,
       hasExpiredPastGrace: false,
       maxVisibleProducts: 4,
+      isActivePaid: false,
+      daysRemaining: 0,
+      hoursRemaining: 0,
+      minutesRemaining: 0,
+      secondsRemaining: 0,
+      totalSecondsRemaining: 0,
+      formattedTimeRemaining: 'No active timer (Free Plan)',
+      planSource: undefined,
     };
   }
 
@@ -58,6 +76,14 @@ export function getStorePlanStatus(store: Partial<Store>): StorePlanStatus {
       daysSinceExpiry: 0,
       hasExpiredPastGrace: false,
       maxVisibleProducts: getProductLimitByTier(currentTier),
+      isActivePaid: true,
+      daysRemaining: 30,
+      hoursRemaining: 0,
+      minutesRemaining: 0,
+      secondsRemaining: 0,
+      totalSecondsRemaining: 30 * 86400,
+      formattedTimeRemaining: '30 days left',
+      planSource: store.planActivationSource || undefined,
     };
   }
 
@@ -67,9 +93,34 @@ export function getStorePlanStatus(store: Partial<Store>): StorePlanStatus {
     month: 'short',
     day: 'numeric',
   });
+  const expiryDateTimeStr = expiryDate.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   // Plan is still active (not expired yet)
   if (now <= expiryTime) {
+    const msRemaining = expiryTime - now;
+    const totalSecondsRemaining = Math.max(0, Math.floor(msRemaining / 1000));
+    const daysRemaining = Math.floor(totalSecondsRemaining / 86400);
+    const hoursRemaining = Math.floor((totalSecondsRemaining % 86400) / 3600);
+    const minutesRemaining = Math.floor((totalSecondsRemaining % 3600) / 60);
+    const secondsRemaining = totalSecondsRemaining % 60;
+
+    let formattedTimeRemaining = '';
+    if (daysRemaining > 1) {
+      formattedTimeRemaining = `${daysRemaining} days left`;
+    } else if (daysRemaining === 1) {
+      formattedTimeRemaining = `1d ${hoursRemaining}h left`;
+    } else if (hoursRemaining > 0) {
+      formattedTimeRemaining = `${hoursRemaining}h ${minutesRemaining}m left`;
+    } else {
+      formattedTimeRemaining = `${minutesRemaining}m ${secondsRemaining}s left`;
+    }
+
     return {
       tier: currentTier,
       effectiveTier: currentTier,
@@ -80,6 +131,15 @@ export function getStorePlanStatus(store: Partial<Store>): StorePlanStatus {
       hasExpiredPastGrace: false,
       maxVisibleProducts: getProductLimitByTier(currentTier),
       expiryDateStr,
+      expiryDateTimeStr,
+      isActivePaid: true,
+      daysRemaining,
+      hoursRemaining,
+      minutesRemaining,
+      secondsRemaining,
+      totalSecondsRemaining,
+      formattedTimeRemaining,
+      planSource: store.planActivationSource || undefined,
     };
   }
 
@@ -110,7 +170,16 @@ export function getStorePlanStatus(store: Partial<Store>): StorePlanStatus {
       hasExpiredPastGrace: false,
       maxVisibleProducts: getProductLimitByTier(currentTier),
       expiryDateStr,
+      expiryDateTimeStr,
       graceEndDateStr,
+      isActivePaid: false,
+      daysRemaining: 0,
+      hoursRemaining: 0,
+      minutesRemaining: 0,
+      secondsRemaining: 0,
+      totalSecondsRemaining: 0,
+      formattedTimeRemaining: `${daysRemainingInGrace}d grace period left`,
+      planSource: store.planActivationSource || undefined,
     };
   }
 
@@ -126,6 +195,15 @@ export function getStorePlanStatus(store: Partial<Store>): StorePlanStatus {
     hasExpiredPastGrace: true,
     maxVisibleProducts: 4,
     expiryDateStr,
+    expiryDateTimeStr,
     graceEndDateStr,
+    isActivePaid: false,
+    daysRemaining: 0,
+    hoursRemaining: 0,
+    minutesRemaining: 0,
+    secondsRemaining: 0,
+    totalSecondsRemaining: 0,
+    formattedTimeRemaining: 'Plan expired',
+    planSource: store.planActivationSource || undefined,
   };
 }

@@ -24,13 +24,8 @@ import {
 import confetti from 'canvas-confetti';
 import { CurrencyCode, Product, SellerSession, Store } from '../../types';
 import {
-  authenticateSeller,
   authenticateSellerAsync,
   generateItemUid,
-  getStoredProducts,
-  getStoredStores,
-  saveProducts,
-  saveStores,
   setSellerSession,
   validateSlug,
   getRootDomain,
@@ -334,12 +329,6 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     } catch (e) {
       console.error('Cloud store save error:', e);
     }
-
-    // 🔒 STRICT ISOLATION: Save ONLY this store locally for this seller
-    saveStores([newStore]);
-
-    const allProducts = getStoredProducts();
-    saveProducts([...starterProducts, ...allProducts.filter(p => p.storeId === newStore.id)]);
 
     const session: SellerSession = {
       email: newStore.ownerEmail || `${newStore.slug}@tashop.co`,

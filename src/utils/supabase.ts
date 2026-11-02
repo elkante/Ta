@@ -20,9 +20,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ─── DB MAPPERS ─────────────────────────────────────────────────────────────
 
 export function mapStoreFromDB(row: any): Store {
-  // idVerification and aiDailyUsage are stored inside ai_bot_config JSONB as _prefixed keys
+  // idVerification, aiDailyUsage, and planActivationSource are stored inside ai_bot_config JSONB as _prefixed keys
   const botCfg = row.ai_bot_config || {};
-  const { _id_verification, _ai_daily_usage, ...cleanBotCfg } = botCfg;
+  const { _id_verification, _ai_daily_usage, _plan_source, ...cleanBotCfg } = botCfg;
   return {
     id: row.id,
     name: row.name,
@@ -58,17 +58,19 @@ export function mapStoreFromDB(row: any): Store {
     restockCountdown: row.restock_countdown || undefined,
     idVerification: _id_verification || undefined,
     aiDailyUsage: _ai_daily_usage || undefined,
+    planActivationSource: _plan_source || undefined,
     createdAt: row.created_at || new Date().toISOString(),
   };
 }
 
 export function mapStoreToDB(store: Store): any {
-  // Merge idVerification and aiDailyUsage into ai_bot_config JSONB as hidden _prefixed keys
+  // Merge idVerification, aiDailyUsage and planActivationSource into ai_bot_config JSONB as hidden _prefixed keys
   const botCfg: Record<string, any> = {
     ...(store.aiBotConfig || {}),
   };
   if (store.idVerification) botCfg._id_verification = store.idVerification;
   if (store.aiDailyUsage) botCfg._ai_daily_usage = store.aiDailyUsage;
+  if (store.planActivationSource) botCfg._plan_source = store.planActivationSource;
 
   return {
     id: store.id,

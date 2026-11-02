@@ -80,17 +80,9 @@ import { playOrderNotificationSound } from '../../utils/audio';
 import { dbFetchOrders, dbDeleteProduct, dbSaveProduct, dbSaveStore } from '../../utils/supabase';
 import {
   generateItemUid,
-  getOrdersByStore,
   getStoredInquiries,
-  getStoredOrders,
-  getStoredProducts,
-  getStoredStores,
   getStoreUrl,
   getStoreDisplayUrl,
-  saveInquiries,
-  saveOrders,
-  saveProducts,
-  saveStores,
   updateOrderStatus,
   updateStore,
   validateSlug,
@@ -206,68 +198,41 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [isWaybillOpen, setIsWaybillOpen] = useState(false);
   const [selectedOrderForWaybill, setSelectedOrderForWaybill] = useState<StoreOrder | null>(null);
 
-  const storeOrders = getOrdersByStore(store.id);
-  const totalOrderRevenue = storeOrders.reduce((sum, o) => sum + (o.status !== 'cancelled' ? o.totalAmount : 0), 0);
-  const activeOrders = storeOrders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled');
-  const historyOrders = storeOrders.filter((o) => o.status === 'completed' || o.status === 'cancelled');
-  const pendingOrdersCount = storeOrders.filter((o) => o.status === 'pending').length;
+  const [storeOrders, setStoreOrders] = useState<StoreOrder[]>([]);
+  const totalOrderRevenue = storeOrders.reduce((sum: number, o: StoreOrder) => sum + (o.status !== 'cancelled' ? o.totalAmount : 0), 0);
+  const activeOrders = storeOrders.filter((o: StoreOrder) => o.status !== 'completed' && o.status !== 'cancelled');
+  const historyOrders = storeOrders.filter((o: StoreOrder) => o.status === 'completed' || o.status === 'cancelled');
+  const pendingOrdersCount = storeOrders.filter((o: StoreOrder) => o.status === 'pending').length;
 
   // New Order Real-Time Listener + Cloud Supabase Polling Effect
   useEffect(() => {
     const checkOrders = async () => {
-      // 1. Check local storage
-      const localStoreOrders = getOrdersByStore(store.id);
-      let count = localStoreOrders.length;
-
-      // 2. Poll Supabase cloud db so orders sent from buyer devices arrive in real-time
       try {
         const cloudOrders = await dbFetchOrders(store.id);
         if (cloudOrders && cloudOrders.length > 0) {
-          const allLocal = getStoredOrders();
-          let hasNew = false;
-          const merged = [...allLocal];
-
-          cloudOrders.forEach((co) => {
-            const exists = merged.some((lo) => lo.id === co.id);
-            if (!exists) {
-              merged.unshift(co);
-              hasNew = true;
+          setStoreOrders((prev) => {
+            const prevCount = prev.length;
+            const hasNew = cloudOrders.some((co) => !prev.some((lo) => lo.id === co.id));
+            if (hasNew && lastOrderCountRef.current !== -1) {
+              const newest = cloudOrders[0];
+              if (newest) {
+                setLatestOrderInfo({ id: newest.id, name: newest.buyerName, amount: newest.totalAmount });
+              }
+              playOrderNotificationSound(1.0);
+              setNewOrderToast(true);
+              onRefreshData();
+              setTimeout(() => setNewOrderToast(false), 8000);
             }
+            if (lastOrderCountRef.current === -1) {
+              lastOrderCountRef.current = cloudOrders.length;
+            } else {
+              lastOrderCountRef.current = cloudOrders.length;
+            }
+            return cloudOrders;
           });
-
-          if (hasNew) {
-            saveOrders(merged);
-            const updatedCurrentStore = merged.filter((o) => o.storeId === store.id);
-            count = updatedCurrentStore.length;
-            const newest = updatedCurrentStore[0];
-            if (newest) {
-              setLatestOrderInfo({ id: newest.id, name: newest.buyerName, amount: newest.totalAmount });
-            }
-            playOrderNotificationSound(1.0);
-            setNewOrderToast(true);
-            onRefreshData();
-            setTimeout(() => setNewOrderToast(false), 8000);
-          }
         }
       } catch (e) {
-        // network fallback
-      }
-
-      if (lastOrderCountRef.current === -1) {
-        lastOrderCountRef.current = count;
-      } else if (count > lastOrderCountRef.current) {
-        lastOrderCountRef.current = count;
-        const currentOrders = getOrdersByStore(store.id);
-        const newest = currentOrders[0];
-        if (newest) {
-          setLatestOrderInfo({ id: newest.id, name: newest.buyerName, amount: newest.totalAmount });
-        }
-        playOrderNotificationSound(1.0);
-        setNewOrderToast(true);
-        onRefreshData();
-        setTimeout(() => setNewOrderToast(false), 8000);
-      } else {
-        lastOrderCountRef.current = count;
+        // network fallback — keep existing state
       }
     };
 
@@ -332,7 +297,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
 
   // Subscription Expiry & 5-Day Grace Period Status
-  const planStatus = useMemo(() => getStorePlanStatus(store), [store.tier, store.planExpiresAt]);
+  const [planTick, setPlanTick] = useState(0);
+  useEffect(() => {
+    if (!store.planExpiresAt || store.tier === 'free') return;
+    const id = setInterval(() => setPlanTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [store.planExpiresAt, store.tier]);
+  const planStatus = useMemo(() => getStorePlanStatus(store), [store.tier, store.planExpiresAt, planTick]);
 
   const handleOpenAddProduct = () => {
     // If expired past 5-day grace period, max products allowed is 4 (free plan)
@@ -499,9 +470,6 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   // Actions on Products
   const handleToggleStock = async (product: Product) => {
     const updatedProd: Product = { ...product, inStock: !product.inStock };
-    const allProducts = getStoredProducts();
-    const updated = allProducts.map((p) => (p.id === product.id ? updatedProd : p));
-    saveProducts(updated);
     try {
       await dbSaveProduct(updatedProd);
     } catch (e) {
@@ -512,9 +480,6 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
   const handleDeleteProduct = async (productId: string) => {
     if (confirm('Are you sure you want to delete this product?')) {
-      const allProducts = getStoredProducts();
-      const updated = allProducts.filter((p) => p.id !== productId);
-      saveProducts(updated);
       try {
         await dbDeleteProduct(productId);
       } catch (err) {
@@ -525,17 +490,15 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   };
 
   const handleDuplicateProduct = async (product: Product) => {
-    const allProducts = getStoredProducts();
     const duplicated: Product = {
       ...product,
       id: `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      uid: generateItemUid(store.slug, allProducts.length + 1),
+      uid: generateItemUid(store.slug, products.length + 1),
       name: `${product.name} (Copy)`,
       inquiryCount: 0,
       createdAt: new Date().toISOString(),
       approvalStatus: 'approved',
     };
-    saveProducts([duplicated, ...allProducts]);
     try {
       await dbSaveProduct(duplicated);
     } catch (e) {}
@@ -543,8 +506,6 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   };
 
   const handleSaveProduct = async (payload: Partial<Product>) => {
-    const allProducts = getStoredProducts();
-
     // Sanitize image array to ensure preset fallback is always active if empty or missing
     const sanitizedImages =
       payload.images && payload.images.length > 0 && payload.images[0]?.trim()
@@ -555,7 +516,6 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     let savedProd: Product;
 
     if (productToEdit) {
-      // Update existing
       savedProd = {
         ...productToEdit,
         ...payload,
@@ -563,10 +523,6 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         images: sanitizedImages,
         approvalStatus: productToEdit.approvalStatus || 'approved',
       };
-      const updated = allProducts.map((p) =>
-        p.id === productToEdit.id ? savedProd : p
-      );
-      saveProducts(updated);
     } else {
       // Check tier product limit before adding new product
       const limit = planStatus.hasExpiredPastGrace ? 4 : getProductLimitByTier(store.tier);
@@ -576,10 +532,9 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         return;
       }
 
-      // Add new
       savedProd = {
         id: `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        uid: payload.uid || generateItemUid(store.slug, allProducts.length + 1),
+        uid: payload.uid || generateItemUid(store.slug, products.length + 1),
         storeId: store.id,
         name: payload.name?.trim() || 'New Product',
         slug: (payload.name || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
@@ -595,12 +550,11 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         createdAt: new Date().toISOString(),
         approvalStatus: 'approved',
       };
-      saveProducts([savedProd, ...allProducts]);
     }
 
     setProductToEdit(null);
 
-    // 🔒 Persist to Supabase FIRST before notifying parent refresh
+    // Persist to Supabase first, then fire event to trigger re-fetch in App.tsx
     try {
       await dbSaveProduct(savedProd);
     } catch (e) {
@@ -610,11 +564,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     onRefreshData();
   };
 
-  // Inquiry Status Change
   const handleUpdateInquiryStatus = (inquiryId: string, status: WhatsAppInquiryLog['status']) => {
     const allInquiries = getStoredInquiries();
-    const updated = allInquiries.map((i) => (i.id === inquiryId ? { ...i, status } : i));
-    saveInquiries(updated);
+    const updated = allInquiries.map((i: WhatsAppInquiryLog) => (i.id === inquiryId ? { ...i, status } : i));
+    try { localStorage.setItem('tashop_inquiries_v3', JSON.stringify(updated)); } catch (e) {}
     onRefreshData();
   };
 
@@ -678,13 +631,11 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       console.warn('Supabase store settings save error:', e);
     }
 
-    // 2. Update local cache (cache-only, no Supabase re-write)
-    const allStores = getStoredStores();
-    const updatedStores = allStores.map((s) => (s.id === store.id ? updatedStore : s));
-    saveStores(updatedStores);
-
-    // 3. Update parent state so UI reflects immediately
+    // 2. Update parent state so UI reflects immediately (triggers re-fetch from Supabase)
     onSelectStore(updatedStore);
+
+    // 3. Fire store_updated event so App.tsx re-fetches fresh data
+    window.dispatchEvent(new CustomEvent('tashop:store_updated'));
 
     // 4. Background refresh to sync any other cross-device changes
     onRefreshData();
@@ -720,9 +671,8 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     } catch (e) {
       console.warn('Supabase KYC save error:', e);
     }
-    // 2. Update local cache
-    const allStores = getStoredStores();
-    saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
+    // 2. Fire event so App.tsx re-fetches fresh store from Supabase
+    window.dispatchEvent(new CustomEvent('tashop:store_updated'));
     // 3. Update UI
     onSelectStore(updatedStore);
     onRefreshData();
@@ -3177,6 +3127,34 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   >
                     Upgrade Plan
                   </button>
+                ) : planStatus.isActivePaid ? (
+                  <div className="flex flex-col items-end gap-2 self-start sm:self-auto">
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${
+                      planStatus.planSource === 'superadmin'
+                        ? 'text-violet-700 bg-violet-50 border-violet-200'
+                        : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    }`}>
+                      {planStatus.planSource === 'superadmin' ? '⚙️ Admin-activated' : '💳 Paystack-activated'}
+                    </span>
+                    <div className="text-right">
+                      {planStatus.daysRemaining >= 1 ? (
+                        <p className="font-mono text-lg font-extrabold text-slate-800 leading-none">
+                          {planStatus.daysRemaining}d {planStatus.hoursRemaining}h {planStatus.minutesRemaining}m
+                        </p>
+                      ) : (
+                        <p className="font-mono text-lg font-extrabold text-amber-600 leading-none">
+                          {String(planStatus.hoursRemaining).padStart(2, '0')}:{String(planStatus.minutesRemaining).padStart(2, '0')}:{String(planStatus.secondsRemaining).padStart(2, '0')}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-slate-400 mt-0.5">Expires {planStatus.expiryDateStr}</p>
+                    </div>
+                    <div className="w-full sm:w-40 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-400 rounded-full transition-all duration-1000"
+                        style={{ width: `${Math.min(100, (planStatus.totalSecondsRemaining / (30 * 86400)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
                 ) : (
                   <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 self-start sm:self-auto">
                     Active & Renewed
@@ -4682,7 +4660,6 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         initialPlan={paystackInitialPlan}
         initialCycle={billingCycle}
         onUpgradeSuccess={async (plan) => {
-          const allStores = getStoredStores();
           const durationDays = (billingCycle === 'yearly' || (billingCycle as any) === 'annual') ? 365 : 30;
           const planExpiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
           const updatedStore: Store = {
@@ -4692,15 +4669,15 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             hasVerifiedBadgeAddon: plan === 'pro' || plan === 'business' ? true : store.hasVerifiedBadgeAddon,
             planExpiresAt,
           };
-          // 1. Supabase first — authoritative
+          // Supabase first — authoritative
           try {
             await dbSaveStore(updatedStore);
           } catch (e) {
             console.warn('Supabase plan upgrade save failed:', e);
           }
-          // 2. Update local cache
-          saveStores(allStores.map((s) => (s.id === store.id ? updatedStore : s)));
-          // 3. Update UI
+          // Fire event so App.tsx re-fetches updated store
+          window.dispatchEvent(new CustomEvent('tashop:store_updated'));
+          // Update UI
           onSelectStore(updatedStore);
           onRefreshData();
         }}
