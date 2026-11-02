@@ -87,6 +87,8 @@ interface SuperAdminDashboardProps {
 type AdminTab = 'stores' | 'products' | 'orders' | 'verifications' | 'plans' | 'notes' | 'settings';
 
 const ID_TYPE_LABELS: Record<string, string> = {
+  cac: 'CAC (Corporate Affairs Commission)',
+  business_reg: 'Registered Business Name / Entity',
   nin: 'NIN (National Identification Number)',
   drivers_license: "Driver's License",
   passport: 'International Passport',
@@ -459,10 +461,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         status: 'verified',
         verifiedAt: new Date().toISOString(),
         rejectionReason: undefined,
+        // Purge raw document image data on approval (NDPA 2023 data minimization)
+        frontImageUrl: '',
+        backImageUrl: '',
+        certificateUrl: '',
       },
     };
     await saveStoreEverywhere(updatedStore);
-    triggerToast(`Store "${store.name}" ID approved! Verified Blue Tick activated.`);
+    triggerToast(`Store "${store.name}" CAC approved! Verified Badge activated.`);
     try {
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.5 } });
     } catch (e) {}
@@ -1399,10 +1405,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <div>
                     <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                       <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                      <span>KYC & Merchant ID Verification Queue</span>
+                      <span>CAC & Business Registration Verification Queue</span>
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Review government ID documents (NIN, Driver's License, International Passport, Voter's Card) submitted during upgrade or seller onboarding.
+                      Review Corporate Affairs Commission (CAC) business registrations submitted by merchants for Verified Badges.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1577,17 +1583,35 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                             {/* ID Details & Rejection Notice */}
                             <div className="py-3 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs text-slate-600">
                               <div>
-                                <span className="text-slate-400">ID Document Type: </span>
+                                <span className="text-slate-400">Document / Registration: </span>
                                 <span className="font-bold text-slate-800">
                                   {ID_TYPE_LABELS[ver.idType] || ver.idType}
                                 </span>
                               </div>
-                              {ver.idNumber && (
+                              {(ver.cacNumber || ver.idNumber) && (
                                 <div>
-                                  <span className="text-slate-400">ID Number / Reg: </span>
-                                  <span className="font-mono font-bold text-slate-800">{ver.idNumber}</span>
+                                  <span className="text-slate-400">CAC Number: </span>
+                                  <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                    {ver.cacNumber || ver.idNumber}
+                                  </span>
                                 </div>
                               )}
+                              {ver.businessRegistrationName && (
+                                <div>
+                                  <span className="text-slate-400">Registered Name: </span>
+                                  <span className="font-semibold text-slate-800">{ver.businessRegistrationName}</span>
+                                </div>
+                              )}
+                              <a
+                                href="https://search.cac.gov.ng/home"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition"
+                                title="Verify on official Nigerian CAC public portal"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                <span>Verify on CAC Portal (search.cac.gov.ng)</span>
+                              </a>
                               <div>
                                 <span className="text-slate-400">Submitted: </span>
                                 <span className="font-medium text-slate-700">
@@ -1622,15 +1646,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                                     <FileText className="w-3.5 h-3.5 text-slate-500" />
-                                    <span>Front of ID Card</span>
+                                    <span>{ver.certificateUrl ? 'CAC Certificate Document' : 'CAC / Business Document'}</span>
                                   </span>
-                                  {ver.frontImageUrl && (
+                                  {(ver.frontImageUrl || ver.certificateUrl) && (
                                     <button
                                       type="button"
                                       onClick={() =>
                                         setSelectedImageModal({
-                                          url: ver.frontImageUrl,
-                                          title: `${st.name} - Front of ${ID_TYPE_LABELS[ver.idType] || ver.idType}`,
+                                          url: (ver.certificateUrl || ver.frontImageUrl)!,
+                                          title: `${st.name} - CAC Document`,
                                         })
                                       }
                                       className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
@@ -1640,19 +1664,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                     </button>
                                   )}
                                 </div>
-                                {ver.frontImageUrl ? (
+                                {(ver.frontImageUrl || ver.certificateUrl) ? (
                                   <div
                                     onClick={() =>
                                       setSelectedImageModal({
-                                        url: ver.frontImageUrl,
-                                        title: `${st.name} - Front of ${ID_TYPE_LABELS[ver.idType] || ver.idType}`,
+                                        url: (ver.certificateUrl || ver.frontImageUrl)!,
+                                        title: `${st.name} - CAC Document`,
                                       })
                                     }
                                     className="relative h-44 rounded-lg overflow-hidden border border-slate-200 bg-white group cursor-pointer"
                                   >
                                     <img
-                                      src={ver.frontImageUrl}
-                                      alt="Front ID"
+                                      src={ver.certificateUrl || ver.frontImageUrl}
+                                      alt="CAC Document"
                                       className="w-full h-full object-contain group-hover:scale-102 transition duration-200"
                                     />
                                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1.5">
@@ -1661,25 +1685,25 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                   </div>
                                 ) : (
                                   <div className="h-44 rounded-lg border border-dashed border-slate-300 bg-slate-100 flex items-center justify-center text-xs text-slate-400">
-                                    Front image not provided
+                                    {isVerified ? '✓ Document purged on verification (NDPA compliant)' : 'Document not attached (registered on CAC)'}
                                   </div>
                                 )}
                               </div>
 
-                              {/* Back Image */}
+                              {/* Back Image (or verification guidelines) */}
                               <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                                     <FileText className="w-3.5 h-3.5 text-slate-500" />
-                                    <span>Back of ID Card</span>
+                                    <span>CAC Public Verification</span>
                                   </span>
                                   {ver.backImageUrl && (
                                     <button
                                       type="button"
                                       onClick={() =>
                                         setSelectedImageModal({
-                                          url: ver.backImageUrl,
-                                          title: `${st.name} - Back of ${ID_TYPE_LABELS[ver.idType] || ver.idType}`,
+                                          url: ver.backImageUrl!,
+                                          title: `${st.name} - Back Document`,
                                         })
                                       }
                                       className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
@@ -1693,15 +1717,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                   <div
                                     onClick={() =>
                                       setSelectedImageModal({
-                                        url: ver.backImageUrl,
-                                        title: `${st.name} - Back of ${ID_TYPE_LABELS[ver.idType] || ver.idType}`,
+                                        url: ver.backImageUrl!,
+                                        title: `${st.name} - Back Document`,
                                       })
                                     }
                                     className="relative h-44 rounded-lg overflow-hidden border border-slate-200 bg-white group cursor-pointer"
                                   >
                                     <img
                                       src={ver.backImageUrl}
-                                      alt="Back ID"
+                                      alt="Back Document"
                                       className="w-full h-full object-contain group-hover:scale-102 transition duration-200"
                                     />
                                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1.5">
@@ -1709,8 +1733,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="h-44 rounded-lg border border-dashed border-slate-300 bg-slate-100 flex items-center justify-center text-xs text-slate-400">
-                                    Back image not provided
+                                  <div className="h-44 rounded-lg border border-slate-200 bg-white p-3 flex flex-col justify-center text-xs space-y-2">
+                                    <p className="font-bold text-slate-800">Direct Verification Steps:</p>
+                                    <ol className="list-decimal pl-4 space-y-1 text-slate-600 text-[11px]">
+                                      <li>Click "Verify on CAC Portal" above.</li>
+                                      <li>Search for <strong>{ver.cacNumber || ver.idNumber || st.name}</strong>.</li>
+                                      <li>Confirm status is "ACTIVE".</li>
+                                      <li>Click "Approve" below to activate the Verified Badge.</li>
+                                    </ol>
                                   </div>
                                 )}
                               </div>

@@ -44,10 +44,13 @@ export interface StoreCategory {
 }
 
 export interface StoreIdVerification {
-  idType: 'nin' | 'drivers_license' | 'passport' | 'voters_card' | 'national_id';
+  idType: 'cac' | 'business_reg' | 'nin' | 'drivers_license' | 'passport' | 'voters_card' | 'national_id';
   idNumber?: string;
-  frontImageUrl: string;
-  backImageUrl: string;
+  cacNumber?: string;
+  businessRegistrationName?: string;
+  frontImageUrl?: string;
+  backImageUrl?: string;
+  certificateUrl?: string;
   status: 'unsubmitted' | 'pending' | 'verified' | 'rejected';
   submittedAt?: string;
   verifiedAt?: string;

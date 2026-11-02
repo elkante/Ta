@@ -230,6 +230,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
                 </p>
                 <ul className="list-disc pl-5 mt-1.5 space-y-1 text-slate-600">
                   <li><strong>Merchant Account Data:</strong> Business name, email address, WhatsApp business number, store slug, encrypted password, and social media handles.</li>
+                  <li><strong>Commercial Verification Data (CAC):</strong> Where a merchant voluntarily applies for an official Verified Merchant Badge, we collect public business registration details issued by the Corporate Affairs Commission (CAC Nigeria), such as Business Name (BN) or Company Registration (RC) numbers and corporate incorporation certificates. We <strong>never</strong> collect, demand, or store sensitive personal identification numbers (e.g., National Identification Numbers [NIN], BVNs, or biometric documents).</li>
                   <li><strong>Catalog Data:</strong> Product titles, descriptions, pricing, inventory stock counts, and uploaded product images.</li>
                   <li><strong>Customer Inquiry Data:</strong> When a shopper clicks "Order via WhatsApp" or types their delivery name and address in the instant checkout drawer, that information is packaged for delivery to the seller's WhatsApp.</li>
                   <li><strong>Technical Logs:</strong> IP address, device browser type, and anonymous performance logs to ensure system reliability and security.</li>
@@ -248,6 +249,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
                 <ul className="list-disc pl-5 mt-1.5 space-y-1 text-slate-600">
                   <li>To generate and host merchant storefronts and Item UID catalogs.</li>
                   <li>To route orders and customer messages directly to merchant WhatsApp endpoints.</li>
+                  <li>To verify commercial authenticity of merchants against the public Corporate Affairs Commission (CAC) registry.</li>
                   <li>To process merchant subscription billings securely through licensed payment processors (Paystack).</li>
                   <li>To prevent platform fraud, protect system integrity, and enforce our acceptable use policies.</li>
                 </ul>
@@ -261,9 +263,9 @@ export const LegalModal: React.FC<LegalModalProps> = ({
               </div>
 
               <div>
-                <h4 className="font-bold text-slate-900 text-sm mb-1">5. Compliance with NDPR</h4>
+                <h4 className="font-bold text-slate-900 text-sm mb-1">5. Compliance with NDPA 2023 & Data Rights</h4>
                 <p className="text-slate-600">
-                  Tá.shop complies with the Nigeria Data Protection Regulation (NDPR) and international privacy principles. Users retain the right to request access to their stored personal data, request corrections, or request complete deletion of their store and associated records.
+                  Tá.shop complies fully with the <strong>Nigeria Data Protection Act, 2023 (NDPA)</strong> overseen by the Nigeria Data Protection Commission (NDPC). In accordance with the principles of data minimization and purpose limitation, Tá.shop does not act as a repository for sensitive citizen biometric or national identity documents. Users retain statutory rights under the NDPA to access, rectify, or request complete deletion of their account records at any time.
                 </p>
               </div>
 

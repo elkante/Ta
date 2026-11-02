@@ -30,48 +30,39 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [step, setStep] = useState<'checkout' | 'processing' | 'success'>('checkout');
 
-  // Mandatory KYC ID upload state for upgrading from ₦500 plan
-  const [idType, setIdType] = useState<StoreIdVerification['idType']>(store.idVerification?.idType || 'nin');
-  const [idNumber, setIdNumber] = useState(store.idVerification?.idNumber || '');
-  const [frontIdUrl, setFrontIdUrl] = useState(store.idVerification?.frontImageUrl || '');
-  const [backIdUrl, setBackIdUrl] = useState(store.idVerification?.backImageUrl || '');
-  const [isUploadingFront, setIsUploadingFront] = useState(false);
-  const [isUploadingBack, setIsUploadingBack] = useState(false);
+  // CAC Business Verification state (for verified badge)
+  const [cacNumber, setCacNumber] = useState(store.idVerification?.cacNumber || store.idVerification?.idNumber || '');
+  const [registeredBusinessName, setRegisteredBusinessName] = useState(store.idVerification?.businessRegistrationName || store.name || '');
+  const [certificateUrl, setCertificateUrl] = useState(store.idVerification?.certificateUrl || store.idVerification?.frontImageUrl || '');
+  const [isUploadingCert, setIsUploadingCert] = useState(false);
   const [kycError, setKycError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleIdUpload = (e: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
+  const handleCertUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setKycError('Please upload a valid image file (JPG, PNG, WebP)');
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+      setKycError('Please upload a valid document or photo (JPG, PNG, WebP)');
       return;
     }
     if (file.size > 7 * 1024 * 1024) {
-      setKycError('ID file must be under 7MB');
+      setKycError('File must be under 7MB');
       return;
     }
 
-    if (side === 'front') setIsUploadingFront(true);
-    else setIsUploadingBack(true);
+    setIsUploadingCert(true);
     setKycError(null);
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      if (side === 'front') {
-        setFrontIdUrl(reader.result as string);
-        setIsUploadingFront(false);
-      } else {
-        setBackIdUrl(reader.result as string);
-        setIsUploadingBack(false);
-      }
+      setCertificateUrl(reader.result as string);
+      setIsUploadingCert(false);
     };
     reader.onerror = () => {
-      setKycError('Failed reading ID file');
-      if (side === 'front') setIsUploadingFront(false);
-      else setIsUploadingBack(false);
+      setKycError('Failed reading certificate document');
+      setIsUploadingCert(false);
     };
     reader.readAsDataURL(file);
   };
@@ -99,11 +90,14 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
       planExpiresAt: expiry.toISOString(),
       planActivationSource: 'paystack',
       lastPaymentRef: _reference || undefined,
-      idVerification: (frontIdUrl && backIdUrl) ? {
-        idType,
-        idNumber: idNumber.trim() || undefined,
-        frontImageUrl: frontIdUrl,
-        backImageUrl: backIdUrl,
+      idVerification: cacNumber.trim() ? {
+        idType: 'cac',
+        cacNumber: cacNumber.trim(),
+        idNumber: cacNumber.trim(),
+        businessRegistrationName: registeredBusinessName.trim() || undefined,
+        certificateUrl: certificateUrl || undefined,
+        frontImageUrl: certificateUrl || '',
+        backImageUrl: '',
         status: store.idVerification?.status === 'verified' ? 'verified' : 'pending',
         submittedAt: store.idVerification?.submittedAt || new Date().toISOString(),
       } : store.idVerification,
@@ -156,15 +150,6 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
 
   const handlePay = async () => {
     setKycError(null);
-
-    // If upgrading to Badge, Pro or Business, Front and Back ID are mandatory!
-    if (selectedPlan !== 'starter') {
-      if (!frontIdUrl || !backIdUrl) {
-        setKycError('Front and Back photos of your government ID are required for verification. Please upload both below.');
-        return;
-      }
-    }
-
     setIsProcessing(true);
     setStep('processing');
 
@@ -477,22 +462,22 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
               )}
             </div>
 
-            {/* Mandatory KYC ID Verification for upgrading from ₦500 Starter plan */}
+            {/* CAC Business Verification (For Verified Merchant Blue/Gold Tick) */}
             {selectedPlan !== 'starter' && (
-              <div className="bg-amber-50/70 border-2 border-amber-300 rounded-2xl p-4 space-y-3">
+              <div className="bg-amber-50/70 border border-amber-300 rounded-2xl p-4 space-y-3">
                 <div className="flex items-start gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
                     <BadgeCheck className="w-5 h-5" />
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-                      <span>Mandatory Government ID Verification</span>
-                      <span className="bg-amber-200 text-amber-900 text-[10px] px-1.5 py-0.2 rounded font-black">
-                        REQUIRED
+                      <span>CAC Business Registration</span>
+                      <span className="bg-amber-200 text-amber-900 text-[10px] px-1.5 py-0.2 rounded font-bold">
+                        VERIFIED BADGE
                       </span>
                     </h4>
                     <p className="text-[11px] text-slate-600 mt-0.5">
-                      Upgrading requires uploading Front and Back of your ID. Super Admin will verify and activate your verified blue tick.
+                      Provide your official Corporate Affairs Commission (CAC) details to earn the Verified Merchant badge. Can also be completed anytime in Settings.
                     </p>
                   </div>
                 </div>
@@ -500,7 +485,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                 {store.idVerification?.status === 'verified' ? (
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-800">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Your ID is already verified by Super Admin! No re-upload needed.</span>
+                    <span>Your business is already CAC verified by Super Admin!</span>
                   </div>
                 ) : (
                   <div className="space-y-3 pt-2 border-t border-amber-200/80">
@@ -511,112 +496,70 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                       </div>
                     )}
 
-                    {/* ID Type Dropdown */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                        Select Government ID Type *
-                      </label>
-                      <select
-                        value={idType}
-                        onChange={(e) => setIdType(e.target.value as any)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 cursor-pointer"
-                      >
-                        <option value="nin">National Identification Number (NIN Card / Slip)</option>
-                        <option value="drivers_license">Driver's License (FRSC)</option>
-                        <option value="passport">International Passport</option>
-                        <option value="voters_card">Voter's Card (Permanent PVC)</option>
-                        <option value="national_id">Other Government Issued National ID</option>
-                      </select>
-                    </div>
-
-                    {/* ID Number */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                        ID Document Number (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 11-digit NIN or Driver's License #"
-                        value={idNumber}
-                        onChange={(e) => setIdNumber(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-                      />
-                    </div>
-
-                    {/* Front and Back Upload Cards */}
-                    <div className="grid grid-cols-2 gap-3">
-                      {/* Front Upload */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CAC Number */}
                       <div>
-                        <span className="text-[11px] font-bold text-slate-700 block mb-1">
-                          Front of ID *
-                        </span>
-                        <label className={`flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl cursor-pointer transition text-center min-h-[85px] ${
-                          frontIdUrl ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-300 hover:border-slate-500 bg-white'
-                        }`}>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleIdUpload(e, 'front')}
-                          />
-                          {frontIdUrl ? (
-                            <div className="relative w-full h-16 rounded-lg overflow-hidden group">
-                              <img src={frontIdUrl} alt="Front ID" className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition">
-                                Replace
-                              </div>
-                              <span className="absolute top-1 right-1 bg-emerald-600 text-white rounded-full p-0.5">
-                                <Check className="w-2.5 h-2.5" />
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="space-y-1">
-                              <Upload className="w-5 h-5 text-slate-400 mx-auto" />
-                              <span className="text-[11px] font-bold text-slate-600 block">
-                                {isUploadingFront ? 'Uploading...' : 'Upload Front'}
-                              </span>
-                              <span className="text-[9px] text-slate-400 block">JPG, PNG up to 7MB</span>
-                            </div>
-                          )}
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          CAC Registration Number (BN / RC)
                         </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. BN-3819283 or RC-1829102"
+                          value={cacNumber}
+                          onChange={(e) => setCacNumber(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        />
                       </div>
 
-                      {/* Back Upload */}
+                      {/* Registered Business Name */}
                       <div>
-                        <span className="text-[11px] font-bold text-slate-700 block mb-1">
-                          Back of ID *
-                        </span>
-                        <label className={`flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl cursor-pointer transition text-center min-h-[85px] ${
-                          backIdUrl ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-300 hover:border-slate-500 bg-white'
-                        }`}>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleIdUpload(e, 'back')}
-                          />
-                          {backIdUrl ? (
-                            <div className="relative w-full h-16 rounded-lg overflow-hidden group">
-                              <img src={backIdUrl} alt="Back ID" className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition">
-                                Replace
-                              </div>
-                              <span className="absolute top-1 right-1 bg-emerald-600 text-white rounded-full p-0.5">
-                                <Check className="w-2.5 h-2.5" />
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="space-y-1">
-                              <Upload className="w-5 h-5 text-slate-400 mx-auto" />
-                              <span className="text-[11px] font-bold text-slate-600 block">
-                                {isUploadingBack ? 'Uploading...' : 'Upload Back'}
-                              </span>
-                              <span className="text-[9px] text-slate-400 block">JPG, PNG up to 7MB</span>
-                            </div>
-                          )}
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          Registered Business Name
                         </label>
+                        <input
+                          type="text"
+                          placeholder="As registered on CAC"
+                          value={registeredBusinessName}
+                          onChange={(e) => setRegisteredBusinessName(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        />
                       </div>
                     </div>
+
+                    {/* Upload CAC Certificate */}
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-700 block mb-1">
+                        CAC Certificate Document / Photo (Optional)
+                      </span>
+                      <label className={`flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl cursor-pointer transition text-center min-h-[75px] ${
+                        certificateUrl ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-300 hover:border-slate-500 bg-white'
+                      }`}>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={handleCertUpload}
+                        />
+                        {certificateUrl ? (
+                          <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
+                            <Check className="w-4 h-4 text-emerald-600" />
+                            <span>CAC Certificate Attached ✓ (Click to replace)</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <Upload className="w-4 h-4 text-slate-400 mx-auto" />
+                            <span className="text-[11px] font-bold text-slate-600 block">
+                              {isUploadingCert ? 'Uploading...' : 'Upload CAC Certificate'}
+                            </span>
+                            <span className="text-[9px] text-slate-400 block">JPG, PNG, PDF up to 7MB</span>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 italic">
+                      🛡️ Verified against the public Nigerian CAC portal. No sensitive national identity cards (NIN/Voter's Card) are collected.
+                    </p>
                   </div>
                 )}
               </div>

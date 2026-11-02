@@ -399,11 +399,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [settingsSavedToast, setSettingsSavedToast] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
-  // KYC re-upload state in Settings tab
-  const [kycIdType, setKycIdType] = useState<StoreIdVerification['idType']>(store.idVerification?.idType || 'nin');
-  const [kycIdNumber, setKycIdNumber] = useState(store.idVerification?.idNumber || '');
-  const [kycFrontPreview, setKycFrontPreview] = useState<string>(store.idVerification?.frontImageUrl || '');
-  const [kycBackPreview, setKycBackPreview] = useState<string>(store.idVerification?.backImageUrl || '');
+  // CAC verification state in Settings tab
+  const [kycCacNumber, setKycCacNumber] = useState(store.idVerification?.cacNumber || store.idVerification?.idNumber || '');
+  const [kycRegName, setKycRegName] = useState(store.idVerification?.businessRegistrationName || store.name || '');
+  const [kycCertPreview, setKycCertPreview] = useState<string>(store.idVerification?.certificateUrl || store.idVerification?.frontImageUrl || '');
   const [kycSaving, setKycSaving] = useState(false);
 
   useEffect(() => {
@@ -709,23 +708,22 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     setTimeout(() => setSettingsSavedToast(false), 2500);
   };
 
-  // KYC re-upload save handler
+  // CAC verification save handler
   const handleSaveKyc = async () => {
-    if (!kycFrontPreview) {
-      setSettingsError('Please upload the front photo of your ID document before saving.');
-      return;
-    }
-    if (!kycBackPreview) {
-      setSettingsError('Please upload the back photo of your ID document before saving.');
+    if (!kycCacNumber.trim()) {
+      setSettingsError('Please enter your CAC registration number (e.g. BN or RC number).');
       return;
     }
     setSettingsError(null);
     setKycSaving(true);
     const kycData: StoreIdVerification = {
-      idType: kycIdType,
-      idNumber: kycIdNumber.trim(),
-      frontImageUrl: kycFrontPreview,
-      backImageUrl: kycBackPreview,
+      idType: 'cac',
+      cacNumber: kycCacNumber.trim(),
+      idNumber: kycCacNumber.trim(),
+      businessRegistrationName: kycRegName.trim() || store.name,
+      certificateUrl: kycCertPreview || undefined,
+      frontImageUrl: kycCertPreview || '',
+      backImageUrl: '',
       status: 'pending',
       submittedAt: new Date().toISOString(),
     };
@@ -734,7 +732,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     try {
       await dbSaveStore(updatedStore);
     } catch (e) {
-      console.warn('Supabase KYC save error:', e);
+      console.warn('Supabase CAC save error:', e);
     }
     // 2. Fire event so App.tsx re-fetches fresh store from Supabase
     window.dispatchEvent(new CustomEvent('tashop:store_updated'));
@@ -2605,16 +2603,16 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               </div>
             </form>
 
-            {/* ── KYC IDENTITY VERIFICATION CARD (outside form, save via own handler) ── */}
+            {/* ── CAC BUSINESS REGISTRATION CARD (outside form, save via own handler) ── */}
             <div className="mt-6 bg-slate-50/90 rounded-2xl border border-slate-200/90 p-4 sm:p-5 space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                     <FileText className="w-4 h-4 text-indigo-600" />
-                    <span>Identity Verification (KYC)</span>
+                    <span>CAC Business Registration Verification</span>
                   </h4>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Required to upgrade to Pro or Business plans. Upload clear front & back photos of your government-issued ID.
+                    Submit your official Corporate Affairs Commission (CAC) details to earn the Verified Merchant badge.
                   </p>
                 </div>
                 {/* Status pill */}
@@ -2633,7 +2631,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     {store.idVerification.status === 'verified' && <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />}
                     {store.idVerification.status === 'pending' && <Clock className="w-3.5 h-3.5 text-amber-600" />}
                     {store.idVerification.status === 'pending' && 'Under Review'}
-                    {store.idVerification.status === 'verified' && 'ID Verified ✓'}
+                    {store.idVerification.status === 'verified' && 'CAC Verified ✓'}
                     {store.idVerification.status === 'rejected' && 'Rejected – Resubmit'}
                     {store.idVerification.status === 'unsubmitted' && 'Not Submitted'}
                   </span>
@@ -2663,10 +2661,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     <BadgeCheck className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-emerald-900">Your identity is verified!</p>
+                    <p className="text-sm font-bold text-emerald-900">Your Business is CAC Verified!</p>
                     <p className="text-xs text-emerald-700 mt-0.5">
-                      ID Type: <strong>{store.idVerification.idType?.replace(/_/g, ' ').toUpperCase()}</strong>
-                      {store.idVerification.idNumber && ` · ID No: ${store.idVerification.idNumber}`}
+                      CAC Number: <strong>{store.idVerification.cacNumber || store.idVerification.idNumber || 'Verified Entity'}</strong>
+                      {store.idVerification.businessRegistrationName && ` · Entity: ${store.idVerification.businessRegistrationName}`}
                     </p>
                     {store.idVerification.verifiedAt && (
                       <p className="text-[11px] text-emerald-600 mt-0.5">
@@ -2676,151 +2674,97 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   </div>
                 </div>
               ) : (
-                /* Upload form for unsubmitted / pending / rejected */
+                /* Form for unsubmitted / pending / rejected */
                 <div className="space-y-3">
-                  {/* ID Type */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1">ID Document Type</label>
-                      <select
-                        value={kycIdType}
-                        onChange={(e) => setKycIdType(e.target.value as StoreIdVerification['idType'])}
-                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                      >
-                        <option value="nin">NIN – National Identification Number</option>
-                        <option value="drivers_license">Driver's License</option>
-                        <option value="passport">International Passport</option>
-                        <option value="voters_card">Voter's Card (PVC)</option>
-                        <option value="national_id">Other National ID</option>
-                      </select>
-                    </div>
-                    <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1">
-                        ID Number / Registration (Optional)
+                        CAC Registration Number (BN / RC) <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
-                        value={kycIdNumber}
-                        onChange={(e) => setKycIdNumber(e.target.value)}
-                        placeholder="e.g. 12345678901"
+                        value={kycCacNumber}
+                        onChange={(e) => setKycCacNumber(e.target.value)}
+                        placeholder="e.g. BN-3819283 or RC-1829102"
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Registered Business Name (As on CAC)
+                      </label>
+                      <input
+                        type="text"
+                        value={kycRegName}
+                        onChange={(e) => setKycRegName(e.target.value)}
+                        placeholder="e.g. Amaka Luxe Ventures"
                         className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600"
                       />
                     </div>
                   </div>
 
-                  {/* Front & Back ID Photos */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Front */}
-                    <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                        Front of ID <span className="text-rose-500">*</span>
-                      </label>
-                      <label className="block cursor-pointer">
-                        <div
-                          className={`relative h-36 rounded-xl border-2 border-dashed overflow-hidden flex items-center justify-center transition ${
-                            kycFrontPreview
-                              ? 'border-indigo-300 bg-white'
-                              : 'border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50/30'
-                          }`}
-                        >
-                          {kycFrontPreview ? (
-                            <img src={kycFrontPreview} alt="Front ID" className="w-full h-full object-contain" />
-                          ) : (
-                            <div className="text-center px-4">
-                              <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
-                              <p className="text-xs text-slate-500 font-medium">Upload Front Photo</p>
-                              <p className="text-[11px] text-slate-400">JPG, PNG – Max 5MB</p>
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            if (file.size > 5 * 1024 * 1024) {
-                              setSettingsError('Front ID photo must be under 5MB');
-                              return;
-                            }
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              setKycFrontPreview(ev.target?.result as string);
-                              setSettingsError(null);
-                            };
-                            reader.readAsDataURL(file);
-                          }}
-                        />
-                      </label>
-                      {kycFrontPreview && (
-                        <button
-                          type="button"
-                          onClick={() => setKycFrontPreview('')}
-                          className="mt-1 text-[11px] text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-1"
-                        >
-                          <X className="w-3 h-3" /> Remove
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Back */}
-                    <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                        Back of ID <span className="text-rose-500">*</span>
-                      </label>
-                      <label className="block cursor-pointer">
-                        <div
-                          className={`relative h-36 rounded-xl border-2 border-dashed overflow-hidden flex items-center justify-center transition ${
-                            kycBackPreview
-                              ? 'border-indigo-300 bg-white'
-                              : 'border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50/30'
-                          }`}
-                        >
-                          {kycBackPreview ? (
-                            <img src={kycBackPreview} alt="Back ID" className="w-full h-full object-contain" />
-                          ) : (
-                            <div className="text-center px-4">
-                              <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
-                              <p className="text-xs text-slate-500 font-medium">Upload Back Photo</p>
-                              <p className="text-[11px] text-slate-400">JPG, PNG – Max 5MB</p>
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            if (file.size > 5 * 1024 * 1024) {
-                              setSettingsError('Back ID photo must be under 5MB');
-                              return;
-                            }
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              setKycBackPreview(ev.target?.result as string);
-                              setSettingsError(null);
-                            };
-                            reader.readAsDataURL(file);
-                          }}
-                        />
-                      </label>
-                      {kycBackPreview && (
-                        <button
-                          type="button"
-                          onClick={() => setKycBackPreview('')}
-                          className="mt-1 text-[11px] text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-1"
-                        >
-                          <X className="w-3 h-3" /> Remove
-                        </button>
-                      )}
-                    </div>
+                  {/* Upload CAC Certificate */}
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      CAC Certificate / Registration Document (Optional)
+                    </label>
+                    <label className="block cursor-pointer">
+                      <div
+                        className={`relative h-32 rounded-xl border-2 border-dashed overflow-hidden flex items-center justify-center transition ${
+                          kycCertPreview
+                            ? 'border-indigo-300 bg-white'
+                            : 'border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50/30'
+                        }`}
+                      >
+                        {kycCertPreview ? (
+                          <div className="relative w-full h-full flex items-center justify-center p-2">
+                            <img src={kycCertPreview} alt="CAC Certificate" className="w-full h-full object-contain" />
+                          </div>
+                        ) : (
+                          <div className="text-center px-4">
+                            <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+                            <p className="text-xs text-slate-600 font-medium">Upload CAC Certificate Document</p>
+                            <p className="text-[11px] text-slate-400">JPG, PNG, WebP – Max 5MB</p>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 5 * 1024 * 1024) {
+                            setSettingsError('Certificate document must be under 5MB');
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            setKycCertPreview(ev.target?.result as string);
+                            setSettingsError(null);
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </label>
+                    {kycCertPreview && (
+                      <button
+                        type="button"
+                        onClick={() => setKycCertPreview('')}
+                        className="mt-1 text-[11px] text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3" /> Remove Document
+                      </button>
+                    )}
                   </div>
 
-                  {/* Submit KYC button */}
-                  <div className="flex justify-end">
+                  <p className="text-[11px] text-slate-500 italic bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    🛡️ <strong>NDPA 2023 Compliant:</strong> Verification is conducted against the public Corporate Affairs Commission (CAC) registry. We never collect or store sensitive personal national identification numbers (NIN, BVN, or personal biometrics).
+                  </p>
+
+                  {/* Submit button */}
+                  <div className="flex justify-end pt-2">
                     <button
                       type="button"
                       onClick={handleSaveKyc}
@@ -2834,10 +2778,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                       )}
                       <span>
                         {store.idVerification?.status === 'rejected'
-                          ? 'Resubmit ID for Verification'
+                          ? 'Resubmit CAC for Verification'
                           : store.idVerification?.status === 'pending'
-                          ? 'Update & Resubmit ID'
-                          : 'Submit ID for Verification'}
+                          ? 'Update & Resubmit CAC'
+                          : 'Submit CAC for Verification'}
                       </span>
                     </button>
                   </div>
