@@ -194,7 +194,7 @@ export interface StoreReview {
   storeId: string;
   author: string;
   rating: number;
-  comment: string;
+  comment?: string;
   productName?: string;
   customerPhotoUrl?: string; // Buyer photo of received items
   verifiedBuyer?: boolean;

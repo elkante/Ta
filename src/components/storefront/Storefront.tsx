@@ -728,9 +728,11 @@ export const Storefront: React.FC<StorefrontProps> = ({
                       <span className="text-[10px] text-slate-400">{rev.date}</span>
                     </div>
 
-                    <p className="text-xs text-slate-700 italic leading-relaxed">
-                      "{rev.comment}"
-                    </p>
+                    {rev.comment && (
+                      <p className="text-xs text-slate-700 italic leading-relaxed">
+                        "{rev.comment}"
+                      </p>
+                    )}
 
                     {/* Customer Photo of what they received */}
                     {rev.customerPhotoUrl && (
@@ -750,9 +752,11 @@ export const Storefront: React.FC<StorefrontProps> = ({
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
                     <span className="font-semibold text-slate-900 flex items-center gap-1">
                       {rev.author}
-                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded-full">
-                        Verified
-                      </span>
+                      {rev.customerPhotoUrl && (
+                        <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded-full">
+                          📷 Photo
+                        </span>
+                      )}
                     </span>
                     {rev.productName && (
                       <span className="text-slate-400 truncate max-w-[120px]">{rev.productName}</span>

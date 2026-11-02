@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, CheckCircle2, MessageSquareHeart, Star, Upload, X } from 'lucide-react';
+import { Camera, CheckCircle2, MessageSquareHeart, Star, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Product, Store, StoreReview } from '../../types';
 import { addStoreReview } from '../../utils/storage';
@@ -96,10 +96,10 @@ export const CustomerReviewModal: React.FC<CustomerReviewModalProps> = ({
         storeId: store.id,
         author: authorName.trim(),
         rating: rating,
-        comment: comment.trim() || 'Great experience shopping here!',
+        comment: comment.trim() || undefined,
         productName: productName.trim() || undefined,
         customerPhotoUrl: photoPreview || undefined,
-        verifiedBuyer: true,
+        verifiedBuyer: false,
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       };
 
@@ -142,7 +142,7 @@ export const CustomerReviewModal: React.FC<CustomerReviewModalProps> = ({
             <div>
               <h3 className="text-xl font-black text-slate-900">Thank You! 🎉</h3>
               <p className="text-sm text-slate-600 mt-1">
-                Your verified review is now live on <span className="font-semibold text-slate-900">{store.name}</span>'s catalog!
+                  Your review is now live on <span className="font-semibold text-slate-900">{store.name}</span>'s catalog!
               </p>
             </div>
           </div>
@@ -219,9 +219,9 @@ export const CustomerReviewModal: React.FC<CustomerReviewModalProps> = ({
             {/* Photo of Item Received */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                <span>Photo of what you received (optional)</span>
+                <span>Photo of what you received</span>
                 <span className="text-[10px] text-amber-600 font-semibold flex items-center gap-0.5">
-                  <Camera className="w-3 h-3 inline" /> Shows verified proof
+                  <Camera className="w-3 h-3 inline" /> Makes your review 10× more useful
                 </span>
               </label>
 
@@ -242,12 +242,12 @@ export const CustomerReviewModal: React.FC<CustomerReviewModalProps> = ({
                   </button>
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors text-center">
-                  <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mb-1.5">
-                    <Upload className="w-4 h-4" />
+                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-amber-300 rounded-2xl bg-amber-50 hover:bg-amber-100 cursor-pointer transition-colors text-center">
+                  <div className="w-10 h-10 rounded-full bg-amber-200 text-amber-700 flex items-center justify-center mb-2">
+                    <Camera className="w-5 h-5" />
                   </div>
-                  <span className="text-xs font-bold text-slate-700">Add a photo of your item</span>
-                  <span className="text-[10px] text-slate-400">Snap with camera or upload from gallery</span>
+                  <span className="text-xs font-bold text-slate-800">📸 Add a photo of your item</span>
+                  <span className="text-[11px] text-slate-500 mt-0.5">Snap now or pick from gallery — optional but encouraged</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -308,7 +308,7 @@ export const CustomerReviewModal: React.FC<CustomerReviewModalProps> = ({
               className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-slate-950 font-black text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <MessageSquareHeart className="w-4 h-4" />
-              <span>{isSubmitting ? 'Posting Review...' : 'Submit Verified Review'}</span>
+              <span>{isSubmitting ? 'Posting Review...' : 'Post Your Review'}</span>
             </button>
           </form>
         )}
