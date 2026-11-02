@@ -57,9 +57,6 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
     enabled: false,
   };
 
-  // Chat bubble is OFF by default. Only renders if merchant explicitly toggles it ON in settings
-  if (store.aiBotConfig?.enabled !== true) return null;
-
   const initialMessages: Message[] = [
     {
       id: 'init-1',
@@ -81,6 +78,10 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
       setHasUnread(false);
     }
   }, [isOpen, messages, isTyping]);
+
+  // Chat bubble is OFF by default. Only renders if merchant explicitly toggles it ON in settings
+  // Evaluated after all hooks so hook order and count remains completely constant
+  if (store.aiBotConfig?.enabled !== true) return null;
 
   // AI Knowledge Search Engine strictly for this store
   const generateStoreAIResponse = (userPrompt: string): { text: string; matchedProducts?: Product[] } => {

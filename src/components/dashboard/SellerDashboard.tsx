@@ -101,6 +101,42 @@ const COVER_PRESETS = [
   { name: 'Modern Tech', url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1600&auto=format&fit=crop&q=80' },
 ];
 
+type TabId = 'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing' | 'analytics' | 'notes' | 'expenses' | 'calculator';
+
+interface NavCategory {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  tabs: TabId[];
+}
+
+const NAV_CATEGORIES: NavCategory[] = [
+  {
+    id: 'commerce',
+    label: 'Orders & Catalog',
+    icon: ShoppingBag,
+    tabs: ['orders', 'products', 'analytics'],
+  },
+  {
+    id: 'marketing',
+    label: 'Marketing & Auto-Reply',
+    icon: Sparkles,
+    tabs: ['uid-bot', 'marketing', 'inquiries'],
+  },
+  {
+    id: 'finance',
+    label: 'Finance & Tools',
+    icon: Wallet,
+    tabs: ['expenses', 'calculator', 'notes'],
+  },
+  {
+    id: 'settings',
+    label: 'Store & Settings',
+    icon: Settings,
+    tabs: ['settings', 'billing'],
+  },
+];
+
 interface SellerDashboardProps {
   store: Store;
   products: Product[];
@@ -453,6 +489,35 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   // Mobile sidebar drawer
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Side panel category state: Orders & Catalog is OPEN by default, the rest are CLOSED till opened by seller
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = sessionStorage.getItem(`ta_collapsed_cats_${store.id}`);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      commerce: false,
+      orders: false,
+      marketing: true,
+      finance: true,
+      settings: true,
+    };
+  });
+
+  // Auto-expand category containing active tab so seller sees their active item
+  useEffect(() => {
+    const parentCategory = NAV_CATEGORIES.find((cat) => cat.tabs.includes(activeTab));
+    if (parentCategory && collapsedCategories[parentCategory.id]) {
+      setCollapsedCategories((prev) => {
+        const next = { ...prev, [parentCategory.id]: false };
+        try {
+          sessionStorage.setItem(`ta_collapsed_cats_${store.id}`, JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+    }
+  }, [activeTab]);
+
   // Analytics Metrics
   const totalCatalogValue = products.reduce((sum, p) => sum + p.price, 0);
   const outOfStockCount = products.filter((p) => !p.inStock).length;
@@ -733,71 +798,11 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     { id: 'billing',   label: 'Subscription',     icon: CreditCard },
   ];
 
-  interface NavCategory {
-    id: string;
-    label: string;
-    icon: React.ElementType;
-    tabs: TabId[];
-  }
-
-  const navCategories: NavCategory[] = [
-    {
-      id: 'commerce',
-      label: 'Orders & Catalog',
-      icon: ShoppingBag,
-      tabs: ['orders', 'products', 'analytics'],
-    },
-    {
-      id: 'marketing',
-      label: 'Marketing & Auto-Reply',
-      icon: Sparkles,
-      tabs: ['uid-bot', 'marketing', 'inquiries'],
-    },
-    {
-      id: 'finance',
-      label: 'Finance & Tools',
-      icon: Wallet,
-      tabs: ['expenses', 'calculator', 'notes'],
-    },
-    {
-      id: 'settings',
-      label: 'Store & Settings',
-      icon: Settings,
-      tabs: ['settings', 'billing'],
-    },
-  ];
-
-  // Side panel category state: Orders & Catalog is OPEN by default, the rest are CLOSED till opened by seller
-  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>(() => {
-    try {
-      const saved = sessionStorage.getItem(`ta_collapsed_cats_${store.id}`);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return {
-      orders: false,
-      marketing: true,
-      finance: true,
-      settings: true,
-    };
-  });
-
-  // Auto-expand category containing active tab so seller sees their active item
-  useEffect(() => {
-    const parentCategory = navCategories.find((cat) => cat.tabs.includes(activeTab));
-    if (parentCategory && collapsedCategories[parentCategory.id]) {
-      setCollapsedCategories((prev) => {
-        const next = { ...prev, [parentCategory.id]: false };
-        try {
-          sessionStorage.setItem(`ta_collapsed_cats_${store.id}`, JSON.stringify(next));
-        } catch (e) {}
-        return next;
-      });
-    }
-  }, [activeTab]);
+  const navCategories = NAV_CATEGORIES;
 
   const toggleCategory = (catId: string) => {
     setCollapsedCategories((prev) => {
-      const isCurrentlyCollapsed = prev[catId] !== undefined ? prev[catId] : catId !== 'orders';
+      const isCurrentlyCollapsed = prev[catId] !== undefined ? prev[catId] : (catId !== 'commerce' && catId !== 'orders');
       const next = { ...prev, [catId]: !isCurrentlyCollapsed };
       try {
         sessionStorage.setItem(`ta_collapsed_cats_${store.id}`, JSON.stringify(next));
@@ -968,7 +973,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     }
   };
 
-  const NavItem = ({ tab, compact = false }: { tab: typeof allTabs[0]; compact?: boolean }) => {
+  const renderNavItem = (tab: typeof allTabs[0], compact = false) => {
     const Icon = tab.icon;
     const active = activeTab === tab.id;
     return (
@@ -1004,7 +1009,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         const isCollapsed =
           collapsedCategories[category.id] !== undefined
             ? Boolean(collapsedCategories[category.id])
-            : category.id !== 'orders';
+            : (category.id !== 'commerce' && category.id !== 'orders');
         const hasActiveTab = category.tabs.includes(activeTab);
         const CategoryIcon = category.icon;
         const hasPendingAlert = category.tabs.some((t) => t === 'orders' && pendingOrdersCount > 0);
@@ -1039,7 +1044,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 {category.tabs.map((tabId) => {
                   const tab = allTabs.find((t) => t.id === tabId);
                   if (!tab) return null;
-                  return <NavItem key={tab.id} tab={tab} />;
+                  return renderNavItem(tab);
                 })}
               </div>
             )}
