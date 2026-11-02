@@ -595,7 +595,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const adminNavItems: { id: AdminTab; label: string; icon: React.ElementType; badge?: string; badgeColor?: string }[] = [
     {
       id: 'stores',
-      label: `Stores (${liveStores.length})`,
+      label: `Overview (${liveStores.length})`,
       icon: Building,
       badge: suspendedStoresCount > 0 ? `${suspendedStoresCount} Banned` : undefined,
       badgeColor: 'bg-rose-500 text-white',
@@ -794,62 +794,61 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
         {/* Content Body */}
         <div className="flex-1 p-4 sm:p-6 pb-28 md:pb-8 overflow-x-hidden">
-          
-          {/* Top Metric Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-              <div className="flex items-center justify-between text-slate-400 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider">Total Stores</span>
-                <Building className="w-4 h-4 text-slate-700" />
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">{totalStoresCount}</div>
-              <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500 font-medium">
-                <span className="text-amber-700 font-bold">{proStoresCount} Paid</span>
-                <span>•</span>
-                <span className="text-blue-600 font-bold">{verifiedStoresCount} Verified</span>
-                {suspendedStoresCount > 0 && (
-                  <>
-                    <span>•</span>
-                    <span className="text-rose-600 font-bold">{suspendedStoresCount} Banned</span>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-              <div className="flex items-center justify-between text-slate-400 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider">Catalog Items</span>
-                <Package className="w-4 h-4 text-slate-700" />
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">{totalProductsCount}</div>
-              <span className="text-[11px] text-slate-400 font-medium">Across all store databases</span>
-            </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-              <div className="flex items-center justify-between text-slate-400 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider">Platform GMV</span>
-                <TrendingUp className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono truncate">{formatPrice(totalPlatformGMV, '₦')}</div>
-              <span className="text-[11px] text-emerald-600 font-medium">From {totalOrdersCount} WhatsApp checkouts</span>
-            </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-              <div className="flex items-center justify-between text-slate-400 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider">Multi-Tenant Engine</span>
-                <Zap className="w-4 h-4 text-amber-500" />
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-emerald-600 font-mono">100%</div>
-              <span className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Live database synced
-              </span>
-            </div>
-          </div>
-
-          {/* ── TAB 1: STORES MANAGEMENT ── */}
+          {/* ── TAB 1: OVERVIEW & STORES MANAGEMENT ── */}
           {activeTab === 'stores' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Top Metric Cards - Shown exclusively on Overview */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-1">
+                    <span className="text-xs font-semibold uppercase tracking-wider">Total Stores</span>
+                    <Building className="w-4 h-4 text-slate-700" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">{totalStoresCount}</div>
+                  <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500 font-medium">
+                    <span className="text-amber-700 font-bold">{proStoresCount} Paid</span>
+                    <span>•</span>
+                    <span className="text-blue-600 font-bold">{verifiedStoresCount} Verified</span>
+                    {suspendedStoresCount > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="text-rose-600 font-bold">{suspendedStoresCount} Banned</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-1">
+                    <span className="text-xs font-semibold uppercase tracking-wider">Catalog Items</span>
+                    <Package className="w-4 h-4 text-slate-700" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">{totalProductsCount}</div>
+                  <span className="text-[11px] text-slate-400 font-medium">Across all store databases</span>
+                </div>
+
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-1">
+                    <span className="text-xs font-semibold uppercase tracking-wider">Platform GMV</span>
+                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono truncate">{formatPrice(totalPlatformGMV, '₦')}</div>
+                  <span className="text-[11px] text-emerald-600 font-medium">From {totalOrdersCount} WhatsApp checkouts</span>
+                </div>
+
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-1">
+                    <span className="text-xs font-semibold uppercase tracking-wider">Multi-Tenant Engine</span>
+                    <Zap className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-emerald-600 font-mono">100%</div>
+                  <span className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Live database synced
+                  </span>
+                </div>
+              </div>
+
               {/* Search & Filter Toolbar */}
               <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
                 <div className="relative flex-1">
