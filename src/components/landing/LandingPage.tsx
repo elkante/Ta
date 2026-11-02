@@ -1,25 +1,32 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   BadgeCheck,
   Bot,
   Check,
+  ChevronDown,
   ChevronRight,
   Compass,
   Download,
   ExternalLink,
   Eye,
+  Globe,
   Hash,
+  HelpCircle,
   LayoutDashboard,
   Lock,
   LogIn,
   MessageCircle,
   Package,
+  Phone,
   Search,
+  ShieldCheck,
   ShoppingBag,
   Sparkles,
   Star,
   Store as StoreIcon,
+  TrendingUp,
+  Wallet,
   Zap,
 } from 'lucide-react';
 import { SellerSession, Store } from '../../types';
@@ -52,6 +59,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [handleError, setHandleError] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [planConfigs, setPlanConfigs] = useState(() => getActivePlanConfigs());
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+
+  const rootDomain = getRootDomain();
+  const cleanHandle = handleInput.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+
+  const handleAvailability = useMemo(() => {
+    if (!cleanHandle || cleanHandle.length < 2) return null;
+    const isTaken = stores.some((s) => s.slug.toLowerCase() === cleanHandle);
+    return isTaken ? 'taken' : 'available';
+  }, [cleanHandle, stores]);
 
   useEffect(() => {
     const handleSettingsUpdate = () => {
@@ -104,13 +122,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       return;
     }
 
-    // Rolling 3.5s window so mobile users can tap at a natural pace
+    // 1.8s reset window: if user pauses tapping, resets after 1.8 seconds
     tapTimerRef.current = setTimeout(() => {
       if (tapCountRef.current === 1) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       tapCountRef.current = 0;
-    }, 3500);
+    }, 1800);
   };
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -254,13 +272,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-16 sm:pt-24 pb-16 px-4 sm:px-6 overflow-hidden">
-        <div className="max-w-4xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200/80 px-3.5 py-1.5 rounded-full text-xs font-semibold text-amber-900">
+      <section className="relative pt-12 sm:pt-20 pb-16 px-4 sm:px-6 overflow-hidden">
+        {/* Ambient Top Glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[560px] pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/20 via-rose-500/10 to-transparent blur-3xl -z-10" />
+
+        <div className="max-w-5xl mx-auto text-center space-y-6">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 border border-amber-200/80 px-4 py-1.5 rounded-full text-xs font-semibold text-amber-950 shadow-2xs backdrop-blur-xs">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            <span>Built for WhatsApp, Instagram & Social Commerce</span>
+            <span>⚡ The #1 WhatsApp & Social Commerce Engine for African Merchants</span>
           </div>
 
+          {/* Headline */}
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-slate-900 leading-[1.12]">
             Turn your social traffic into <br className="hidden sm:inline" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-rose-600 to-indigo-600">
@@ -268,57 +291,265 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </span>
           </h1>
 
+          {/* Subtitle */}
           <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            Every seller gets their own branded store at <strong className="text-slate-900 font-mono">yourbrand.{getRootDomain()}</strong>.
-            Customers search by <strong>Item UID</strong> and order in 1 click without ever needing to log in.
+            Every seller gets their own branded store at <strong className="text-slate-900 font-mono">yourbrand.{rootDomain}</strong>.
+            Customers browse login-free, search by <strong>Item UID</strong>, and order in 1 click directly to your WhatsApp with zero commission fees.
           </p>
 
-          {/* Claim Handle Bar */}
-          <div className="max-w-md mx-auto pt-2">
-            <form onSubmit={handleClaim} className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-2xl shadow-xl border border-slate-200">
+          {/* Live Claim Handle Bar */}
+          <div className="max-w-xl mx-auto pt-2">
+            <form onSubmit={handleClaim} className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-2xl shadow-xl border border-slate-200/90 focus-within:border-amber-400 focus-within:ring-4 focus-within:ring-amber-400/10 transition-all">
               <div className="flex-1 flex items-center px-3 min-w-0">
+                <span className="text-xs font-mono font-bold text-slate-400 select-none shrink-0 mr-1">
+                  https://
+                </span>
                 <input
                   type="text"
-                  placeholder="your-brand-name"
+                  placeholder="yourbrand"
                   value={handleInput}
                   onChange={(e) => {
-                    setHandleInput(e.target.value);
+                    setHandleInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
                     setHandleError(null);
                   }}
-                  className="w-full py-2 text-xs sm:text-sm font-mono font-semibold text-slate-900 focus:outline-none bg-transparent min-w-0"
+                  className="w-full py-2 text-xs sm:text-sm font-mono font-semibold text-slate-900 focus:outline-none bg-transparent min-w-0 placeholder:text-slate-300"
                 />
-                <span className="text-xs font-mono font-bold text-slate-400 select-none shrink-0 ml-1">.{getRootDomain()}</span>
+                <span className="text-xs font-mono font-bold text-slate-400 select-none shrink-0 ml-1">
+                  .{rootDomain}
+                </span>
+
+                {/* Real-time availability indicator badge */}
+                {handleAvailability === 'available' && (
+                  <span className="hidden xs:inline-flex items-center gap-1 ml-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0 animate-in fade-in">
+                    <Check className="w-3 h-3 text-emerald-600" />
+                    <span>Available</span>
+                  </span>
+                )}
+                {handleAvailability === 'taken' && (
+                  <span className="hidden xs:inline-flex items-center gap-1 ml-2 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full shrink-0 animate-in fade-in">
+                    <span>Taken</span>
+                  </span>
+                )}
               </div>
+
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+                className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-95 shrink-0 cursor-pointer flex items-center justify-center gap-2 group"
               >
                 <span>Claim My Store</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </button>
             </form>
+
             {handleError && (
               <p className="text-xs text-rose-600 mt-2 font-medium">{handleError}</p>
             )}
-            <p className="text-[11px] text-slate-400 mt-2">
-              Starter plan ₦500/month • No complicated setup • Live in 30 seconds
+
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2.5 px-2">
+              <span>⚡ Free 4-product tier included</span>
+              <span>•</span>
+              <span>📱 100% Smartphone friendly</span>
+              <span>•</span>
+              <span>💳 Zero transaction commission</span>
+            </div>
+          </div>
+
+          {/* ── Interactive Smartphone & Storefront Preview Mockup (Zero Supabase Load) ── */}
+          <div className="pt-8 sm:pt-12 max-w-4xl mx-auto relative">
+            {/* Ambient Background Spotlight behind phone */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 sm:w-96 h-72 sm:h-96 bg-amber-400/20 rounded-full blur-3xl -z-10 pointer-events-none" />
+
+            {/* Floating Live Interaction Cards */}
+            <div className="hidden lg:flex absolute -left-6 top-16 bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-slate-200/80 items-center gap-3 z-20 max-w-xs text-left animate-in fade-in slide-in-from-left duration-500">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                <ShoppingBag className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-900">New Order: ₦45,000</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-0.5">Itemized cart sent straight to WhatsApp</p>
+              </div>
+            </div>
+
+            <div className="hidden lg:flex absolute -right-6 top-24 bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-slate-200/80 items-center gap-3 z-20 max-w-xs text-left animate-in fade-in slide-in-from-right duration-500">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/10 text-violet-600 flex items-center justify-center shrink-0">
+                <Bot className="w-5 h-5 text-violet-600" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                  <span>WhatsApp AI Auto-Reply</span>
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-0.5">Replies to customer DMs 24/7 with catalog items</p>
+              </div>
+            </div>
+
+            <div className="hidden sm:flex absolute left-8 -bottom-4 bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-slate-200/80 items-center gap-2.5 z-20 text-left">
+              <div className="flex text-amber-400">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+              <span className="text-xs font-bold text-slate-800">4.9/5 • 350+ Verified African Stores</span>
+            </div>
+
+            {/* Smartphone Shell */}
+            <div className="mx-auto w-full max-w-[340px] sm:max-w-[380px] bg-slate-950 rounded-[44px] p-3 shadow-2xl border-4 border-slate-800 ring-1 ring-slate-900/10">
+              {/* Top Speaker / Camera Island */}
+              <div className="w-28 h-4 bg-slate-900 rounded-full mx-auto mb-2 flex items-center justify-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-slate-800 border border-slate-700" />
+                <div className="w-8 h-1 rounded-full bg-slate-800" />
+              </div>
+
+              {/* Dynamic Mockup Screen Content */}
+              <div className="bg-slate-50 rounded-[32px] overflow-hidden text-left border border-slate-200">
+                {/* Store Header Banner */}
+                <div className="h-20 bg-gradient-to-r from-amber-600 via-rose-600 to-indigo-700 relative p-3 flex flex-col justify-between text-white">
+                  <div className="flex items-center justify-between text-[10px] font-mono opacity-90">
+                    <span className="bg-black/30 backdrop-blur-xs px-2 py-0.5 rounded-full">
+                      amaka.{rootDomain}
+                    </span>
+                    <span className="flex items-center gap-1 bg-emerald-500/80 px-2 py-0.5 rounded-full font-bold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      Open
+                    </span>
+                  </div>
+                </div>
+
+                {/* Store Profile Info */}
+                <div className="px-4 pb-3 pt-2 bg-white border-b border-slate-100 flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center justify-center text-sm shadow-xs border-2 border-white -mt-6">
+                    AC
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1 font-bold text-slate-900 text-xs truncate">
+                      <span>Amaka Couture Lagos</span>
+                      <BadgeCheck className="w-3.5 h-3.5 text-blue-600 fill-blue-100 shrink-0" />
+                    </div>
+                    <p className="text-[10px] text-slate-500 truncate">Luxury RTW & Bridal Fabrics • Lekki, Lagos</p>
+                  </div>
+                </div>
+
+                {/* Mock Search Bar with Item UID */}
+                <div className="p-3 bg-slate-100/70 border-b border-slate-200/60">
+                  <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200 flex items-center gap-2 text-xs text-slate-400">
+                    <Search className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-[11px] font-mono text-slate-500">Search products or UID (#AC-01)...</span>
+                  </div>
+                </div>
+
+                {/* Mock Catalog Items */}
+                <div className="p-3 grid grid-cols-2 gap-2 bg-slate-50">
+                  <div className="bg-white rounded-xl p-2 border border-slate-200/80 shadow-2xs space-y-1.5">
+                    <div className="h-20 rounded-lg bg-amber-100/60 relative overflow-hidden flex items-center justify-center">
+                      <span className="text-2xl">👗</span>
+                      <span className="absolute bottom-1 left-1 bg-black/60 text-[9px] font-mono text-white px-1.5 py-0.2 rounded-md">
+                        #AC-01
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-bold text-slate-900 truncate">Emerald Silk Boubou</div>
+                    <div className="flex items-center justify-between pt-0.5">
+                      <span className="text-xs font-black text-amber-600 font-mono">₦38,000</span>
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md">WhatsApp</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-2 border border-slate-200/80 shadow-2xs space-y-1.5">
+                    <div className="h-20 rounded-lg bg-indigo-100/60 relative overflow-hidden flex items-center justify-center">
+                      <span className="text-2xl">✨</span>
+                      <span className="absolute bottom-1 left-1 bg-black/60 text-[9px] font-mono text-white px-1.5 py-0.2 rounded-md">
+                        #AC-02
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-bold text-slate-900 truncate">Velvet Kaftan Set</div>
+                    <div className="flex items-center justify-between pt-0.5">
+                      <span className="text-xs font-black text-amber-600 font-mono">₦45,000</span>
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md">WhatsApp</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Mock WhatsApp Checkout Button */}
+                <div className="p-3 bg-white border-t border-slate-200">
+                  <div className="w-full py-2 bg-emerald-600 rounded-xl text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs">
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>Instant WhatsApp Checkout (1-Click)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Visual "How It Works" in 3 Simple Steps ── */}
+      <section className="py-14 sm:py-20 bg-white border-y border-slate-200/80 px-4 sm:px-6">
+        <div className="max-w-6xl mx-auto space-y-12">
+          <div className="text-center max-w-2xl mx-auto space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-600 block">
+              3 Simple Steps
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              From zero to receiving orders in 3 minutes
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600">
+              No complicated eCommerce software, no account creation barrier for your buyers, and no laptop required.
             </p>
           </div>
 
-          {/* Micro Trust Pills */}
-          <div className="pt-6 flex flex-wrap items-center justify-center gap-y-2 gap-x-6 text-xs text-slate-500 font-medium">
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" />
-              <span>Customers browse 100% login-free</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Hash className="w-4 h-4 text-indigo-600" />
-              <span>Search per Item UID (#BR540)</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <MessageCircle className="w-4 h-4 text-emerald-600" />
-              <span>Pre-filled WhatsApp inquiries</span>
-            </span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 relative">
+            {/* Step 1 */}
+            <div className="bg-slate-50 rounded-3xl p-6 sm:p-8 border border-slate-200/80 relative flex flex-col justify-between hover:shadow-md transition-shadow group">
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 font-black text-base flex items-center justify-center border border-amber-500/20 group-hover:scale-110 transition-transform">
+                  01
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Claim Your Branded Link</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Pick your custom store handle at <strong className="text-slate-900 font-mono">{rootDomain}/yourbrand</strong>. Your store is live immediately on any smartphone.
+                </p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-slate-200/80 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                <Globe className="w-3.5 h-3.5 text-amber-500" />
+                <span>Instant live web link</span>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-slate-50 rounded-3xl p-6 sm:p-8 border border-slate-200/80 relative flex flex-col justify-between hover:shadow-md transition-shadow group">
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 font-black text-base flex items-center justify-center border border-indigo-500/20 group-hover:scale-110 transition-transform">
+                  02
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Upload Products & WhatsApp</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Snap photos, set prices, and write descriptions with AI help. Each product gets an automatic short Item UID for fast customer status ordering.
+                </p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-slate-200/80 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                <Package className="w-3.5 h-3.5 text-indigo-500" />
+                <span>AI descriptions & Item UIDs</span>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-slate-50 rounded-3xl p-6 sm:p-8 border border-slate-200/80 relative flex flex-col justify-between hover:shadow-md transition-shadow group">
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 font-black text-base flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform">
+                  03
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Put in Bio & Get Paid</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Paste your link in your Instagram, TikTok, or WhatsApp bio. Buyers browse and send ready-made order invoices to your WhatsApp. You keep 100% of your earnings.
+                </p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-slate-200/80 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                <Wallet className="w-3.5 h-3.5 text-emerald-500" />
+                <span>0% Commission • 100% Direct to Bank</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -379,29 +610,50 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
       </div>
-
       {/* Featured Stores Carousel / Grid */}
-      <section id="featured" className="py-12 bg-white border-y border-slate-200/80 px-4 sm:px-6">
+      <section id="featured" className="py-14 bg-white border-y border-slate-200/80 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-amber-600 block mb-1">
                 Live Storefronts
               </span>
-              <h2 className="text-2xl font-extrabold text-slate-900">
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 Explore stores powered by Tá.shop
               </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Click any store to test the live customer shopping experience
+              </p>
             </div>
-            <p className="text-xs text-slate-500">
-              Click any store to test the customer shopping experience
-            </p>
+
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full no-scrollbar">
+              {['All', 'Fashion', 'Beauty', 'Tech', 'Food', 'Luxury'].map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                    selectedCategory === cat
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Exclusively super-admin curated stores shown on landing */}
           {(() => {
             const liveFeaturedStores = stores.filter(
               (s) => s.featuredOnLanding === true && s.status !== 'suspended' && s.status !== 'deleted'
-            );
+            ).filter((s) => {
+              if (selectedCategory === 'All') return true;
+              const text = `${s.name} ${s.description} ${s.tagline} ${s.location}`.toLowerCase();
+              return text.includes(selectedCategory.toLowerCase());
+            });
 
             if (liveFeaturedStores.length === 0) {
               return (
@@ -409,9 +661,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3 shadow-2xs">
                     <StoreIcon className="w-6 h-6" />
                   </div>
-                  <h4 className="text-sm font-bold text-slate-800">No Stores Added to Showcase Yet</h4>
+                  <h4 className="text-sm font-bold text-slate-800">
+                    {selectedCategory === 'All' ? 'No Stores Added to Showcase Yet' : `No stores currently listed under "${selectedCategory}"`}
+                  </h4>
                   <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                    Live storefronts here are curated exclusively by Super Admin from the Master Admin Portal.
+                    {selectedCategory === 'All'
+                      ? 'Live storefronts here are curated exclusively by Super Admin from the Master Admin Portal.'
+                      : 'Switch to "All" or explore other categories to view active storefronts.'}
                   </p>
                 </div>
               );
@@ -830,6 +1086,96 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
       </section>
+
+      {/* ── Merchant FAQ Accordion ── */}
+      <section id="faq" className="py-16 sm:py-24 bg-white border-t border-slate-200/80 px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto space-y-8">
+          <div className="text-center space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-600 block">
+              Frequently Asked Questions
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Got questions? We've got answers.
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500">
+              Everything you need to know about setting up your WhatsApp & social catalog.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              {
+                q: 'Do I need a laptop to set up and manage my store?',
+                a: 'No! Tá.shop is 100% optimized for smartphones. You can snap product photos, set prices, share links on Instagram/TikTok, and receive customer orders entirely on your iPhone or Android phone.',
+              },
+              {
+                q: 'How do I receive payments from customers?',
+                a: 'Customers browse your store and click "Order via WhatsApp". An itemized invoice with their delivery address opens in your WhatsApp DM. You receive 100% of the money directly into your Nigerian bank account. Tá.shop charges 0% commission on your sales.',
+              },
+              {
+                q: 'How does the 24/7 AI WhatsApp Auto-Reply work?',
+                a: 'On the Business AI tier, our smart bot connects directly to your WhatsApp. When customers send DMs asking for prices, product availability, or account numbers, the AI automatically replies in seconds with photos, sizes, and direct checkout links—even while you are asleep.',
+              },
+              {
+                q: 'Can I use my own custom domain (e.g. mybrand.com)?',
+                a: `Every store starts with a free link like yourbrand.${rootDomain}. On the Business tier, you can also connect your own custom .com, .ng, or .com.ng domain at no extra charge.`,
+              },
+              {
+                q: 'What happens if my subscription expires?',
+                a: 'Your products and store data are never deleted. When a plan expires, your store enters an automatic 5-day grace period where everything continues working normally so you have ample time to renew.',
+              },
+              {
+                q: 'Is there any transaction fee or hidden commission?',
+                a: 'Zero transaction fees. You keep 100% of your earnings. You only pay for your subscription plan.',
+              },
+            ].map((item, idx) => {
+              const isOpen = openFaqIndex === idx;
+              return (
+                <div
+                  key={item.q}
+                  className="border border-slate-200/90 rounded-2xl overflow-hidden bg-slate-50/50 transition-colors"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                    className="w-full flex items-center justify-between p-4 sm:p-5 text-left font-bold text-slate-900 text-sm hover:bg-slate-100/60 transition-colors cursor-pointer gap-4"
+                  >
+                    <span>{item.q}</span>
+                    <ChevronDown
+                      className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 text-amber-600' : ''
+                      }`}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 pb-4 sm:px-5 sm:pb-5 text-xs text-slate-600 leading-relaxed animate-in fade-in duration-200 border-t border-slate-200/60 pt-3">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Sticky Mobile Bottom CTA */}
+      <div className="sm:hidden fixed bottom-3 inset-x-3 z-30 animate-in fade-in slide-in-from-bottom-3 duration-300">
+        <div className="bg-slate-900/95 backdrop-blur-md p-2.5 rounded-2xl border border-slate-700/80 shadow-2xl flex items-center justify-between gap-3">
+          <div className="pl-2 min-w-0">
+            <div className="text-[11px] font-bold text-white truncate">Start selling on WhatsApp</div>
+            <div className="text-[9px] text-amber-400 font-medium">Free • Live in 30 seconds</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenSignup(cleanHandle || undefined)}
+            className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black rounded-xl shadow-xs transition active:scale-95 shrink-0 cursor-pointer flex items-center gap-1.5"
+          >
+            <span>Claim Store</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-slate-200 py-10 px-4 sm:px-6 text-center text-xs text-slate-400 space-y-3 bg-slate-50">
