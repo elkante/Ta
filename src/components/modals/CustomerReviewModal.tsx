@@ -199,6 +199,12 @@ export const CustomerReviewModal: React.FC<CustomerReviewModalProps> = ({
               <p className="text-xs font-bold text-amber-700 mt-2 min-h-[18px]">
                 {RATING_LABELS[hoverRating || rating]}
               </p>
+              {rating === 5 && !photoPreview && (
+                <div className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-900 animate-in fade-in duration-150">
+                  <span>📸</span>
+                  <span>Add a photo below to make your 5★ review stand out!</span>
+                </div>
+              )}
             </div>
 
             {/* Author Name */}

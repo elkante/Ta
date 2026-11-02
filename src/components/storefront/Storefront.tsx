@@ -45,6 +45,7 @@ interface StorefrontProps {
   store: Store;
   products: Product[];
   reviews: StoreReview[];
+  isLoadingProducts?: boolean;
   isStoreOwner?: boolean;
   onOpenCreateStore: () => void;
   onOpenLogin?: () => void;
@@ -61,6 +62,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
   store,
   products,
   reviews,
+  isLoadingProducts = false,
   isStoreOwner = false,
   onOpenCreateStore,
   onOpenLogin,
@@ -343,6 +345,8 @@ export const Storefront: React.FC<StorefrontProps> = ({
               src={store.bannerUrl}
               alt={store.name}
               className="w-full h-full object-cover opacity-30"
+              loading="eager"
+              decoding="async"
             />
           ) : (
             /* Gradient fallback generated from store accent colour */
@@ -364,6 +368,8 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 src={store.logoUrl}
                 alt={store.name}
                 className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-2xl bg-slate-800 ring-4 ring-amber-400/70 ring-offset-2 ring-offset-slate-900"
+                loading="eager"
+                decoding="async"
               />
               <div className="absolute -bottom-1 -right-1 ring-2 ring-slate-900 rounded-full shadow-sm">
                 <VerifiedBadge tier={store.tier} verified={store.verified} size="md" />
@@ -619,7 +625,32 @@ export const Storefront: React.FC<StorefrontProps> = ({
         )}
 
         {/* Catalog Products Grid */}
-        {visibleProducts.length === 0 ? (
+        {isLoadingProducts && products.length === 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-5 animate-in fade-in duration-200">
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <div
+                key={n}
+                className="bg-white rounded-2xl overflow-hidden border border-slate-200/80 shadow-xs flex flex-col animate-pulse"
+              >
+                {/* 3:4 aspect ratio image shimmer */}
+                <div className="w-full bg-slate-200/70 relative overflow-hidden" style={{ aspectRatio: '3/4' }}>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full animate-[shimmer_1.4s_infinite]" />
+                </div>
+                {/* Product details shimmer */}
+                <div className="p-3 sm:p-4 space-y-3 flex-1 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="h-3.5 bg-slate-200/80 rounded-md w-4/5" />
+                    <div className="h-2.5 bg-slate-100 rounded-md w-2/5" />
+                  </div>
+                  <div className="pt-2 flex items-center justify-between">
+                    <div className="h-4 bg-slate-200/80 rounded-md w-1/2" />
+                    <div className="h-7 w-7 bg-slate-200/60 rounded-xl shrink-0" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : visibleProducts.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-slate-200/80 p-8 space-y-4 animate-in fade-in duration-300">
             {/* Branded empty state */}
             <div className="mx-auto w-20 h-20 relative">

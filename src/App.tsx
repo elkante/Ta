@@ -36,6 +36,12 @@ import {
   getSuperAdminSession,
   getSubdomainFromHostname,
   getRootDomain,
+  getCachedStore,
+  setCachedStore,
+  getCachedProducts,
+  setCachedProducts,
+  getCachedReviews,
+  setCachedReviews,
 } from './utils/storage';
 import {
   dbFetchStores,
@@ -53,6 +59,7 @@ export default function App() {
   const [allStores, setAllStores] = useState<Store[]>([]);
   const [currentStore, setCurrentStore] = useState<Store | null>(null);
   const [storeProducts, setStoreProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(false);
   const [storeInquiries, setStoreInquiries] = useState<WhatsAppInquiryLog[]>([]);
   const [storeReviews, setStoreReviews] = useState<StoreReview[]>([]);
 
@@ -181,6 +188,29 @@ export default function App() {
     let targetStore: Store | null = null;
     const hasExplicitStore = !!(slug || subdomainSlug || storeParam);
 
+    // Instant SWR Cache Hydration for target store & products
+    if (targetFetchSlug) {
+      const cachedStore = getCachedStore(targetFetchSlug);
+      if (cachedStore) {
+        targetStore = cachedStore;
+        stores = [cachedStore];
+        setAllStores([cachedStore]);
+        setCurrentStore(cachedStore);
+        const cachedProds = getCachedProducts(cachedStore.id);
+        if (cachedProds && cachedProds.length > 0) {
+          setStoreProducts(cachedProds);
+          setIsLoadingProducts(false);
+        } else {
+          setIsLoadingProducts(true);
+        }
+        const cachedRevs = getCachedReviews(cachedStore.id);
+        if (cachedRevs && cachedRevs.length > 0) {
+          setStoreReviews(cachedRevs);
+        }
+        setIsBootingStore(false);
+      }
+    }
+
     try {
       if (adminSession) {
         // Super admin: fetch ALL stores
@@ -278,23 +308,47 @@ export default function App() {
 
     if (targetStore) {
       setCurrentStore(targetStore);
+      setCachedStore(targetStore.slug, targetStore);
       sessionStorage.setItem('ta_last_store_slug', targetStore.slug);
 
-      // Fetch products & reviews directly from Supabase — no localStorage
-      try {
-        const liveProds = await dbFetchProducts(targetStore.id);
-        if (Array.isArray(liveProds)) setStoreProducts(liveProds);
-      } catch (e) {}
+      // Hydrate from cache immediately if available
+      const cachedProds = getCachedProducts(targetStore.id);
+      if (cachedProds && cachedProds.length > 0) {
+        setStoreProducts(cachedProds);
+      } else {
+        setIsLoadingProducts(true);
+      }
+
+      const cachedRevs = getCachedReviews(targetStore.id);
+      if (cachedRevs && cachedRevs.length > 0) {
+        setStoreReviews(cachedRevs);
+      }
 
       setStoreInquiries(getInquiriesByStore(targetStore.id));
 
-      try {
-        const liveRevs = await dbFetchReviews(targetStore.id);
-        if (Array.isArray(liveRevs)) setStoreReviews(liveRevs);
-      } catch (e) {}
-    }
+      // Unblock boot immediately so user sees storefront & skeleton / cached products
+      setIsBootingStore(false);
 
-    setIsBootingStore(false);
+      // Fetch fresh products & reviews in parallel in the background (SWR pattern)
+      Promise.all([
+        dbFetchProducts(targetStore.id).catch(() => [] as Product[]),
+        dbFetchReviews(targetStore.id).catch(() => [] as StoreReview[]),
+      ]).then(([liveProds, liveRevs]) => {
+        if (Array.isArray(liveProds)) {
+          setStoreProducts(liveProds);
+          setCachedProducts(targetStore.id, liveProds);
+        }
+        if (Array.isArray(liveRevs)) {
+          setStoreReviews(liveRevs);
+          setCachedReviews(targetStore.id, liveRevs);
+        }
+        setIsLoadingProducts(false);
+      }).catch(() => {
+        setIsLoadingProducts(false);
+      });
+    } else {
+      setIsBootingStore(false);
+    }
   };
 
   useEffect(() => {
@@ -407,19 +461,45 @@ export default function App() {
 
   const switchStore = (store: Store) => {
     setCurrentStore(store);
+    setCachedStore(store.slug, store);
     sessionStorage.setItem('ta_last_store_slug', store.slug);
 
     const url = new URL(window.location.href);
     url.searchParams.set('store', store.slug);
     window.history.replaceState({}, '', url.toString());
 
-    // Fetch fresh data from Supabase
-    dbFetchProducts(store.id)
-      .then(live => { if (Array.isArray(live)) setStoreProducts(live); })
-      .catch(() => {});
-    dbFetchReviews(store.id)
-      .then(live => { if (Array.isArray(live)) setStoreReviews(live); })
-      .catch(() => {});
+    // Hydrate immediately from cache
+    const cachedProds = getCachedProducts(store.id);
+    if (cachedProds && cachedProds.length > 0) {
+      setStoreProducts(cachedProds);
+      setIsLoadingProducts(false);
+    } else {
+      setIsLoadingProducts(true);
+    }
+
+    const cachedRevs = getCachedReviews(store.id);
+    if (cachedRevs && cachedRevs.length > 0) {
+      setStoreReviews(cachedRevs);
+    }
+
+    // Fetch fresh data in parallel
+    Promise.all([
+      dbFetchProducts(store.id).catch(() => [] as Product[]),
+      dbFetchReviews(store.id).catch(() => [] as StoreReview[]),
+    ]).then(([liveProds, liveRevs]) => {
+      if (Array.isArray(liveProds)) {
+        setStoreProducts(liveProds);
+        setCachedProducts(store.id, liveProds);
+      }
+      if (Array.isArray(liveRevs)) {
+        setStoreReviews(liveRevs);
+        setCachedReviews(store.id, liveRevs);
+      }
+      setIsLoadingProducts(false);
+    }).catch(() => {
+      setIsLoadingProducts(false);
+    });
+
     setStoreInquiries(getInquiriesByStore(store.id));
   };
 
@@ -497,14 +577,18 @@ export default function App() {
     handleLoginSuccess(session);
   };
 
-  const handleOpenStorefront = async () => {
-    if (currentStore) {
-      try {
-        const liveProds = await dbFetchProducts(currentStore.id);
-        if (Array.isArray(liveProds)) setStoreProducts(liveProds);
-      } catch (e) {}
-    }
+  const handleOpenStorefront = () => {
     setActiveView('storefront');
+    if (currentStore) {
+      dbFetchProducts(currentStore.id)
+        .then((liveProds) => {
+          if (Array.isArray(liveProds)) {
+            setStoreProducts(liveProds);
+            setCachedProducts(currentStore.id, liveProds);
+          }
+        })
+        .catch(() => {});
+    }
   };
 
   const handleRefreshData = async () => {
@@ -517,12 +601,19 @@ export default function App() {
             const refreshedCurrent = liveStores.find(s => s.id === currentStore.id);
             if (refreshedCurrent) {
               setCurrentStore(refreshedCurrent);
+              setCachedStore(refreshedCurrent.slug, refreshedCurrent);
               const [liveProds, liveRevs] = await Promise.all([
                 dbFetchProducts(refreshedCurrent.id).catch(() => [] as Product[]),
                 dbFetchReviews(refreshedCurrent.id).catch(() => [] as StoreReview[]),
               ]);
-              if (Array.isArray(liveProds)) setStoreProducts(liveProds);
-              if (Array.isArray(liveRevs)) setStoreReviews(liveRevs);
+              if (Array.isArray(liveProds)) {
+                setStoreProducts(liveProds);
+                setCachedProducts(refreshedCurrent.id, liveProds);
+              }
+              if (Array.isArray(liveRevs)) {
+                setStoreReviews(liveRevs);
+                setCachedReviews(refreshedCurrent.id, liveRevs);
+              }
             }
           }
         }
@@ -530,13 +621,20 @@ export default function App() {
         const liveStore = await dbFetchStoreBySlug(currentStore.slug);
         if (liveStore) {
           setCurrentStore(liveStore);
+          setCachedStore(liveStore.slug, liveStore);
           setAllStores(prev => prev.map(s => s.id === liveStore.id ? liveStore : s));
           const [liveProds, liveRevs] = await Promise.all([
             dbFetchProducts(liveStore.id).catch(() => [] as Product[]),
             dbFetchReviews(liveStore.id).catch(() => [] as StoreReview[]),
           ]);
-          if (Array.isArray(liveProds)) setStoreProducts(liveProds);
-          if (Array.isArray(liveRevs)) setStoreReviews(liveRevs);
+          if (Array.isArray(liveProds)) {
+            setStoreProducts(liveProds);
+            setCachedProducts(liveStore.id, liveProds);
+          }
+          if (Array.isArray(liveRevs)) {
+            setStoreReviews(liveRevs);
+            setCachedReviews(liveStore.id, liveRevs);
+          }
         }
       }
     } catch (e) {
@@ -781,6 +879,7 @@ export default function App() {
                       store={currentStore}
                       products={storeProducts}
                       reviews={storeReviews}
+                      isLoadingProducts={isLoadingProducts}
                       isStoreOwner={Boolean(sellerSession && currentStore && (sellerSession.storeId === currentStore.id || sellerSession.storeSlug === currentStore.slug))}
                       onOpenCreateStore={() => { setAuthModalMode('signup'); setIsAuthModalOpen(true); }}
                       onOpenLogin={() => { setAuthModalMode('login'); setIsAuthModalOpen(true); }}
@@ -797,6 +896,7 @@ export default function App() {
                 store={currentStore}
                 products={storeProducts}
                 reviews={storeReviews}
+                isLoadingProducts={isLoadingProducts}
                 isStoreOwner={Boolean(sellerSession && currentStore && (sellerSession.storeId === currentStore.id || sellerSession.storeSlug === currentStore.slug))}
                 onOpenCreateStore={() => { setAuthModalMode('signup'); setIsAuthModalOpen(true); }}
                 onOpenLogin={() => { setAuthModalMode('login'); setIsAuthModalOpen(true); }}

@@ -179,6 +179,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               src={images[activeImageIndex]}
               alt={product.name}
               className={`w-full h-full object-cover transition-opacity duration-200 ${!isAvailable ? 'grayscale opacity-70' : ''}`}
+              decoding="async"
               onError={(e) => {
                 (e.target as HTMLImageElement).src =
                   'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80';

@@ -21,6 +21,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   index = 0,
 }) => {
   const [cartBounce, setCartBounce] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const hasVariants = product.variants && product.variants.length > 0;
   const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>(() => {
@@ -80,17 +81,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         className="relative w-full bg-slate-100 overflow-hidden cursor-pointer"
         style={{ aspectRatio: '3/4' }}
       >
+        {!imageLoaded && (
+          <div className="absolute inset-0 bg-slate-200 animate-pulse pointer-events-none" />
+        )}
         <img
           src={
             product.images?.[0] ||
             'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=600&auto=format&fit=crop&q=80'
           }
           alt={product.name}
-          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
-            !product.inStock ? 'grayscale opacity-60' : ''
-          }`}
+          className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${
+            !imageLoaded ? 'opacity-0 scale-98' : 'opacity-100 scale-100'
+          } ${!product.inStock ? 'grayscale opacity-60' : ''}`}
           loading="lazy"
+          decoding="async"
+          onLoad={() => setImageLoaded(true)}
           onError={(e) => {
+            setImageLoaded(true);
             (e.target as HTMLImageElement).src =
               'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=600&auto=format&fit=crop&q=80';
           }}

@@ -721,6 +721,71 @@ export function saveStoreExpenses(storeId: string, expenses: StoreExpense[]): vo
   localStorage.setItem(`ta_store_expenses_${storeId}`, JSON.stringify(expenses));
 }
 
+// ─── Stale-While-Revalidate (SWR) Local Cache for Instant Storefront Loading ─
+const SWR_STORE_PREFIX = 'ta_cache_store_';
+const SWR_PRODS_PREFIX = 'ta_cache_prods_';
+const SWR_REVS_PREFIX = 'ta_cache_revs_';
+
+export function getCachedStore(slugOrId: string): Store | null {
+  if (!slugOrId) return null;
+  try {
+    const raw = localStorage.getItem(`${SWR_STORE_PREFIX}${slugOrId.toLowerCase()}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedStore(slugOrId: string, store: Store): void {
+  if (!store) return;
+  try {
+    const payload = JSON.stringify(store);
+    if (slugOrId) {
+      localStorage.setItem(`${SWR_STORE_PREFIX}${slugOrId.toLowerCase()}`, payload);
+    }
+    if (store.slug) {
+      localStorage.setItem(`${SWR_STORE_PREFIX}${store.slug.toLowerCase()}`, payload);
+    }
+    if (store.id) {
+      localStorage.setItem(`${SWR_STORE_PREFIX}${store.id}`, payload);
+    }
+  } catch {}
+}
+
+export function getCachedProducts(storeId: string): Product[] | null {
+  if (!storeId) return null;
+  try {
+    const raw = localStorage.getItem(`${SWR_PRODS_PREFIX}${storeId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedProducts(storeId: string, products: Product[]): void {
+  if (!storeId || !Array.isArray(products)) return;
+  try {
+    localStorage.setItem(`${SWR_PRODS_PREFIX}${storeId}`, JSON.stringify(products));
+  } catch {}
+}
+
+export function getCachedReviews(storeId: string): StoreReview[] | null {
+  if (!storeId) return null;
+  try {
+    const raw = localStorage.getItem(`${SWR_REVS_PREFIX}${storeId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedReviews(storeId: string, reviews: StoreReview[]): void {
+  if (!storeId || !Array.isArray(reviews)) return;
+  try {
+    localStorage.setItem(`${SWR_REVS_PREFIX}${storeId}`, JSON.stringify(reviews));
+  } catch {}
+}
+
 // ─── Legacy stubs (kept to avoid import errors in components) ─────────────────
 
 /** @deprecated Use dbFetchStoreBySlug() directly */
