@@ -462,8 +462,8 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
               )}
             </div>
 
-            {/* CAC Business Verification (For Verified Merchant Blue/Gold Tick) */}
-            {selectedPlan !== 'starter' && (
+            {/* CAC Business Verification (Only for Verified Badge, Pro & Business AI) */}
+            {(selectedPlan === 'badge' || selectedPlan === 'pro' || selectedPlan === 'business') && (
               <div className="bg-amber-50/70 border border-amber-300 rounded-2xl p-4 space-y-3">
                 <div className="flex items-start gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
