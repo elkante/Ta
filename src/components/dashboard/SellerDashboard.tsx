@@ -1958,7 +1958,6 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
                     <tr>
                       <th className="py-3 px-4">Product</th>
-                      <th className="py-3 px-4">Item UID</th>
                       <th className="py-3 px-4">Price</th>
                       <th className="py-3 px-4 hidden md:table-cell">Category</th>
                       <th className="py-3 px-4">Stock Status</th>
@@ -1968,7 +1967,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   <tbody className="divide-y divide-slate-100">
                     {filteredProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-12 text-center text-slate-400">
+                        <td colSpan={5} className="py-12 text-center text-slate-400">
                           No products found matching your search.
                         </td>
                       </tr>
@@ -1986,8 +1985,8 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                                 alt={p.name}
                                 className="w-10 h-10 rounded-xl object-cover bg-slate-100 border border-slate-200 shrink-0"
                               />
-                              <div className="max-w-xs">
-                                <div className="font-semibold text-slate-900 truncate flex items-center gap-1.5">
+                              <div className="min-w-0">
+                                <div className="font-semibold text-slate-900 flex items-center gap-1.5 max-w-[10rem] sm:max-w-[14rem]">
                                   <span className="truncate">{p.name}</span>
                                   {isPausedDueToPlan && (
                                     <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-1.5 py-0.2 rounded shrink-0">
@@ -1996,6 +1995,17 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                                   )}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                  {/* Item UID — always visible under name */}
+                                  <span className="font-mono text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">
+                                    #{p.uid || p.id}
+                                  </span>
+                                  {/* Inquiry count */}
+                                  {p.inquiryCount > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md">
+                                      <MessageCircle className="w-2.5 h-2.5 text-emerald-600" />
+                                      <span>{p.inquiryCount}</span>
+                                    </span>
+                                  )}
                                   {p.badge && (
                                     <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-medium">
                                       {p.badge}
@@ -2011,20 +2021,6 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                                   </span>
                                 </div>
                               </div>
-                            </div>
-                          </td>
-
-                          <td className="py-3 px-4 font-mono font-bold text-slate-800 text-xs">
-                            <div className="flex flex-col gap-1 items-start">
-                              <span className="bg-slate-100 px-2 py-0.5 rounded text-[11px] border border-slate-200">
-                                #{p.uid || p.id}
-                              </span>
-                              {p.inquiryCount > 0 && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md">
-                                  <MessageCircle className="w-2.5 h-2.5 text-emerald-600" />
-                                  <span>{p.inquiryCount}</span>
-                                </span>
-                              )}
                             </div>
                           </td>
 
