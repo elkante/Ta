@@ -4,7 +4,6 @@ import {
   Plus,
   Search,
   Download,
-  Printer,
   Trash2,
   CheckCircle2,
   Clock,
@@ -17,16 +16,27 @@ import {
   Calendar,
   CreditCard,
   Check,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
-import { Store, StoreInvoice, StoreInvoiceItem, Product } from '../../types';
+import { Store, StoreInvoice, StoreInvoiceItem, Product, StoreOrder, OrderItemPayload } from '../../types';
 import { getStoreInvoices, saveStoreInvoices } from '../../utils/storage';
 
 interface InvoicesTabProps {
   store: Store;
   products: Product[];
+  orders?: StoreOrder[];
+  onUpgrade?: (plan?: 'starter' | 'basic' | 'pro' | 'business') => void;
+  onOpenBilling?: () => void;
 }
 
-export const InvoicesTab: React.FC<InvoicesTabProps> = ({ store, products }) => {
+export const InvoicesTab: React.FC<InvoicesTabProps> = ({
+  store,
+  products,
+  orders = [],
+  onUpgrade,
+  onOpenBilling,
+}) => {
   const [invoices, setInvoices] = useState<StoreInvoice[]>(() =>
     getStoreInvoices(store.id)
   );
@@ -123,6 +133,345 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({ store, products }) => 
     () => Math.max(0, subtotal - Number(discount || 0) + Number(deliveryFee || 0)),
     [subtotal, discount, deliveryFee]
   );
+
+  const handleAutofillFromOrder = (ord: StoreOrder) => {
+    setCustomerName(ord.buyerName || '');
+    setCustomerPhone(ord.buyerPhone || '');
+    setCustomerAddress(ord.deliveryAddress || '');
+    if (ord.status === 'completed' || ord.status === 'payment_confirmed') {
+      setDocType('receipt');
+    } else {
+      setDocType('invoice');
+    }
+    if (ord.items && ord.items.length > 0) {
+      setItems(
+        ord.items.map((i: OrderItemPayload, idx: number) => ({
+          id: `item_ord_${idx}`,
+          productId: i.productId,
+          name: i.productName + (i.variantName ? ` (${i.variantName})` : ''),
+          quantity: i.quantity || 1,
+          unitPrice: i.price,
+          total: (i.quantity || 1) * i.price,
+        }))
+      );
+    }
+    setDeliveryFee(0);
+    setDiscount(ord.discountAmount || 0);
+    setNotes(`Order #${ord.id.slice(-6).toUpperCase()}`);
+  };
+
+  const generateDocHtml = (doc: StoreInvoice) => {
+    const isReceipt = doc.type === 'receipt';
+    const isPaid = doc.status === 'paid' || isReceipt;
+
+    return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${isReceipt ? 'Receipt' : 'Invoice'}_${doc.docNumber}_${store.name}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        color: #0f172a;
+        background: #ffffff;
+        padding: 40px;
+        max-width: 820px;
+        margin: 0 auto;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 24px;
+        margin-bottom: 24px;
+      }
+      .store-info {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+      }
+      .store-logo {
+        width: 72px;
+        height: 72px;
+        border-radius: 16px;
+        object-fit: cover;
+        border: 1px solid #e2e8f0;
+      }
+      .store-logo-fallback {
+        width: 72px;
+        height: 72px;
+        border-radius: 16px;
+        background: #0f172a;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 800;
+      }
+      .doc-title {
+        text-align: right;
+      }
+      .doc-type {
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        text-transform: uppercase;
+        color: ${isPaid ? '#047857' : '#1e293b'};
+      }
+      .doc-number {
+        font-family: monospace;
+        font-size: 14px;
+        font-weight: 700;
+        color: #64748b;
+        margin-top: 4px;
+      }
+      .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        margin-top: 8px;
+        background: ${isPaid ? '#d1fae5' : '#fef3c7'};
+        color: ${isPaid ? '#065f46' : '#92400e'};
+      }
+      .meta-box {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 24px;
+      }
+      .meta-title {
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #94a3b8;
+        margin-bottom: 6px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 24px;
+        font-size: 13px;
+      }
+      th {
+        border-bottom: 2px solid #cbd5e1;
+        padding: 10px 12px;
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #64748b;
+        font-weight: 700;
+      }
+      td {
+        padding: 12px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .amount-col {
+        text-align: right;
+        font-family: monospace;
+        font-weight: 600;
+      }
+      .totals-container {
+        display: flex;
+        justify-content: space-between;
+        padding-top: 16px;
+        border-top: 2px solid #e2e8f0;
+      }
+      .totals-table {
+        width: 280px;
+        margin-left: auto;
+      }
+      .total-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 4px 0;
+        color: #64748b;
+      }
+      .grand-total-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 16px;
+        font-weight: 800;
+        padding-top: 8px;
+        margin-top: 6px;
+        border-top: 2px solid #0f172a;
+        color: #0f172a;
+      }
+      .footer-note {
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px dashed #cbd5e1;
+        font-size: 11px;
+        color: #94a3b8;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="store-info">
+        ${
+          store.logoUrl
+            ? `<img src="${store.logoUrl}" class="store-logo" alt="${store.name}" />`
+            : `<div class="store-logo-fallback">${store.name.slice(0, 2).toUpperCase()}</div>`
+        }
+        <div>
+          <h1 style="font-size: 22px; font-weight: 800; color: #0f172a;">${store.name}</h1>
+          <p style="font-size: 12px; color: #64748b; margin-top: 2px;">${store.tagline || 'Official Merchant'}</p>
+          <p style="font-size: 12px; color: #64748b;">${store.location || 'Nigeria'}</p>
+          <p style="font-size: 12px; font-family: monospace; color: #475569; margin-top: 2px;">${store.whatsappCountryCode} ${store.whatsappNumber}</p>
+        </div>
+      </div>
+      <div class="doc-title">
+        <div class="doc-type">${isReceipt ? 'Official Receipt' : 'Commercial Invoice'}</div>
+        <div class="doc-number">#${doc.docNumber}</div>
+        <div class="badge">${isPaid ? 'PAID IN FULL' : 'PAYMENT DUE'}</div>
+      </div>
+    </div>
+
+    <div class="meta-box">
+      <div>
+        <div class="meta-title">Billed To (Customer)</div>
+        <div style="font-weight: 700; font-size: 14px; color: #0f172a;">${doc.customerName}</div>
+        <div style="font-size: 12px; font-family: monospace; color: #475569; margin-top: 2px;">${doc.customerPhone}</div>
+        ${doc.customerEmail ? `<div style="font-size: 12px; color: #64748b;">${doc.customerEmail}</div>` : ''}
+        ${doc.customerAddress ? `<div style="font-size: 12px; color: #64748b; margin-top: 4px;">${doc.customerAddress}</div>` : ''}
+      </div>
+      <div style="text-align: right;">
+        <div class="meta-title">Document Details</div>
+        <div style="font-size: 12px; color: #475569;">Issue Date: <strong>${doc.issueDate}</strong></div>
+        ${doc.dueDate ? `<div style="font-size: 12px; color: #475569; margin-top: 2px;">Due Date: <strong>${doc.dueDate}</strong></div>` : ''}
+        ${doc.paymentMethod ? `<div style="font-size: 12px; color: #475569; margin-top: 2px;">Payment: <strong>${doc.paymentMethod}</strong></div>` : ''}
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 50%;">Item Description</th>
+          <th style="text-align: center; width: 15%;">Qty</th>
+          <th class="amount-col" style="width: 17%;">Price</th>
+          <th class="amount-col" style="width: 18%;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${doc.items
+          .map(
+            (item) => `
+          <tr>
+            <td style="font-weight: 600; color: #0f172a;">${item.name}</td>
+            <td style="text-align: center; font-family: monospace;">${item.quantity}</td>
+            <td class="amount-col">${store.currencySymbol}${item.unitPrice.toLocaleString()}</td>
+            <td class="amount-col" style="font-weight: 700; color: #0f172a;">${store.currencySymbol}${item.total.toLocaleString()}</td>
+          </tr>
+        `
+          )
+          .join('')}
+      </tbody>
+    </table>
+
+    <div class="totals-container">
+      <div>
+        ${
+          doc.bankName
+            ? `
+          <div style="font-size: 11px; background: #f1f5f9; padding: 12px 16px; border-radius: 12px; max-width: 320px;">
+            <div style="font-weight: 700; color: #334155; margin-bottom: 4px; text-transform: uppercase;">Bank Transfer Details</div>
+            <div>Bank: <strong>${doc.bankName}</strong></div>
+            <div>Account: <strong>${doc.accountNumber || ''}</strong></div>
+            <div>Name: <strong>${doc.accountName || ''}</strong></div>
+          </div>
+        `
+            : ''
+        }
+        ${
+          doc.notes
+            ? `<div style="font-size: 11px; color: #64748b; margin-top: 8px;"><strong>Note:</strong> ${doc.notes}</div>`
+            : ''
+        }
+      </div>
+
+      <div class="totals-table">
+        <div class="total-row">
+          <span>Subtotal:</span>
+          <span style="font-family: monospace; font-weight: 600;">${store.currencySymbol}${doc.subtotal.toLocaleString()}</span>
+        </div>
+        ${
+          doc.discount > 0
+            ? `
+          <div class="total-row" style="color: #b91c1c;">
+            <span>Discount:</span>
+            <span style="font-family: monospace;">-${store.currencySymbol}${doc.discount.toLocaleString()}</span>
+          </div>
+        `
+            : ''
+        }
+        ${
+          doc.deliveryFee > 0
+            ? `
+          <div class="total-row">
+            <span>Delivery Fee:</span>
+            <span style="font-family: monospace;">+${store.currencySymbol}${doc.deliveryFee.toLocaleString()}</span>
+          </div>
+        `
+            : ''
+        }
+        <div class="grand-total-row">
+          <span>Total:</span>
+          <span style="color: #047857; font-family: monospace;">${store.currencySymbol}${doc.total.toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Thank you for shopping with ${store.name}! For customer inquiries or support, WhatsApp ${store.whatsappCountryCode} ${store.whatsappNumber}.
+    </div>
+
+    <script>
+      window.onload = function() {
+        setTimeout(function() {
+          window.focus();
+          window.print();
+        }, 300);
+      };
+    </script>
+  </body>
+</html>`;
+  };
+
+  const handleDownloadPdf = () => {
+    if (!viewingDoc) return;
+    const html = generateDocHtml(viewingDoc);
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => {
+      win.focus();
+      win.print(); // triggers browser Save as PDF dialog
+      win.close();
+    }, 600);
+  };
 
   const handleCreateDocument = (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,6 +580,45 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({ store, products }) => 
   };
 
   return (
+    <>
+    {/* Plan gate — invoices are Basic+ only */}
+    {(store.tier === 'free' || store.tier === 'starter') ? (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center max-w-md mx-auto">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
+          <FileText className="w-8 h-8 text-indigo-400" />
+        </div>
+        <h2 className="text-xl font-black text-slate-900">Invoices & Receipts</h2>
+        <p className="text-sm text-slate-500 leading-relaxed">
+          Professional invoices and receipts with your store logo are available on the <strong>Basic plan</strong> and above.
+        </p>
+        <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 text-xs text-indigo-700 font-medium space-y-1 w-full text-left">
+          <p className="font-black text-indigo-900 mb-2">✦ Basic Plan includes:</p>
+          <p>• PDF Invoice & Receipt generation</p>
+          <p>• Store logo on every document</p>
+          <p>• Auto-fill from recent orders</p>
+          <p>• WhatsApp sharing with one tap</p>
+        </div>
+        <div className="flex flex-col sm:flex-row items-center gap-3 pt-1 w-full sm:w-auto justify-center">
+          <button
+            type="button"
+            onClick={() => onUpgrade?.('basic')}
+            className="w-full sm:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-sm rounded-xl transition cursor-pointer shadow-md flex items-center justify-center gap-2"
+          >
+            <Zap className="w-4 h-4 fill-white" />
+            <span>Upgrade to Basic →</span>
+          </button>
+          {onOpenBilling && (
+            <button
+              type="button"
+              onClick={onOpenBilling}
+              className="w-full sm:w-auto px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm rounded-xl transition cursor-pointer"
+            >
+              View All Plans
+            </button>
+          )}
+        </div>
+      </div>
+    ) : (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Top Banner — Orderly Invoices & Receipts inspired */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden border border-slate-700/60">
@@ -543,11 +931,12 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({ store, products }) => 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handlePrint}
+                  onClick={handleDownloadPdf}
                   className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Download as PDF"
                 >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print / Save PDF</span>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download PDF</span>
                 </button>
                 <button
                   onClick={() => setViewingDoc(null)}
@@ -561,16 +950,32 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({ store, products }) => 
             {/* Printable Document Content */}
             <div className="space-y-6 text-slate-900 font-sans print:p-0">
               {/* Store & Doc Header */}
-              <div className="flex justify-between items-start border-b border-slate-200 pb-5">
-                <div>
-                  <h2 className="text-2xl font-black tracking-tight text-slate-950">
-                    {store.name}
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">{store.tagline || 'Social Commerce Store'}</p>
-                  <p className="text-xs text-slate-600 mt-1">{store.location || 'Nigeria'}</p>
-                  <p className="text-xs text-slate-600 font-mono">
-                    {store.whatsappCountryCode} {store.whatsappNumber}
-                  </p>
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-200 pb-5">
+                <div className="flex items-start gap-3.5">
+                  {store.logoUrl ? (
+                    <img
+                      src={store.logoUrl}
+                      alt={store.name}
+                      className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shadow-2xs shrink-0"
+                    />
+                  ) : (
+                    <div
+                      className="w-16 h-16 rounded-2xl text-white font-black text-xl flex items-center justify-center shadow-2xs shrink-0"
+                      style={{ backgroundColor: store.accentColor || '#0f172a' }}
+                    >
+                      {store.name.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <h2 className="text-2xl font-black tracking-tight text-slate-950">
+                      {store.name}
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">{store.tagline || 'Social Commerce Store'}</p>
+                    <p className="text-xs text-slate-600 mt-1">{store.location || 'Nigeria'}</p>
+                    <p className="text-xs text-slate-600 font-mono">
+                      {store.whatsappCountryCode} {store.whatsappNumber}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="text-right">
@@ -742,6 +1147,38 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({ store, products }) => 
                   Sales Receipt (Payment Received)
                 </button>
               </div>
+
+              {/* Auto-fill from Recent Order */}
+              {orders && orders.length > 0 && (
+                <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-black text-amber-950 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Auto-fill from Recent Order</span>
+                    </label>
+                    <span className="text-[10px] text-amber-700 font-bold bg-amber-100 px-2 py-0.5 rounded-full">
+                      Fast 1-Click
+                    </span>
+                  </div>
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      const ordId = e.target.value;
+                      if (!ordId) return;
+                      const found = orders.find((o) => o.id === ordId);
+                      if (found) handleAutofillFromOrder(found);
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl text-xs font-medium text-slate-800 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="">Select an order to auto-populate customer & items...</option>
+                    {orders.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        #{o.id.slice(-6).toUpperCase()} — {o.buyerName} ({store.currencySymbol}{(o.totalAmount || 0).toLocaleString()}) • {o.items.length} item{o.items.length !== 1 ? 's' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Customer Details */}
               <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
@@ -985,5 +1422,7 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({ store, products }) => 
         </div>
       )}
     </div>
+    )}
+    </>
   );
 };

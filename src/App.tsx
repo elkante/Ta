@@ -779,7 +779,8 @@ export default function App() {
         try { sessionStorage.setItem('ta_seen_splash', '1'); } catch (e) {}
       }} />}
 
-      {sellerSession && activeView === 'dashboard' && <PWAInstallBanner />}
+      {/* PWA bottom-sheet install popup modal — landing & seller dashboard only */}
+      {(activeView === 'landing' || (sellerSession && activeView === 'dashboard')) && <PWAInstallBanner />}
 
       {activeView !== 'landing' && activeView !== 'pricing' && (
         <Navigation

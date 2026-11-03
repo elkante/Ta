@@ -10,6 +10,7 @@ import {
   StoreNote,
   StoreExpense,
   StoreCoupon,
+  StoreWholesalePolicy,
   StoreCustomer,
   StoreInvoice,
   StoreDeliveryLocation,
@@ -741,6 +742,18 @@ export function saveStoreCoupons(storeId: string, coupons: StoreCoupon[]): void 
   localStorage.setItem(`ta_store_coupons_${storeId}`, JSON.stringify(coupons));
 }
 
+export function getStoreWholesalePolicies(storeId: string): StoreWholesalePolicy[] {
+  try {
+    const raw = localStorage.getItem(`ta_store_wholesale_${storeId}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return [];
+}
+
+export function saveStoreWholesalePolicies(storeId: string, policies: StoreWholesalePolicy[]): void {
+  localStorage.setItem(`ta_store_wholesale_${storeId}`, JSON.stringify(policies));
+}
+
 // ─── Delivery Locations ───────────────────────────────────────────────────────
 
 export function getStoreDeliveryLocations(storeId: string): StoreDeliveryLocation[] {
@@ -748,54 +761,8 @@ export function getStoreDeliveryLocations(storeId: string): StoreDeliveryLocatio
     const raw = localStorage.getItem(`ta_store_locations_${storeId}`);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  // Default starter delivery locations for Nigeria
-  return [
-    {
-      id: 'loc_lag_isl',
-      storeId,
-      state: 'Lagos',
-      areaName: 'Lagos Island / Victoria Island / Ikoyi',
-      fee: 2500,
-      estimatedDays: 'Same-day or next-day',
-      isActive: true,
-    },
-    {
-      id: 'loc_lag_lek',
-      storeId,
-      state: 'Lagos',
-      areaName: 'Lekki Phase 1 / Oniru / Chevron',
-      fee: 2500,
-      estimatedDays: 'Same-day or next-day',
-      isActive: true,
-    },
-    {
-      id: 'loc_lag_main',
-      storeId,
-      state: 'Lagos',
-      areaName: 'Lagos Mainland (Ikeja, Surulere, Yaba, Gbagada)',
-      fee: 2000,
-      estimatedDays: 'Same-day or next-day',
-      isActive: true,
-    },
-    {
-      id: 'loc_abj_cbd',
-      storeId,
-      state: 'Abuja (FCT)',
-      areaName: 'Central Abuja (Maitama, Wuse 2, Garki, Jabi)',
-      fee: 3500,
-      estimatedDays: '1 - 2 business days',
-      isActive: true,
-    },
-    {
-      id: 'loc_other_states',
-      storeId,
-      state: 'Other Nigerian States',
-      areaName: 'Interstate Nationwide Park Delivery',
-      fee: 4500,
-      estimatedDays: '2 - 4 business days',
-      isActive: true,
-    },
-  ];
+  // Let sellers set up their own delivery locations & rates from scratch
+  return [];
 }
 
 export function saveStoreDeliveryLocations(storeId: string, locations: StoreDeliveryLocation[]): void {

@@ -36,6 +36,8 @@ interface WhatsAppBotStudioProps {
   store: Store;
   products: Product[];
   onRefreshData?: () => void;
+  onUpgrade?: (plan?: 'starter' | 'basic' | 'pro' | 'business') => void;
+  onOpenBilling?: () => void;
 }
 
 interface ChatMessage {
@@ -53,6 +55,8 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   store,
   products,
   onRefreshData,
+  onUpgrade,
+  onOpenBilling,
 }) => {
   const displayUrl = getStoreDisplayUrl(store.slug);
   const webhookUrl = `https://api.${getRootDomain()}/v1/webhook/whatsapp/${store.slug}`;
@@ -327,6 +331,10 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   }, [baileysStatus, serverEndpoint, store.id, baileysQr, handleConnectedEvent]);
 
   const handleStartBaileysPairing = async (forceRefresh = false) => {
+    if (store.tier === 'free' || store.tier === 'starter') {
+      onUpgrade?.('business');
+      return;
+    }
     setIsPairingLoading(true);
     setPairingError(null);
     setBaileysStatus('waiting_scan');
@@ -714,7 +722,49 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      {/* Plan gate — WhatsApp Auto-Reply Bot is locked for Free and Starter */}
+      {store.tier === 'free' || store.tier === 'starter' ? (
+        <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center max-w-lg mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+            <Bot className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-black text-slate-900">WhatsApp Auto-Reply Bot</h2>
+          <p className="text-sm text-slate-500 leading-relaxed">
+            Automated WhatsApp 24/7 Drop UID auto-replies, catalog assistants, and live pairing are locked on the <strong>{store.tier === 'free' ? 'Free Trial' : 'Starter'} plan</strong>.
+          </p>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-xs text-emerald-950 font-medium space-y-2 w-full text-left">
+            <p className="font-black text-emerald-950 mb-1 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <span>Unlock Automated WhatsApp Selling:</span>
+            </p>
+            <p>• 24/7 instant replies to Item UID codes (e.g. #TA-BR540)</p>
+            <p>• Automatically sends product photos, live prices &amp; 1-click checkout links to buyers</p>
+            <p>• Direct QR pairing with your WhatsApp Business phone</p>
+            <p>• Smart human handover: auto-pauses when you type manually to friends</p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2 w-full sm:w-auto justify-center">
+            <button
+              type="button"
+              onClick={() => onUpgrade?.('business')}
+              className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-sm rounded-xl transition cursor-pointer shadow-md flex items-center justify-center gap-2"
+            >
+              <Zap className="w-4 h-4 fill-white" />
+              <span>Upgrade to Business Bot →</span>
+            </button>
+            {onOpenBilling && (
+              <button
+                type="button"
+                onClick={onOpenBilling}
+                className="w-full sm:w-auto px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm rounded-xl transition cursor-pointer"
+              >
+                View All Plans
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
       {/* Feature Intro Banner */}
       <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-950 p-6 sm:p-8 rounded-3xl text-white shadow-xl border border-emerald-500/20 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -1504,5 +1554,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         </div>
       </div>
     </div>
+      )}
+    </>
   );
 };

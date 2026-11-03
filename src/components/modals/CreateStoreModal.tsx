@@ -12,11 +12,18 @@ interface CreateStoreModalProps {
 }
 
 const NICHES = [
-  { id: 'perfumes', name: 'Perfumes & Scents', emoji: '✨', color: '#b45309' },
   { id: 'fashion', name: 'Fashion & Apparel', emoji: '👗', color: '#047857' },
+  { id: 'perfumes', name: 'Perfumes & Fragrances', emoji: '✨', color: '#b45309' },
+  { id: 'jewelry', name: 'Jewelry & Accessories', emoji: '💍', color: '#d97706' },
+  { id: 'shoes', name: 'Shoes & Footwear', emoji: '👠', color: '#b91c1c' },
+  { id: 'beauty', name: 'Beauty & Skincare', emoji: '💄', color: '#be185d' },
+  { id: 'hair', name: 'Hair & Wigs', emoji: '✂️', color: '#831843' },
   { id: 'gadgets', name: 'Tech & Gadgets', emoji: '📱', color: '#1d4ed8' },
-  { id: 'beauty', name: 'Beauty & Hair', emoji: '💄', color: '#be185d' },
   { id: 'food', name: 'Food & Bakery', emoji: '🧁', color: '#ea580c' },
+  { id: 'home', name: 'Home & Living', emoji: '🛋️', color: '#4338ca' },
+  { id: 'wellness', name: 'Health & Wellness', emoji: '🌿', color: '#059669' },
+  { id: 'kids', name: 'Baby & Kids', emoji: '🧸', color: '#e11d48' },
+  { id: 'general', name: 'General Retail', emoji: '🛍️', color: '#0f172a' },
 ];
 
 const CURRENCIES: { code: CurrencyCode; symbol: string; label: string }[] = [
@@ -153,6 +160,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
         'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&auto=format&fit=crop&q=80',
       accentColor: accentColor,
       themeStyle: selectedNiche === 'perfumes' ? 'luxury' : 'modern',
+      category: NICHES.find((n) => n.id === selectedNiche)?.name || 'Fashion & Apparel',
       location: location.trim(),
       announcement: '🎉 Welcome to our brand new WhatsApp storefront! Order in 1 click.',
       deliveryInfo: 'Fast dispatch available. Contact us for delivery timelines and rates.',

@@ -27,6 +27,7 @@ import {
   MessageCircle,
   MessageSquare,
   Package,
+  Palette,
   Phone,
   Pin,
   Plus,
@@ -272,6 +273,21 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const historyOrders = storeOrders.filter((o: StoreOrder) => o.status === 'completed' || o.status === 'cancelled');
   const pendingOrdersCount = storeOrders.filter((o: StoreOrder) => o.status === 'pending').length;
 
+  // Real-time Clock for Live Dashboard Greeting (refreshes automatically)
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentHour = currentTime.getHours();
+  const greeting =
+    currentHour >= 4 && currentHour < 12
+      ? 'Good morning'
+      : currentHour >= 12 && currentHour < 17
+      ? 'Good afternoon'
+      : 'Good evening';
+
   // New Order Real-Time Listener + Cloud Supabase Polling Effect
   useEffect(() => {
     const checkOrders = async () => {
@@ -423,19 +439,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [settingsCountryCode, setSettingsCountryCode] = useState(store.whatsappCountryCode || '+234');
   const [settingsNumber, setSettingsNumber] = useState(store.whatsappNumber || '');
   const [settingsCurrency, setSettingsCurrency] = useState<CurrencyCode>(store.currency || 'NGN');
-  const [settingsAccentColor, setSettingsAccentColor] = useState(store.accentColor || '#b45309');
   const [settingsAnnouncement, setSettingsAnnouncement] = useState(store.announcement || '');
   const [settingsDeliveryInfo, setSettingsDeliveryInfo] = useState(store.deliveryInfo || '');
   const [settingsInstagram, setSettingsInstagram] = useState(() => sanitizeSocialInput('instagram', store.socialLinks?.instagram || ''));
   const [settingsTikTok, setSettingsTikTok] = useState(() => sanitizeSocialInput('tiktok', store.socialLinks?.tiktok || ''));
   const [settingsFacebook, setSettingsFacebook] = useState(() => sanitizeSocialInput('facebook', store.socialLinks?.facebook || ''));
   const [settingsTwitter, setSettingsTwitter] = useState(() => sanitizeSocialInput('twitter', store.socialLinks?.twitter || ''));
-  const [settingsLogoUrl, setSettingsLogoUrl] = useState(store.logoUrl || '');
-  const [settingsBannerUrl, setSettingsBannerUrl] = useState(store.bannerUrl || '');
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
-  const logoFileInputRef = useRef<HTMLInputElement>(null);
-  const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const [settingsSavedToast, setSettingsSavedToast] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
@@ -454,73 +463,14 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     setSettingsCountryCode(store.whatsappCountryCode || '+234');
     setSettingsNumber(store.whatsappNumber || '');
     setSettingsCurrency(store.currency || 'NGN');
-    setSettingsAccentColor(store.accentColor || '#b45309');
     setSettingsAnnouncement(store.announcement || '');
     setSettingsDeliveryInfo(store.deliveryInfo || '');
     setSettingsInstagram(sanitizeSocialInput('instagram', store.socialLinks?.instagram || ''));
     setSettingsTikTok(sanitizeSocialInput('tiktok', store.socialLinks?.tiktok || ''));
     setSettingsFacebook(sanitizeSocialInput('facebook', store.socialLinks?.facebook || ''));
     setSettingsTwitter(sanitizeSocialInput('twitter', store.socialLinks?.twitter || ''));
-    setSettingsLogoUrl(store.logoUrl || '');
-    setSettingsBannerUrl(store.bannerUrl || '');
     setSettingsOwnerName(store.ownerName || '');
   }, [store]);
-
-  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setSettingsError('Please select a valid image file for logo (JPG, PNG, WebP)');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setSettingsError('Logo image file must be under 5MB');
-      return;
-    }
-
-    setIsUploadingLogo(true);
-    setSettingsError(null);
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setSettingsLogoUrl(reader.result as string);
-      setIsUploadingLogo(false);
-    };
-    reader.onerror = () => {
-      setSettingsError('Failed to read logo image file.');
-      setIsUploadingLogo(false);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setSettingsError('Please select a valid image file for cover banner (JPG, PNG, WebP)');
-      return;
-    }
-    if (file.size > 7 * 1024 * 1024) {
-      setSettingsError('Cover banner image file must be under 7MB');
-      return;
-    }
-
-    setIsUploadingBanner(true);
-    setSettingsError(null);
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setSettingsBannerUrl(reader.result as string);
-      setIsUploadingBanner(false);
-    };
-    reader.onerror = () => {
-      setSettingsError('Failed to read cover banner image file.');
-      setIsUploadingBanner(false);
-    };
-    reader.readAsDataURL(file);
-  };
 
   // Link copy toast
   const [copiedStoreLink, setCopiedStoreLink] = useState(false);
@@ -709,13 +659,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       tagline: settingsTagline.trim(),
       description: settingsDescription.trim(),
       location: settingsLocation.trim(),
-      logoUrl: settingsLogoUrl.trim() || store.logoUrl,
-      bannerUrl: settingsBannerUrl.trim() || store.bannerUrl,
+      logoUrl: store.logoUrl,
+      bannerUrl: store.bannerUrl,
       whatsappCountryCode: settingsCountryCode,
       whatsappNumber: settingsNumber.replace(/\D/g, ''),
       currency: settingsCurrency,
       currencySymbol: curSymbol,
-      accentColor: settingsAccentColor,
+      accentColor: store.accentColor || '#b45309',
       announcement: settingsAnnouncement.trim(),
       deliveryInfo: settingsDeliveryInfo.trim(),
       socialLinks: {
@@ -826,7 +776,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     { id: 'home',      label: 'Dashboard',        icon: Home },
     { id: 'storefront',label: 'Manage Storefront',icon: Globe },
     { id: 'products',  label: 'Products',         icon: Package,       badge: `${products.length}` },
-    { id: 'coupons',   label: 'Coupons',          icon: Tag,           badge: store.coupons && store.coupons.filter(c => c.isActive).length > 0 ? `${store.coupons.filter(c => c.isActive).length}` : undefined },
+    { id: 'coupons',   label: 'Discounts & Wholesale', icon: Tag, badge: ((store.coupons?.filter(c => c.isActive).length || 0) + (store.wholesalePolicies?.filter(p => p.isActive).length || 0)) > 0 ? `${(store.coupons?.filter(c => c.isActive).length || 0) + (store.wholesalePolicies?.filter(p => p.isActive).length || 0)}` : undefined },
     { id: 'orders',    label: 'Orders',          icon: ShoppingBag,   badge: pendingOrdersCount > 0 ? `${pendingOrdersCount}` : undefined },
     { id: 'customers', label: 'Customers',        icon: Users },
     { id: 'locations', label: 'Where you deliver',icon: Truck },
@@ -1376,8 +1326,6 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
         {/* ── HOME / DASHBOARD OVERVIEW TAB ── */}
         {activeTab === 'home' && (() => {
-          const hour = new Date().getHours();
-          const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
           const storeDisplayUrl = getStoreDisplayUrl(store.slug, store.customDomain);
           const storeCatalogUrl2 = getStoreUrl(store.slug, { customDomain: store.customDomain });
 
@@ -1447,7 +1395,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-blue-200 mb-0.5">{greeting} 👋</p>
+                      <p className="text-xs font-semibold text-blue-200 mb-0.5 flex items-center gap-2 flex-wrap">
+                        <span>{greeting} 👋</span>
+                        <span className="text-[11px] font-normal text-blue-200/80 bg-white/10 px-2 py-0.5 rounded-full">
+                          {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </p>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h2 className="text-lg sm:text-xl font-extrabold leading-tight">{store.name}</h2>
                         <span className="inline-flex items-center gap-1 bg-emerald-500/30 border border-emerald-400/30 text-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -1679,6 +1632,11 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           <CouponsTab
             store={store}
             onUpdateStore={onSelectStore}
+            onUpgrade={(plan = 'basic') => {
+              setPaystackInitialPlan(plan);
+              setIsPaystackOpen(true);
+            }}
+            onOpenBilling={() => setActiveTab('billing')}
           />
         )}
 
@@ -1702,6 +1660,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           <InvoicesTab
             store={store}
             products={products}
+            orders={storeOrders}
+            onUpgrade={(plan = 'basic') => {
+              setPaystackInitialPlan(plan);
+              setIsPaystackOpen(true);
+            }}
+            onOpenBilling={() => setActiveTab('billing')}
           />
         )}
 
@@ -2633,132 +2597,27 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 </p>
               </div>
 
-              {/* ── Brand Assets: Logo & Profile Cover ── */}
-              <div className="bg-slate-50/90 rounded-2xl border border-slate-200/90 p-4 sm:p-5 space-y-4">
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                    <Camera className="w-4 h-4 text-amber-500" />
-                    <span>Your Logo & Cover Photo</span>
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    Upload your official store logo and profile header cover directly from your device.
-                  </p>
-                </div>
-
-                {/* Hidden File Inputs */}
-                <input
-                  ref={logoFileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleLogoFileUpload}
-                />
-                <input
-                  ref={bannerFileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleBannerFileUpload}
-                />
-
-                {/* Cover Banner Preview Card with in-place upload button */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Store Cover Photo</label>
-                    <span className="text-[11px] text-slate-400">Recommended 16:9 or 3:1 ratio</span>
+              {/* ── Brand Assets Pointer Card ── */}
+              <div className="bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-slate-50 rounded-2xl border border-amber-200/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Palette className="w-5 h-5" />
                   </div>
-
-                  <div className="relative w-full h-36 sm:h-44 rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 group">
-                    <img
-                      src={settingsBannerUrl || store.bannerUrl}
-                      alt="Profile cover banner"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    {isUploadingBanner && (
-                      <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center">
-                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-
-                    {/* Upload button floating on banner */}
-                    <div className="absolute bottom-3 right-3 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => bannerFileInputRef.current?.click()}
-                        disabled={isUploadingBanner}
-                        className="px-3.5 py-2 rounded-xl bg-white/95 hover:bg-white text-slate-900 text-xs font-bold shadow-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      >
-                        <Upload className="w-3.5 h-3.5 text-slate-700" />
-                        <span>{isUploadingBanner ? 'Uploading...' : 'Upload Cover from Device'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Quick Presets for Cover */}
-                  <div className="mt-2.5">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                      Or pick a preset cover:
-                    </span>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {COVER_PRESETS.map((preset) => (
-                        <button
-                          type="button"
-                          key={preset.name}
-                          onClick={() => setSettingsBannerUrl(preset.url)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer flex items-center gap-1.5 ${
-                            settingsBannerUrl === preset.url
-                              ? 'border-amber-500 bg-amber-50 text-amber-900 font-bold ring-1 ring-amber-400'
-                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundImage: `url(${preset.url})`, backgroundSize: 'cover' }} />
-                          <span>{preset.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Store Logo Row */}
-                <div className="pt-3 border-t border-slate-200/70 flex flex-col sm:flex-row sm:items-center gap-4">
-                  {/* Logo Avatar Preview */}
-                  <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-200 bg-white shadow-sm shrink-0">
-                    <img
-                      src={settingsLogoUrl || store.logoUrl}
-                      alt="Store Logo"
-                      className="w-full h-full object-cover"
-                    />
-                    {isUploadingLogo && (
-                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                        <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 block">Store Logo / Profile Picture</label>
-                    <p className="text-[11px] text-slate-500">
-                      Displayed on your storefront header, checkout receipts, and WhatsApp catalog link.
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">Store Logo, Cover Photo & Brand Colours</h4>
+                    <p className="text-xs text-slate-500 mt-0.5 max-w-md">
+                      Branding is now managed exclusively in <strong>Manage Storefront → Branding</strong> with instant device uploads and live theme preview.
                     </p>
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => logoFileInputRef.current?.click()}
-                        disabled={isUploadingLogo}
-                        className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      >
-                        <Upload className="w-3.5 h-3.5 text-amber-400" />
-                        <span>{isUploadingLogo ? 'Uploading...' : 'Upload Logo from Device'}</span>
-                      </button>
-                      {settingsLogoUrl && settingsLogoUrl !== store.logoUrl && (
-                        <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> New logo selected
-                        </span>
-                      )}
-                    </div>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('storefront')}
+                  className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shrink-0 transition flex items-center gap-2 cursor-pointer shadow-xs active:scale-95"
+                >
+                  <span>Manage in Storefront</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-amber-400" />
+                </button>
               </div>
 
               {/* Store Name & Slug */}
@@ -2834,51 +2693,18 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Announcement Bar & Accent Color */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Top Notice Banner (Shown to Shoppers)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. ✨ Free nationwide dispatch on orders over ₦70,000!"
-                    value={settingsAnnouncement}
-                    onChange={(e) => setSettingsAnnouncement(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Store Brand Colour
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={settingsAccentColor}
-                      onChange={(e) => setSettingsAccentColor(e.target.value)}
-                      className="w-9 h-9 rounded-xl border border-slate-200 cursor-pointer p-0.5"
-                    />
-                    <input
-                      type="text"
-                      value={settingsAccentColor}
-                      onChange={(e) => setSettingsAccentColor(e.target.value)}
-                      className="w-28 px-2.5 py-1.5 text-xs font-mono rounded-xl border border-slate-200"
-                    />
-                    <div className="flex gap-1">
-                      {['#b45309', '#047857', '#1d4ed8', '#be185d', '#0f172a'].map((c) => (
-                        <button
-                          type="button"
-                          key={c}
-                          onClick={() => setSettingsAccentColor(c)}
-                          className="w-5 h-5 rounded-full border border-white shadow-xs cursor-pointer"
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
+              {/* Announcement Bar */}
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Top Notice Banner (Shown to Shoppers)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. ✨ Free nationwide dispatch on orders over ₦70,000!"
+                  value={settingsAnnouncement}
+                  onChange={(e) => setSettingsAnnouncement(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
               </div>
 
               {/* Delivery Info Policy */}
@@ -3170,7 +2996,16 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
         {/* TAB: WHATSAPP DROP UID BOT */}
         {activeTab === 'uid-bot' && (
-          <WhatsAppBotStudio store={store} products={products} onRefreshData={onRefreshData} />
+          <WhatsAppBotStudio
+            store={store}
+            products={products}
+            onRefreshData={onRefreshData}
+            onUpgrade={(plan = 'business') => {
+              setPaystackInitialPlan(plan);
+              setIsPaystackOpen(true);
+            }}
+            onOpenBilling={() => setActiveTab('billing')}
+          />
         )}
 
         {/* TAB 4: MARKETING & QR */}

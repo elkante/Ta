@@ -74,7 +74,25 @@ export interface StoreCoupon {
   createdAt: string;
 }
 
+export interface WholesalePolicyCondition {
+  id: string;
+  type: 'min_cart_total' | 'min_item_quantity';
+  value: number; // e.g. 30000 for ₦30,000 or 5 for 5 items
+}
+
+export interface StoreWholesalePolicy {
+  id: string;
+  storeId: string;
+  name: string; // e.g. "Bulk buyers"
+  discountType: 'percentage' | 'flat';
+  discountValue: number; // e.g. 10 (%) or 5000 (₦)
+  conditions: WholesalePolicyCondition[];
+  isActive: boolean;
+  createdAt: string;
+}
+
 export type StoreThemeId =
+  | 'classic'
   | 'mercato'
   | 'margaux'
   | 'cobalt'
@@ -116,6 +134,8 @@ export interface StorefrontCustomization {
   promoBannerCta?: string;
   // Navigation tabs
   showNavLinks?: boolean;
+  showCollections?: boolean;
+  showPromoCards?: boolean;
   // Advanced Setup
   promoBanners?: PromoBannerSlot[];
   featuredProductIds?: string[];
@@ -123,6 +143,7 @@ export interface StorefrontCustomization {
   showCustomerReviews?: boolean;
   reviewsQuoteSnippet?: string;
   footerText?: string;
+  whyChooseUs?: { title: string; subtitle: string }[];
 }
 
 export interface PromoBannerSlot {
@@ -214,6 +235,7 @@ export interface Store {
   bannerUrl: string;
   accentColor: string; // hex
   themeStyle: 'luxury' | 'modern' | 'minimal' | 'bold';
+  category?: string; // Store niche / category chosen on registration
   location: string;
   announcement?: string;
   deliveryInfo: string;
@@ -238,6 +260,7 @@ export interface Store {
   isPublished?: boolean;
   storefrontCustomization?: StorefrontCustomization;
   coupons?: StoreCoupon[];
+  wholesalePolicies?: StoreWholesalePolicy[];
   deliveryLocations?: StoreDeliveryLocation[];
   invoices?: StoreInvoice[];
   customers?: StoreCustomer[];

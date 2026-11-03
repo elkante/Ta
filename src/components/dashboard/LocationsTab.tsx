@@ -118,75 +118,6 @@ export const LocationsTab: React.FC<LocationsTabProps> = ({ store }) => {
     setAreaName(area);
   };
 
-  const handleLoadNationwideDefaults = () => {
-    const defaults: StoreDeliveryLocation[] = [
-      {
-        id: `loc_lag_isl_${Date.now()}`,
-        storeId: store.id,
-        state: 'Lagos',
-        areaName: 'Lagos Island / Victoria Island / Ikoyi',
-        fee: 2500,
-        estimatedDays: 'Same-day or next-day',
-        isActive: true,
-      },
-      {
-        id: `loc_lag_lek_${Date.now()}`,
-        storeId: store.id,
-        state: 'Lagos',
-        areaName: 'Lekki Phase 1 / Oniru / Chevron',
-        fee: 2500,
-        estimatedDays: 'Same-day or next-day',
-        isActive: true,
-      },
-      {
-        id: `loc_lag_main_${Date.now()}`,
-        storeId: store.id,
-        state: 'Lagos',
-        areaName: 'Lagos Mainland (Ikeja, Surulere, Yaba, Maryland)',
-        fee: 2000,
-        estimatedDays: 'Same-day or next-day',
-        isActive: true,
-      },
-      {
-        id: `loc_abj_cbd_${Date.now()}`,
-        storeId: store.id,
-        state: 'Abuja (FCT)',
-        areaName: 'Central Abuja (Maitama, Wuse 2, Garki, Jabi)',
-        fee: 3500,
-        estimatedDays: '1 - 2 business days',
-        isActive: true,
-      },
-      {
-        id: `loc_ph_gra_${Date.now()}`,
-        storeId: store.id,
-        state: 'Rivers (Port Harcourt)',
-        areaName: 'Port Harcourt (Old GRA, New GRA, Peter Odili)',
-        fee: 4000,
-        estimatedDays: '1 - 2 business days',
-        isActive: true,
-      },
-      {
-        id: `loc_ibadan_${Date.now()}`,
-        storeId: store.id,
-        state: 'Oyo (Ibadan)',
-        areaName: 'Ibadan City (Bodija, Ring Road, Dugbe)',
-        fee: 3500,
-        estimatedDays: '1 - 2 business days',
-        isActive: true,
-      },
-      {
-        id: `loc_interstate_${Date.now()}`,
-        storeId: store.id,
-        state: 'Other Nigerian States',
-        areaName: 'Interstate Nationwide Park Delivery',
-        fee: 4500,
-        estimatedDays: '2 - 4 business days',
-        isActive: true,
-      },
-    ];
-    handleSaveLocations(defaults);
-  };
-
   const selectedStateInfo = getStateByName(selectedState);
 
   const filteredLocations = locations.filter((loc) => {
@@ -224,15 +155,6 @@ export const LocationsTab: React.FC<LocationsTabProps> = ({ store }) => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleLoadNationwideDefaults}
-              className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-white/15 cursor-pointer"
-              title="Preload recommended hubs for Lagos, Abuja, Port Harcourt & Interstate"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Load Preset Hubs</span>
-            </button>
             <button
               type="button"
               onClick={handleOpenAdd}

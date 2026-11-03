@@ -79,6 +79,9 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
     }
   }, [isOpen, messages, isTyping]);
 
+  // Auto-reply bot is strictly locked for Free and Starter tiers
+  if (store.tier === 'free' || store.tier === 'starter') return null;
+
   // Chat bubble is OFF by default. Only renders if merchant explicitly toggles it ON in settings
   // Evaluated after all hooks so hook order and count remains completely constant
   if (store.aiBotConfig?.enabled !== true) return null;

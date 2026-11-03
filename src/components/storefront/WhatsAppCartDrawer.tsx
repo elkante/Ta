@@ -17,6 +17,7 @@ import {
   Plus,
   ShieldCheck,
   ShoppingBag,
+  Sparkles,
   Tag,
   Trash2,
   Truck,
@@ -26,14 +27,19 @@ import {
   Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { CartItem, Store, StoreOrder, StoreDeliveryLocation } from '../../types';
+import { CartItem, Store, StoreOrder, StoreDeliveryLocation, StoreWholesalePolicy } from '../../types';
 import { playOrderNotificationSound } from '../../utils/audio';
 import {
   createFullOrderWhatsAppMessage,
   formatPrice,
   generateWhatsAppLink,
 } from '../../utils/whatsapp';
-import { createStoreOrder, getStoreCoupons, getStoreDeliveryLocations } from '../../utils/storage';
+import {
+  createStoreOrder,
+  getStoreCoupons,
+  getStoreDeliveryLocations,
+  getStoreWholesalePolicies,
+} from '../../utils/storage';
 import { dbSaveOrder } from '../../utils/supabase';
 import { ALL_NIGERIAN_STATE_NAMES } from '../../utils/nigeriaStates';
 
@@ -100,28 +106,65 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
 
   const deliveryFee = selectedLocation ? selectedLocation.fee : 0;
 
-  if (!isOpen) return null;
+  const totalItemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   const rawSubtotal = items.reduce((sum, item) => {
     const p = item.variant ? item.variant.price : item.product.price;
     return sum + p * item.quantity;
   }, 0);
 
-  // Compute discount
-  let discountAmount = 0;
+  // Evaluate Wholesale Policies
+  const wholesalePolicies = useMemo(() => {
+    return (store.wholesalePolicies && store.wholesalePolicies.length > 0)
+      ? store.wholesalePolicies
+      : getStoreWholesalePolicies(store.id);
+  }, [store.wholesalePolicies, store.id]);
+
+  const activeWholesalePolicy = useMemo(() => {
+    const active = wholesalePolicies.filter((p) => p.isActive);
+    let best: { policy: StoreWholesalePolicy; discount: number } | null = null;
+
+    for (const policy of active) {
+      const allConditionsMet =
+        policy.conditions.length > 0 &&
+        policy.conditions.every((cond) => {
+          if (cond.type === 'min_cart_total') return rawSubtotal >= cond.value;
+          if (cond.type === 'min_item_quantity') return totalItemsCount >= cond.value;
+          return true;
+        });
+
+      if (allConditionsMet) {
+        let disc = 0;
+        if (policy.discountType === 'percentage') {
+          disc = Math.round((rawSubtotal * policy.discountValue) / 100);
+        } else {
+          disc = Math.min(rawSubtotal, policy.discountValue);
+        }
+        if (!best || disc > best.discount) {
+          best = { policy, discount: disc };
+        }
+      }
+    }
+    return best;
+  }, [wholesalePolicies, rawSubtotal, totalItemsCount]);
+
+  // Compute discount (coupon + wholesale policy)
+  let couponDiscountAmount = 0;
   if (appliedCoupon) {
     if (appliedCoupon.percent) {
-      discountAmount = Math.round((rawSubtotal * appliedCoupon.percent) / 100);
+      couponDiscountAmount = Math.round((rawSubtotal * appliedCoupon.percent) / 100);
     } else if (appliedCoupon.fixed) {
-      discountAmount = Math.min(rawSubtotal, appliedCoupon.fixed);
+      couponDiscountAmount = Math.min(rawSubtotal, appliedCoupon.fixed);
     }
   }
+
+  const wholesaleDiscountAmount = activeWholesalePolicy ? activeWholesalePolicy.discount : 0;
+  const discountAmount = Math.min(rawSubtotal, couponDiscountAmount + wholesaleDiscountAmount);
+
   const totalAmount = Math.max(
     0,
     rawSubtotal - discountAmount + (fulfillmentMethod === 'delivery' ? deliveryFee : 0)
   );
-
-  const totalItemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleApplyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
@@ -252,7 +295,7 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
       totalAmount,
       currencySymbol: store.currencySymbol,
       whatsappUrl: '',
-      couponCode: appliedCoupon?.code,
+      couponCode: appliedCoupon?.code || (activeWholesalePolicy ? activeWholesalePolicy.policy.name : undefined),
       discountAmount: discountAmount > 0 ? discountAmount : undefined,
     });
 
@@ -302,6 +345,8 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
     setPlacedOrder(null);
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -483,13 +528,36 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
                         {totalItemsCount} item{totalItemsCount > 1 ? 's' : ''} from <strong>{store.name}</strong>
                         {appliedCoupon && (
                           <span className="ml-2 text-emerald-400 font-semibold">
-                            (Code {appliedCoupon.code} saved {formatPrice(discountAmount, store.currencySymbol)})
+                            (Code {appliedCoupon.code} saved {formatPrice(couponDiscountAmount, store.currencySymbol)})
+                          </span>
+                        )}
+                        {activeWholesalePolicy && !appliedCoupon && (
+                          <span className="ml-2 text-emerald-400 font-semibold">
+                            (Wholesale: "{activeWholesalePolicy.policy.name}" saved {formatPrice(wholesaleDiscountAmount, store.currencySymbol)})
                           </span>
                         )}
                       </p>
                     </div>
                   </div>
                 </div>
+
+                {/* Wholesale Policy Banner */}
+                {activeWholesalePolicy && (
+                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-950 rounded-2xl p-3.5 space-y-1 shadow-2xs animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black flex items-center gap-1.5 text-emerald-800">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Wholesale Tier Unlocked: "{activeWholesalePolicy.policy.name}"</span>
+                      </span>
+                      <span className="font-mono font-bold text-emerald-700 text-xs">
+                        -{formatPrice(wholesaleDiscountAmount, store.currencySymbol)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-700">
+                      Automatic bulk discount of {activeWholesalePolicy.policy.discountType === 'percentage' ? `${activeWholesalePolicy.policy.discountValue}%` : formatPrice(activeWholesalePolicy.policy.discountValue, store.currencySymbol)} applied directly to your cart.
+                    </p>
+                  </div>
+                )}
 
                 {/* Coupon Code Section (Dotted Border Card) */}
                 <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-3.5 space-y-2 shadow-2xs">
