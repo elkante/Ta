@@ -23,7 +23,7 @@ async function executeBackendAi({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: jsonMode ? 600 : 350,
+            maxOutputTokens: jsonMode ? 750 : 850,
           },
         };
         if (jsonMode) {
@@ -57,7 +57,7 @@ async function executeBackendAi({
           model,
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.7,
-          max_tokens: jsonMode ? 600 : 350,
+          max_tokens: jsonMode ? 750 : 850,
         };
         if (jsonMode) {
           body.response_format = { type: 'json_object' };

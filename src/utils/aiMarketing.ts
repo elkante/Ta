@@ -275,24 +275,104 @@ Return a valid JSON object ONLY with this exact structure:
  * 1. Calls secure server proxy (/api/ai/description) → Gemini then Groq server-side.
  * 2. Falls back to dynamic randomized intelligent copy.
  */
+/**
+ * Detects the real physical product niche from the title and category.
+ */
+export function detectProductNiche(
+  title: string,
+  category?: string
+): 'power' | 'fashion' | 'perfume' | 'tech' | 'beauty' | 'jewelry' | 'food' | 'general' {
+  const t = `${title} ${category || ''}`.toLowerCase();
+
+  if (
+    t.match(
+      /inverter|solar|battery|generator|panel|ups|stabilizer|kva|watt|power|charge controller|mppt|amp|volts|backup|grid/
+    )
+  ) {
+    return 'power';
+  }
+  if (t.match(/perfume|scent|fragrance|oud|extrait|edp|cologne|body mist|oil|decant/)) {
+    return 'perfume';
+  }
+  if (
+    t.match(
+      /dress|abaya|cloth|shirt|shoe|sneaker|heel|suit|hoodie|trouser|pant|jean|skirt|gown|wear|fabric|lace|agbada|kaftan|tee|top|jacket|sandals/
+    )
+  ) {
+    return 'fashion';
+  }
+  if (
+    t.match(
+      /phone|iphone|samsung|laptop|macbook|pod|airpod|gadget|headphone|watch|smartwatch|charger|cable|console|ps5|tablet|ipad/
+    )
+  ) {
+    return 'tech';
+  }
+  if (
+    t.match(
+      /cream|serum|soap|lotion|skin|glow|hair|wig|skincare|cosmetic|facial|cleanser|sunscreen|makeup|lipstick/
+    )
+  ) {
+    return 'beauty';
+  }
+  if (t.match(/gold|silver|jewelry|jewel|ring|necklace|chain|bracelet|bangle|earring|diamond/)) {
+    return 'jewelry';
+  }
+  if (t.match(/food|snack|spice|oil|rice|pasta|drink|grocery|provision/)) {
+    return 'food';
+  }
+  return 'general';
+}
+
+/**
+ * Generates an attractive product description (2–4 short paragraphs).
+ * 1. Calls secure server proxy (/api/ai/description) → Gemini then Groq server-side.
+ * 2. Falls back to dynamic randomized intelligent niche-aware copy.
+ */
 export async function generateProductDescription(
   name: string,
   category?: string,
   price?: number | string,
   currencySymbol = '₦'
 ): Promise<string> {
-  const prompt = `You are an elite product copywriter for top African e-commerce and social commerce brands.
-Write a captivating, high-converting product description for:
-- Product Title: ${name.trim()}
-- Category: ${category || 'General'}
-- Price: ${price ? `${currencySymbol} ${price}` : 'Special Offer'}
+  const niche = detectProductNiche(name, category);
 
-STRICT RULES:
-1. Format into 2 to 4 short paragraphs tops (maximum 4 short paragraphs). No long write-ups, no fluff.
-2. Keep it punchy, engaging, and readable for WhatsApp and Instagram shoppers.
-3. Highlight premium quality, aesthetic appeal, and reasons to buy today.
-4. Do NOT include markdown headings (no # or ##), bullet symbols (*), or intro greetings.
-5. Separate each paragraph with a single blank line.`;
+  const prompt = `You are a master product copywriter and e-commerce conversion specialist for African retail and social commerce.
+Write an authentic, highly-specific product description for:
+- Product Title: ${name.trim()}
+- Category: ${category && category !== 'General' ? category : niche.toUpperCase()}
+- Price: ${price ? `${currencySymbol} ${price}` : 'Special Offer'}
+- Detected Domain: ${niche.toUpperCase()}
+
+DOMAIN-SPECIFIC WRITING RULES:
+${
+  niche === 'power'
+    ? `* THIS IS A POWER / SOLAR / ENERGY PRODUCT. Focus on 24/7 continuous electricity, zero generator fuel bills, peace of mind during grid/NEPA blackouts, pure sine wave protection for sensitive home/office appliances, and battery management. NEVER talk about clothing, fabrics, sizes, chic aesthetics, or outfit styling!`
+    : niche === 'fashion'
+    ? `* THIS IS APPAREL / FASHION. Focus on fabric texture, breathability, tailoring, fit, comfort, silhouette, and versatile styling for work, outings, or celebrations.`
+    : niche === 'perfume'
+    ? `* THIS IS A FRAGRANCE / SCENT. Focus on scent notes (top, heart, base), projection, longevity, compliments, and authentic oil concentration.`
+    : niche === 'tech'
+    ? `* THIS IS ELECTRONICS / TECH. Focus on processing speed, battery endurance, storage, build durability, smooth daily performance, and warranty.`
+    : niche === 'beauty'
+    ? `* THIS IS BEAUTY / SKINCARE. Focus on skin hydration, natural glow, active ingredients, non-comedogenic texture, and visible results.`
+    : `* Focus on practical utility, real-world benefits, durable materials, and exceptional daily performance.`
+}
+
+STRUCTURE (Strictly 3 to 4 short, self-contained paragraphs):
+- Paragraph 1 (The Problem & Solution): What this specific product actually does and the real-world daily problem it solves for the buyer.
+- Paragraph 2 (Key Specs & Capabilities): Authentic, realistic specifications and practical performance details.
+- Paragraph 3 (Durability & Assurance): Build quality, safety features, reliability, and long-term satisfaction.
+- Paragraph 4 (Action Call): A crisp reason to purchase now with fast nationwide delivery. ${
+    niche === 'fashion' ? 'Mention sizing options.' : 'Do NOT mention size or fit!'
+  }
+
+STRICT CONSTRAINTS:
+1. NO markdown headings (no #, ##, ###).
+2. NO bullet points (*, -) or tables.
+3. NO intro greetings (do NOT say "Introducing...", "Welcome to...", or "Looking for...").
+4. Separate each paragraph with a single blank line.
+5. Keep total write-up between 140 to 200 words so all sentences finish completely without truncation.`;
 
   // 1. Try secure server-side proxy
   try {
@@ -302,24 +382,24 @@ STRICT RULES:
         .trim()
         .split(/\n\s*\n/)
         .map((p: string) => p.replace(/^[#*\-•\s]+/, '').trim())
-        .filter((p: string) => p.length > 0)
+        .filter((p: string) => p.length > 0 && !p.startsWith('---') && !p.startsWith('***'))
         .slice(0, 4);
 
-      if (paragraphs.length > 0) {
+      if (paragraphs.length >= 2) {
         return paragraphs.join('\n\n');
       }
     }
   } catch (err) {
-    console.warn('[AI Description] Proxy call failed, falling back to local:', err);
+    console.warn('[AI Description] Proxy call failed, falling back to local niche engine:', err);
   }
 
-  // 2. Dynamic intelligent fallback
+  // 2. Intelligent, niche-aware fallback (never generic)
   return generateDynamicDescriptionFallback(name, category, price, currencySymbol);
 }
 
 /**
- * Intelligent randomized fallback that generates 2–3 lively, tailored paragraphs
- * so the seller never gets the exact same repetitive description when offline.
+ * Intelligent randomized fallback that generates lively, tailored paragraphs
+ * specifically written for the exact detected niche so it feels 100% unique.
  */
 export function generateDynamicDescriptionFallback(
   name: string,
@@ -327,63 +407,141 @@ export function generateDynamicDescriptionFallback(
   price?: number | string,
   currencySymbol = '₦'
 ): string {
-  const cat = (category || 'item').toLowerCase();
   const cleanTitle = name.trim();
-
-  const openers = [
-    `Experience exceptional sophistication and style with the ${cleanTitle}. Designed to make an effortless statement wherever you go.`,
-    `Meet your newest favorite everyday essential — the ${cleanTitle}. Crafted for those who appreciate premium quality and undeniable authenticity.`,
-    `Step up your game with the genuine ${cleanTitle}. Beautifully curated to bring you the perfect blend of performance, elegance, and durability.`,
-    `Turn heads and elevate your everyday lifestyle with ${cleanTitle}. Handpicked for superior finish and lasting value.`
-  ];
-
-  let details: string[];
-  if (cat.includes('perfume') || cat.includes('fragrance') || cat.includes('scent')) {
-    details = [
-      `Formulated with deep, rich aromatic notes that project with distinction. Enjoy an enduring sillage that lingers gracefully from morning meetings to evening celebrations.`,
-      `Boasting an exquisite blend of top, heart, and base notes that adapt harmoniously to your skin. Delivers impressive longevity and compliments with every spray.`,
-      `A luxurious olfactory journey crafted from high-grade fragrance oils. Balanced, sophisticated, and guaranteed 100% authentic.`
-    ];
-  } else if (cat.includes('fashion') || cat.includes('cloth') || cat.includes('wear') || cat.includes('dress') || cat.includes('shoe')) {
-    details = [
-      `Cut from breathable, premium fabrics that prioritize comfort without sacrificing a sharp silhouette. Built to hold its shape beautifully through repeated wear.`,
-      `Expert tailoring meets modern street-smart elegance. Soft on the skin, impeccably finished, and versatile enough for casual styling or formal outings.`,
-      `Engineered for a flattering fit and maximum all-day ease. Precision stitching and durable textiles ensure lasting satisfaction.`
-    ];
-  } else if (cat.includes('jewel') || cat.includes('gold') || cat.includes('silver') || cat.includes('ring') || cat.includes('chain')) {
-    details = [
-      `Carefully finished with high-luster, tarnish-resistant coating. Hypoallergenic and lightweight, making it your go-to accent for daily shine.`,
-      `Exquisite craftsmanship that captures the light from every angle. Classic timelessness paired with contemporary detailing.`,
-      `Durable, radiant, and thoughtfully designed to pair seamlessly with your signature look or make a memorable gift.`
-    ];
-  } else if (cat.includes('tech') || cat.includes('gadget') || cat.includes('phone') || cat.includes('electronic')) {
-    details = [
-      `Powered by high-efficiency components and responsive performance. Streamlined to enhance your daily productivity and entertainment without lag.`,
-      `Rugged build quality meets modern minimalist aesthetics. Optimized for battery efficiency, rapid connectivity, and everyday reliability.`,
-      `Engineered to deliver seamless functionality and dependable results whenever you need it most.`
-    ];
-  } else if (cat.includes('beauty') || cat.includes('skin') || cat.includes('hair') || cat.includes('cosmetic')) {
-    details = [
-      `Infused with nourishing, skin-loving nutrients that revitalize and illuminate your natural texture. Gentle on sensitive skin and safe for daily use.`,
-      `Formulated to hydrate, protect, and restore a youthful glow. Lightweight consistency that absorbs quickly without greasy residue.`,
-      `A nourishing treat for your self-care ritual. Visible results with smooth, healthy radiance you can feel.`
-    ];
-  } else {
-    details = [
-      `Meticulously checked for uncompromising quality, durability, and practical utility. Designed to exceed expectations and deliver genuine satisfaction.`,
-      `Premium grade materials crafted with attention to every single detail. Built to provide reliable performance day in and day out.`,
-      `Offers exceptional value and craftsmanship you can trust. An ideal upgrade for discerning shoppers.`
-    ];
-  }
-
-  const closers = [
-    `Available for quick dispatch nationwide. Click order on WhatsApp now to secure yours before current stock runs out!`,
-    `Carefully packaged and ready for speedy delivery to your doorstep. Tap WhatsApp to confirm your size and delivery address today!`,
-    `Guaranteed brand new and authentic. Order directly through WhatsApp for prompt customer support and same-day handling.`,
-    `Limited quantity in stock. Tap the WhatsApp button right now to place your order with complete confidence!`
-  ];
+  const niche = detectProductNiche(name, category);
+  const priceDisplay = price ? `${currencySymbol}${price}` : 'an unbeatable price';
 
   const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
-  return `${pick(openers)}\n\n${pick(details)}\n\n${pick(closers)}`;
+  if (niche === 'power') {
+    const openers = [
+      `Say goodbye to sudden blackouts, noisy generators, and endless fuel expenses. The ${cleanTitle} delivers steady, reliable electricity so your home or business runs seamlessly 24/7.`,
+      `Take total control of your power supply with the high-performance ${cleanTitle}. Designed to eliminate downtime and keep your essential equipment running without interruption.`,
+      `Enjoy uninterrupted living and heavy-duty performance with the genuine ${cleanTitle}. Built specifically to conquer demanding power fluctuations and frequent grid outages.`
+    ];
+    const specs = [
+      `Engineered with advanced pure sine wave technology that safely powers sensitive electronics, refrigerators, and lighting systems without humming or harmonic distortion. Features intelligent charging algorithms to maximize energy conversion and extend battery lifespan.`,
+      `Equipped with smart multi-stage protection against overloads, high temperatures, and short circuits. Automatically switches between power sources in milliseconds, so your computers and appliances never shut down unexpectedly.`,
+      `Delivers robust load-handling capacity and silent, clean operation. Built with high-efficiency copper windings and a heavy-duty cooling system designed for maximum African climate endurance.`
+    ];
+    const closers = [
+      `Available now for prompt nationwide dispatch at ${priceDisplay}. Tap the WhatsApp button right now to confirm your order and delivery address!`,
+      `Brand new with guaranteed quality assurance. Click order on WhatsApp today to secure yours before current warehouse stock sells out!`,
+      `Delivered directly to your door with trusted warranty support. Tap WhatsApp right now to place your order with complete confidence!`
+    ];
+    return `${pick(openers)}\n\n${pick(specs)}\n\n${pick(closers)}`;
+  }
+
+  if (niche === 'perfume') {
+    const openers = [
+      `Turn heads and command any room with the captivating presence of ${cleanTitle}. A luxurious fragrance crafted for those who value sophistication and unforgettable allure.`,
+      `Leave a lasting impression wherever you go with the genuine ${cleanTitle}. Rich, distinctive, and meticulously formulated to announce your arrival before you speak a word.`,
+      `Elevate your personal signature with the intoxicating blend of ${cleanTitle}. An exquisite scent experience designed to draw genuine compliments from day to night.`
+    ];
+    const specs = [
+      `Boasts an opulent composition of rich top, heart, and base notes that evolve gracefully across your skin. Formulated with high-concentration perfume oils that guarantee impressive projection and lasting sillage.`,
+      `Masterfully blended from premium fragrance oils that adapt harmoniously to your natural body chemistry. Offers remarkable 12+ hour longevity that carries effortlessly from morning meetings to evening celebrations.`,
+      `A refined olfactory journey featuring warm, deep undertones and vibrant accents. Balanced, sophisticated, and guaranteed 100% authentic with zero harsh synthetic alcohol harshness.`
+    ];
+    const closers = [
+      `Carefully packaged and ready for speedy delivery nationwide at ${priceDisplay}. Tap the WhatsApp button now to secure your bottle today!`,
+      `Limited quantity produced per batch. Tap WhatsApp right now to claim yours and step out smelling undeniably elite!`,
+      `100% original guaranteed. Order directly through WhatsApp for prompt same-day handling and door delivery!`
+    ];
+    return `${pick(openers)}\n\n${pick(specs)}\n\n${pick(closers)}`;
+  }
+
+  if (niche === 'fashion') {
+    const openers = [
+      `Step out with unmatched confidence and poise in the ${cleanTitle}. Beautifully curated to bring you the perfect harmony of contemporary style, comfort, and elegance.`,
+      `Elevate your wardrobe with the exquisite ${cleanTitle}. Designed for those who appreciate premium tailoring, sharp silhouettes, and effortless everyday luxury.`,
+      `Turn heads at every gathering with the ${cleanTitle}. An essential fashion statement that seamlessly transitions from professional settings to memorable celebrations.`
+    ];
+    const specs = [
+      `Cut from breathable, high-grade fabrics that feel luxuriously soft against your skin while maintaining their sharp drape and structure through repeated wear and washing.`,
+      `Expert tailoring meets modern street-smart elegance. Precision stitching, durable textiles, and a flattering fit ensure you look effortlessly put together all day long.`,
+      `Thoughtfully constructed with premium materials that prioritize all-day ease without compromising on aesthetic appeal. A versatile piece that pairs effortlessly with your favorite accessories.`
+    ];
+    const closers = [
+      `Available for quick dispatch nationwide at ${priceDisplay}. Tap WhatsApp right now to confirm your size and delivery address!`,
+      `Limited stock available per color and size. Tap the WhatsApp button today to reserve yours before it's gone!`,
+      `Carefully packaged and delivered straight to your doorstep. Tap WhatsApp to confirm your size and place your order!`
+    ];
+    return `${pick(openers)}\n\n${pick(specs)}\n\n${pick(closers)}`;
+  }
+
+  if (niche === 'tech') {
+    const openers = [
+      `Experience responsive speed, cutting-edge capability, and dependable daily performance with the ${cleanTitle}. Engineered to keep up with your busy workflow and entertainment.`,
+      `Upgrade your digital lifestyle with the ${cleanTitle}. Built with high-efficiency components to deliver smooth responsiveness and reliability without lag.`,
+      `Meet your newest high-performance essential — the genuine ${cleanTitle}. Thoughtfully designed to enhance your daily productivity, gaming, and communication.`
+    ];
+    const specs = [
+      `Powered by high-efficiency internal architecture optimized for battery endurance, rapid data connectivity, and everyday durability. Built with a rugged yet sleek finish that handles rigorous daily usage.`,
+      `Engineered for seamless multitasking, crystal-clear output, and long-lasting battery life. Rigorously tested to deliver peak efficiency whether for work, study, or content creation.`,
+      `Combines modern minimalist aesthetics with uncompromising build quality. Features intuitive controls and dependable hardware certified for lasting customer satisfaction.`
+    ];
+    const closers = [
+      `Brand new in box with verified authenticity at ${priceDisplay}. Tap WhatsApp right now to secure yours with fast nationwide dispatch!`,
+      `Ready for immediate nationwide delivery. Tap the WhatsApp button now to confirm your order and delivery address today!`,
+      `Limited units in stock. Click order on WhatsApp right now to get yours delivered safely to your door!`
+    ];
+    return `${pick(openers)}\n\n${pick(specs)}\n\n${pick(closers)}`;
+  }
+
+  if (niche === 'beauty') {
+    const openers = [
+      `Revitalize your daily self-care ritual and reveal a radiant, healthy glow with the ${cleanTitle}. Specially curated for visible, lasting skin confidence.`,
+      `Give your skin the pampering it truly deserves with ${cleanTitle}. Formulated with nourishing nutrients to restore texture, bounce, and vibrant luminosity.`,
+      `Experience noticeable transformation with the genuine ${cleanTitle}. A gentle yet powerful beauty essential that enhances your natural glow every single day.`
+    ];
+    const specs = [
+      `Infused with skin-loving, deeply hydrating active ingredients that absorb swiftly without greasy residue. Safe and gentle for everyday application across all sensitive skin types.`,
+      `Dermatologically tested to replenish moisture, smooth fine texture, and protect against environmental dryness. Delivers noticeable, silky softness you can feel from the first use.`,
+      `Packed with rich botanical extracts and restorative vitamins that nourish deep beneath the surface. Lightweight consistency with an invigorating, fresh feel.`
+    ];
+    const closers = [
+      `Authentic and ready for swift door delivery at ${priceDisplay}. Tap WhatsApp right now to place your order with complete confidence!`,
+      `Stock is strictly limited. Tap the WhatsApp button today to secure your genuine bottle before we run out!`,
+      `Carefully packaged and dispatched nationwide. Tap WhatsApp to confirm your order and delivery address now!`
+    ];
+    return `${pick(openers)}\n\n${pick(specs)}\n\n${pick(closers)}`;
+  }
+
+  if (niche === 'jewelry') {
+    const openers = [
+      `Add timeless radiance and prestige to your signature look with the ${cleanTitle}. Meticulously crafted to catch the light and command quiet admiration.`,
+      `Celebrate pure craftsmanship and elegance with the genuine ${cleanTitle}. An enduring luxury piece that elevates everyday attire and special occasion outfits alike.`,
+      `Make an unforgettable statement of class with ${cleanTitle}. Beautifully detailed to bring lasting brilliance and refined sparkle to your collection.`
+    ];
+    const specs = [
+      `Finished with a durable, high-luster tarnish-resistant coating that retains its brilliant shine through daily wear. Hypoallergenic, lightweight, and engineered for all-day comfort.`,
+      `Exquisite artisanal craftsmanship with precision detailing from every angle. Built from premium-grade alloys designed to withstand fading and wear.`,
+      `Thoughtfully proportioned for effortless elegance. Pairs seamlessly with casual styling or formal evening ensembles, making it an extraordinary personal piece or gift.`
+    ];
+    const closers = [
+      `Comes in signature protective packaging at ${priceDisplay}. Tap WhatsApp right now to secure yours before current drop sells out!`,
+      `Limited quantity crafted per collection. Tap the WhatsApp button today to order with nationwide door delivery!`,
+      `Guaranteed brand new and authentic. Order directly on WhatsApp for prompt handling and secure delivery!`
+    ];
+    return `${pick(openers)}\n\n${pick(specs)}\n\n${pick(closers)}`;
+  }
+
+  // General fallback
+  const openers = [
+    `Experience exceptional utility, dependable durability, and superior craftsmanship with the ${cleanTitle}. Designed to exceed your expectations every single day.`,
+    `Meet your newest favorite essential — the genuine ${cleanTitle}. Crafted for those who demand authentic quality, practical performance, and lasting value.`,
+    `Step up your everyday standard with ${cleanTitle}. Meticulously selected to deliver consistent, dependable results you can trust.`
+  ];
+  const specs = [
+    `Built from premium-grade materials engineered for rigorous daily use and long-term satisfaction. Every single component is checked to ensure dependable reliability.`,
+    `Combines functional efficiency with modern design. Engineered for straightforward, hassle-free operation that makes your daily routine significantly easier.`,
+    `Offers outstanding performance and solid build quality that stands the test of time. A worthwhile upgrade that delivers genuine return on your investment.`
+  ];
+  const closers = [
+    `Available for quick dispatch nationwide at ${priceDisplay}. Tap the WhatsApp button right now to place your order with complete confidence!`,
+    `Brand new and ready for speedy delivery to your doorstep. Tap WhatsApp now to confirm your order and delivery address today!`,
+    `Guaranteed brand new and authentic. Click WhatsApp to place your order today for prompt customer support!`
+  ];
+  return `${pick(openers)}\n\n${pick(specs)}\n\n${pick(closers)}`;
 }

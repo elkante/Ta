@@ -1421,7 +1421,7 @@ async function executeBackendAi({ prompt, jsonMode, groqKey, geminiKey }) {
           model,
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.7,
-          max_tokens: jsonMode ? 600 : 350,
+          max_tokens: jsonMode ? 750 : 850,
         };
         if (jsonMode) {
           body.response_format = { type: 'json_object' };

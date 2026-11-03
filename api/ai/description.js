@@ -10,7 +10,7 @@ async function executeBackendAi({ prompt, jsonMode, groqKey, geminiKey }) {
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: jsonMode ? 600 : 350,
+            maxOutputTokens: jsonMode ? 750 : 850,
           },
         };
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
@@ -37,7 +37,7 @@ async function executeBackendAi({ prompt, jsonMode, groqKey, geminiKey }) {
           model,
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.7,
-          max_tokens: jsonMode ? 600 : 350,
+          max_tokens: jsonMode ? 750 : 850,
         };
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
