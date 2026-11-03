@@ -268,7 +268,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [selectedOrderForWaybill, setSelectedOrderForWaybill] = useState<StoreOrder | null>(null);
 
   const [storeOrders, setStoreOrders] = useState<StoreOrder[]>([]);
-  const totalOrderRevenue = storeOrders.reduce((sum: number, o: StoreOrder) => sum + (o.status !== 'cancelled' ? o.totalAmount : 0), 0);
+  const totalOrderRevenue = storeOrders.reduce(
+    (sum: number, o: StoreOrder) => sum + (o.status === 'completed' || (o.status as string) === 'delivered' ? o.totalAmount : 0),
+    0
+  );
   const activeOrders = storeOrders.filter((o: StoreOrder) => o.status !== 'completed' && o.status !== 'cancelled');
   const historyOrders = storeOrders.filter((o: StoreOrder) => o.status === 'completed' || o.status === 'cancelled');
   const pendingOrdersCount = storeOrders.filter((o: StoreOrder) => o.status === 'pending').length;
@@ -3561,13 +3564,13 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             return true;
           });
 
-          const totalSales = filteredAnalyticsOrders.reduce((sum, o) => sum + (o.status !== 'cancelled' ? o.totalAmount : 0), 0);
-          const completedSales = filteredAnalyticsOrders.reduce((sum, o) => sum + (o.status === 'completed' ? o.totalAmount : 0), 0);
+          const totalSales = filteredAnalyticsOrders.reduce((sum, o) => sum + (o.status === 'completed' || (o.status as string) === 'delivered' ? o.totalAmount : 0), 0);
+          const completedSales = filteredAnalyticsOrders.reduce((sum, o) => sum + (o.status === 'completed' || (o.status as string) === 'delivered' ? o.totalAmount : 0), 0);
           const totalOrdersCount = filteredAnalyticsOrders.length;
-          const completedOrdersCount = filteredAnalyticsOrders.filter((o) => o.status === 'completed').length;
-          const avgOrderValue = totalOrdersCount > 0 ? Math.round(totalSales / totalOrdersCount) : 0;
+          const completedOrdersCount = filteredAnalyticsOrders.filter((o) => o.status === 'completed' || (o.status as string) === 'delivered').length;
+          const avgOrderValue = completedOrdersCount > 0 ? Math.round(totalSales / completedOrdersCount) : 0;
           const totalItemsSold = filteredAnalyticsOrders.reduce((sum, o) => {
-            if (o.status === 'cancelled') return sum;
+            if (o.status !== 'completed' && (o.status as string) !== 'delivered') return sum;
             return sum + o.items.reduce((iSum, item) => iSum + item.quantity, 0);
           }, 0);
 
@@ -3577,7 +3580,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             const monthOrders = storeOrders.filter((o) => {
               const d = new Date(o.createdAt);
               const targetYear = analyticsPeriod === 'custom_year' ? analyticsYear : now.getFullYear();
-              return d.getFullYear() === targetYear && d.getMonth() === idx && o.status !== 'cancelled';
+              return d.getFullYear() === targetYear && d.getMonth() === idx && (o.status === 'completed' || (o.status as string) === 'delivered');
             });
             const rev = monthOrders.reduce((sum, o) => sum + o.totalAmount, 0);
             return { name, revenue: rev, count: monthOrders.length };

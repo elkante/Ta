@@ -31,7 +31,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const PORT = process.env.PORT || 3001;
 // Ensure SESSIONS_DIR is permanently anchored in the server folder regardless of process.cwd()
@@ -425,7 +426,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
     qrRaw: null,
     qrGeneratedAt: null,
     phone: null,
-    pairingRequested: false,
+    pairingRequested: Boolean(options.isPairingCode),
     catalog: effectiveCatalog,
     storeInfo: effectiveStoreInfo,
   };
@@ -1099,7 +1100,7 @@ app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
     // Force a fresh session for phone pairing code with provided catalog and store info
     const effectiveCat = catalog && catalog.length > 0 ? catalog : (session?.catalog || []);
     const effectiveInfo = storeInfo && Object.keys(storeInfo).length > 0 ? storeInfo : (session?.storeInfo || {});
-    session = await initStoreSession(storeId, effectiveCat, effectiveInfo, { forceRefresh: true });
+    session = await initStoreSession(storeId, effectiveCat, effectiveInfo, { forceRefresh: true, isPairingCode: true });
 
     // Wait for the socket to establish connection with WhatsApp and emit the ready/QR event
     if (session.sock?.waitForConnectionUpdate) {

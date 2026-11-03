@@ -45,6 +45,11 @@ import {
   TrendingUp,
   UserCheck,
   Users,
+  Wallet,
+  Activity,
+  ArrowUpRight,
+  DollarSign,
+  PieChart,
   X,
   Zap,
   ZoomIn,
@@ -143,6 +148,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [storeSearch, setStoreSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<'all' | 'free' | 'starter' | 'basic' | 'pro' | 'business'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'featured' | 'suspended'>('all');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'delivered' | 'pending' | 'cancelled'>('all');
 
   // KYC ID Verification Queue state
   const [idVerificationFilter, setIdVerificationFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
@@ -265,7 +271,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   // Platform Metrics
   const totalStoresCount = liveStores.length;
   const proStoresCount = liveStores.filter((s) => s.tier === 'pro' || s.tier === 'business').length;
-  const freeStoresCount = liveStores.filter((s) => s.tier === 'free').length;
+  const freeStoresCount = liveStores.filter((s) => !s.tier || s.tier === 'free').length;
   const verifiedStoresCount = liveStores.filter((s) => s.verified).length;
   const suspendedStoresCount = liveStores.filter((s) => s.status === 'suspended').length;
   const pendingVerificationsCount = liveStores.filter((s) => s.idVerification?.status === 'pending').length;
@@ -273,7 +279,67 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const totalProductsCount = allProducts.length;
   const pendingProductsCount = allProducts.filter((p) => !p.approvalStatus || p.approvalStatus === 'pending').length;
   const totalOrdersCount = allOrders.length;
-  const totalPlatformGMV = allOrders.reduce((sum, ord) => sum + (ord.totalAmount || 0), 0);
+
+  // Breakdown of registered stores per plan
+  const planStoreCounts = useMemo(() => {
+    return {
+      free: liveStores.filter((s) => !s.tier || s.tier === 'free').length,
+      starter: liveStores.filter((s) => s.tier === 'starter').length,
+      basic: liveStores.filter((s) => s.tier === 'basic').length,
+      pro: liveStores.filter((s) => s.tier === 'pro').length,
+      business: liveStores.filter((s) => s.tier === 'business').length,
+    };
+  }, [liveStores]);
+
+  // Expected Earnings Calculation based on stores registered per plan
+  const planRevenueBreakdown = useMemo(() => {
+    const starterPrice = platformSettings.starterPriceMonthly ?? 500;
+    const basicPrice = platformSettings.basicPriceMonthly ?? 1500;
+    const proPrice = platformSettings.proPriceMonthly ?? 4900;
+    const businessPrice = platformSettings.businessPriceMonthly ?? 15000;
+
+    const freeRev = 0;
+    const starterRev = planStoreCounts.starter * starterPrice;
+    const basicRev = planStoreCounts.basic * basicPrice;
+    const proRev = planStoreCounts.pro * proPrice;
+    const businessRev = planStoreCounts.business * businessPrice;
+
+    const totalMRR = freeRev + starterRev + basicRev + proRev + businessRev;
+    const totalARR = totalMRR * 12;
+
+    return {
+      starterPrice,
+      basicPrice,
+      proPrice,
+      businessPrice,
+      freeRev,
+      starterRev,
+      basicRev,
+      proRev,
+      businessRev,
+      totalMRR,
+      totalARR,
+    };
+  }, [planStoreCounts, platformSettings]);
+
+  // Seller Order Revenue: Strictly count orders marked as completed or delivered!
+  const deliveredOrders = useMemo(() => {
+    return allOrders.filter((ord) => ord.status === 'completed' || (ord.status as string) === 'delivered');
+  }, [allOrders]);
+  const deliveredOrdersCount = deliveredOrders.length;
+  const totalDeliveredRevenue = useMemo(() => {
+    return deliveredOrders.reduce((sum, ord) => sum + (ord.totalAmount || 0), 0);
+  }, [deliveredOrders]);
+
+  // Total Gross Pipeline GMV (all checkouts combined)
+  const totalPlatformGMV = useMemo(() => {
+    return allOrders.reduce((sum, ord) => sum + (ord.totalAmount || 0), 0);
+  }, [allOrders]);
+
+  // Platform transaction fee model (e.g. 1.5% commission on delivered orders)
+  const platformFeeRate = 0.015;
+  const estimatedDeliveredPlatformFees = Math.round(totalDeliveredRevenue * platformFeeRate);
+  const totalProjectedMonthlyRevenue = planRevenueBreakdown.totalMRR + estimatedDeliveredPlatformFees;
 
   // Filtered stores
   const filteredStores = useMemo(() => {
@@ -663,7 +729,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   ];
 
   return (
-    <div className="flex min-h-screen bg-slate-100 text-slate-900 overflow-x-hidden w-full max-w-full font-sans">
+    <div className="flex min-h-screen bg-slate-50/70 text-slate-900 overflow-x-hidden w-full max-w-full font-sans">
       
       {/* Toast Alert */}
       {actionSuccessMessage && (
@@ -809,8 +875,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       {/* ── MAIN CONTENT AREA ── */}
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         
-        {/* Compact Top Navigation Header */}
-        <header className="bg-slate-900 text-white border-b border-slate-800 h-14 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 shadow-sm flex-shrink-0">
+        {/* Compact Top Navigation Header (Seller Aesthetic) */}
+        <header className="bg-slate-900 text-white border-b border-slate-800/80 h-16 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 shadow-xs flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
@@ -818,24 +884,41 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-white">Root Platform Control</span>
-                <span className="bg-amber-400/20 text-amber-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-amber-400/30 hidden sm:inline">
-                  ALL PERMISSIONS
-                </span>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs shadow-xs">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-sm text-white">Root Platform HQ</span>
+                  <span className="bg-amber-400/20 text-amber-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-amber-400/30">
+                    SUPER ADMIN
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 font-medium hidden sm:block">
+                  Multi-tenant monitoring &amp; subscription monetization engine
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <span className="text-xs text-slate-400 font-mono hidden lg:inline">{session.email}</span>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Quick Financial Highlight Pill */}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700/80 text-xs shadow-2xs">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Projected MRR:</span>
+              <span className="font-mono font-black text-emerald-400">
+                {formatPrice(planRevenueBreakdown.totalMRR, '₦')}
+              </span>
+            </div>
+
+            <span className="text-xs text-slate-400 font-mono hidden xl:inline">{session.email}</span>
+
             <button
               onClick={onLogout}
-              className="text-xs font-semibold text-rose-300 hover:text-rose-100 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 rounded-xl border border-rose-500/30 transition cursor-pointer flex items-center gap-1.5"
+              className="text-xs font-semibold text-rose-300 hover:text-white bg-rose-500/15 hover:bg-rose-500/25 px-3 py-1.5 rounded-xl border border-rose-500/30 transition cursor-pointer flex items-center gap-1.5 active:scale-95"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Exit</span>
+              <span>Exit Admin</span>
             </button>
           </div>
         </header>
@@ -845,55 +928,277 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           {/* ── TAB 1: OVERVIEW & STORES MANAGEMENT ── */}
           {activeTab === 'stores' && (
             <div className="space-y-6">
-              {/* Top Metric Cards - Shown exclusively on Overview */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-                  <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider">Total Stores</span>
-                    <Building className="w-4 h-4 text-slate-700" />
+              {/* ── TOP METRIC CARDS (Seller Aesthetic) ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Expected Plan Revenue (MRR) */}
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md transition group">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                      Expected Plan Revenue
+                    </span>
+                    <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+                      <Wallet className="w-4 h-4" />
+                    </div>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">{totalStoresCount}</div>
-                  <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500 font-medium">
-                    <span className="text-amber-700 font-bold">{proStoresCount} Paid</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight">
+                      {formatPrice(planRevenueBreakdown.totalMRR, '₦')}
+                    </span>
+                    <span className="text-xs font-bold text-slate-400">/ mo</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700 font-medium mt-1.5 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3 shrink-0" />
+                    <span>{formatPrice(planRevenueBreakdown.totalARR, '₦')} projected ARR</span>
+                  </p>
+                </div>
+
+                {/* 2. Platform Fees & Commission Take */}
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md transition group">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                      Platform Fees Take
+                    </span>
+                    <div className="w-9 h-9 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+                      <Zap className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight">
+                      {formatPrice(estimatedDeliveredPlatformFees, '₦')}
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-400">est. fee</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-medium mt-1.5 truncate">
+                    ~1.5% take on delivered volume ({formatPrice(totalProjectedMonthlyRevenue, '₦')} total mo.)
+                  </p>
+                </div>
+
+                {/* 3. Delivered Seller Order Revenue */}
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md transition group">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                      Delivered Order Revenue
+                    </span>
+                    <div className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+                      <ShoppingBag className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight">
+                      {formatPrice(totalDeliveredRevenue, '₦')}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] mt-1.5 text-slate-500">
+                    <span className="font-semibold text-blue-700">{deliveredOrdersCount} delivered</span>
+                    <span className="text-slate-400">GMV: {formatPrice(totalPlatformGMV, '₦')}</span>
+                  </div>
+                </div>
+
+                {/* 4. Total Registered Stores */}
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md transition group">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                      Registered Stores
+                    </span>
+                    <div className="w-9 h-9 rounded-2xl bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+                      <Building className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight">
+                      {totalStoresCount}
+                    </span>
+                    <span className="text-xs font-bold text-slate-500">merchants</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-slate-500 font-medium">
+                    <span className="text-amber-700 font-bold">
+                      {planStoreCounts.starter + planStoreCounts.basic + planStoreCounts.pro + planStoreCounts.business} Paid
+                    </span>
+                    <span>•</span>
+                    <span className="text-slate-500">{planStoreCounts.free} Free</span>
                     <span>•</span>
                     <span className="text-blue-600 font-bold">{verifiedStoresCount} Verified</span>
-                    {suspendedStoresCount > 0 && (
+                  </div>
+                </div>
+              </div>
+
+              {/* ── PLAN EARNINGS & SUBSCRIPTION REVENUE FORECAST (NEW) ── */}
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 flex items-center justify-center shadow-xs shrink-0 font-bold">
+                      <Layers className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                        <span>Expected Earnings by Registered Store Plan</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">
+                          Active Forecast
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Breakdown of projected subscription income based on stores enrolled in each plan
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                        Projected Total MRR
+                      </span>
+                      <span className="text-lg sm:text-xl font-black font-mono text-emerald-600">
+                        {formatPrice(planRevenueBreakdown.totalMRR, '₦')}/mo
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('plans')}
+                      className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Adjust Rates</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 5-Column Plan Cards Breakdown */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {/* Free Trial */}
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-800">Free Trial</span>
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-slate-200 text-slate-700">
+                        4 Items
+                      </span>
+                    </div>
+                    <div className="text-xl font-black font-mono text-slate-900">
+                      ₦0 <span className="text-[10px] font-bold text-slate-400">/mo</span>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500 font-medium">Registered:</span>
+                      <span className="font-bold text-slate-900 font-mono">{planStoreCounts.free} stores</span>
+                    </div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Expected: ₦0 / mo
+                    </div>
+                  </div>
+
+                  {/* Starter Plan */}
+                  <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50/40 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-amber-950">Starter</span>
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800">
+                        10 Items
+                      </span>
+                    </div>
+                    <div className="text-xl font-black font-mono text-amber-900">
+                      {formatPrice(planRevenueBreakdown.starterPrice, '₦')} <span className="text-[10px] font-bold text-amber-700">/mo</span>
+                    </div>
+                    <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between text-[11px]">
+                      <span className="text-amber-800 font-medium">Registered:</span>
+                      <span className="font-bold text-amber-950 font-mono">{planStoreCounts.starter} stores</span>
+                    </div>
+                    <div className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider">
+                      Expected: {formatPrice(planRevenueBreakdown.starterRev, '₦')} / mo
+                    </div>
+                  </div>
+
+                  {/* Basic Plan */}
+                  <div className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-emerald-950">Basic</span>
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                        30 Items
+                      </span>
+                    </div>
+                    <div className="text-xl font-black font-mono text-emerald-900">
+                      {formatPrice(planRevenueBreakdown.basicPrice, '₦')} <span className="text-[10px] font-bold text-emerald-700">/mo</span>
+                    </div>
+                    <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between text-[11px]">
+                      <span className="text-emerald-800 font-medium">Registered:</span>
+                      <span className="font-bold text-emerald-950 font-mono">{planStoreCounts.basic} stores</span>
+                    </div>
+                    <div className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">
+                      Expected: {formatPrice(planRevenueBreakdown.basicRev, '₦')} / mo
+                    </div>
+                  </div>
+
+                  {/* Pro Plan */}
+                  <div className="p-4 rounded-2xl border border-blue-200 bg-blue-50/40 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-blue-950">Pro Tick</span>
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-800">
+                        70 Items
+                      </span>
+                    </div>
+                    <div className="text-xl font-black font-mono text-blue-900">
+                      {formatPrice(planRevenueBreakdown.proPrice, '₦')} <span className="text-[10px] font-bold text-blue-700">/mo</span>
+                    </div>
+                    <div className="pt-2 border-t border-blue-200/60 flex items-center justify-between text-[11px]">
+                      <span className="text-blue-800 font-medium">Registered:</span>
+                      <span className="font-bold text-blue-950 font-mono">{planStoreCounts.pro} stores</span>
+                    </div>
+                    <div className="text-[10px] font-extrabold text-blue-800 uppercase tracking-wider">
+                      Expected: {formatPrice(planRevenueBreakdown.proRev, '₦')} / mo
+                    </div>
+                  </div>
+
+                  {/* Business AI Plan */}
+                  <div className="p-4 rounded-2xl border border-purple-200 bg-purple-50/40 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-purple-950">Business AI</span>
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-800">
+                        Unlimited
+                      </span>
+                    </div>
+                    <div className="text-xl font-black font-mono text-purple-900">
+                      {formatPrice(planRevenueBreakdown.businessPrice, '₦')} <span className="text-[10px] font-bold text-purple-700">/mo</span>
+                    </div>
+                    <div className="pt-2 border-t border-purple-200/60 flex items-center justify-between text-[11px]">
+                      <span className="text-purple-800 font-medium">Registered:</span>
+                      <span className="font-bold text-purple-950 font-mono">{planStoreCounts.business} stores</span>
+                    </div>
+                    <div className="text-[10px] font-extrabold text-purple-800 uppercase tracking-wider">
+                      Expected: {formatPrice(planRevenueBreakdown.businessRev, '₦')} / mo
+                    </div>
+                  </div>
+                </div>
+
+                {/* Proportional Contribution Bar */}
+                <div className="pt-2">
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                    <span>Revenue Contribution by Plan</span>
+                    <span>100% of Subscription Base</span>
+                  </div>
+                  <div className="h-2.5 w-full rounded-full bg-slate-100 flex overflow-hidden">
+                    {planRevenueBreakdown.totalMRR > 0 ? (
                       <>
-                        <span>•</span>
-                        <span className="text-rose-600 font-bold">{suspendedStoresCount} Banned</span>
+                        <div
+                          style={{ width: `${(planRevenueBreakdown.starterRev / planRevenueBreakdown.totalMRR) * 100}%` }}
+                          className="bg-amber-400 h-full"
+                          title={`Starter: ${formatPrice(planRevenueBreakdown.starterRev, '₦')}`}
+                        />
+                        <div
+                          style={{ width: `${(planRevenueBreakdown.basicRev / planRevenueBreakdown.totalMRR) * 100}%` }}
+                          className="bg-emerald-500 h-full"
+                          title={`Basic: ${formatPrice(planRevenueBreakdown.basicRev, '₦')}`}
+                        />
+                        <div
+                          style={{ width: `${(planRevenueBreakdown.proRev / planRevenueBreakdown.totalMRR) * 100}%` }}
+                          className="bg-blue-500 h-full"
+                          title={`Pro: ${formatPrice(planRevenueBreakdown.proRev, '₦')}`}
+                        />
+                        <div
+                          style={{ width: `${(planRevenueBreakdown.businessRev / planRevenueBreakdown.totalMRR) * 100}%` }}
+                          className="bg-purple-600 h-full"
+                          title={`Business AI: ${formatPrice(planRevenueBreakdown.businessRev, '₦')}`}
+                        />
                       </>
+                    ) : (
+                      <div className="w-full bg-slate-200 h-full" />
                     )}
                   </div>
-                </div>
-
-                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-                  <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider">Catalog Items</span>
-                    <Package className="w-4 h-4 text-slate-700" />
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">{totalProductsCount}</div>
-                  <span className="text-[11px] text-slate-400 font-medium">Across all store databases</span>
-                </div>
-
-                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-                  <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider">Platform GMV</span>
-                    <TrendingUp className="w-4 h-4 text-emerald-600" />
-                  </div>
-                  <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono truncate">{formatPrice(totalPlatformGMV, '₦')}</div>
-                  <span className="text-[11px] text-emerald-600 font-medium">From {totalOrdersCount} WhatsApp checkouts</span>
-                </div>
-
-                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-                  <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider">Multi-Tenant Engine</span>
-                    <Zap className="w-4 h-4 text-amber-500" />
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-black text-emerald-600 font-mono">100%</div>
-                  <span className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Live database synced
-                  </span>
                 </div>
               </div>
 
@@ -1376,18 +1681,89 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </div>
           )}
 
-          {/* ── TAB 3: MASTER ORDERS LEDGER ── */}
+          {/* ── TAB 3: MASTER ORDERS LEDGER (Delivered Orders Focus) ── */}
           {activeTab === 'orders' && (
-            <div className="space-y-4">
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-base">Master Platform Transactions</h3>
-                    <p className="text-xs text-slate-500">Live order audit stream from all store checkouts</p>
+            <div className="space-y-6">
+              {/* Order Revenue Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50/60 to-white shadow-2xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800">
+                      Delivered Order Revenue
+                    </span>
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs text-slate-400 block">Total Network Volume</span>
-                    <span className="text-xl font-black font-mono text-slate-900">{formatPrice(totalPlatformGMV, '₦')}</span>
+                  <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-950">
+                    {formatPrice(totalDeliveredRevenue, '₦')}
+                  </div>
+                  <p className="text-xs text-emerald-700 font-medium mt-1">
+                    Delivered &amp; completed orders only ({deliveredOrdersCount} orders)
+                  </p>
+                </div>
+
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-2xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                      Total Pipeline GMV
+                    </span>
+                    <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900">
+                    {formatPrice(totalPlatformGMV, '₦')}
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium mt-1">
+                    All checkouts across platform ({totalOrdersCount} orders)
+                  </p>
+                </div>
+
+                <div className="bg-white p-5 rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50/60 to-white shadow-2xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-amber-800">
+                      Platform Fee Potential (1.5%)
+                    </span>
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                      <Zap className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black font-mono text-amber-950">
+                    {formatPrice(estimatedDeliveredPlatformFees, '₦')}
+                  </div>
+                  <p className="text-xs text-amber-700 font-medium mt-1">
+                    Est. take on delivered seller revenue
+                  </p>
+                </div>
+              </div>
+
+              {/* Transactions Ledger */}
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 text-base">Master Platform Transactions</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Live order audit stream from all store checkouts — revenue recognized on delivery
+                    </p>
+                  </div>
+
+                  {/* Filter chips */}
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+                    {(['all', 'delivered', 'pending', 'cancelled'] as const).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setOrderStatusFilter(f)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize cursor-pointer ${
+                          orderStatusFilter === f
+                            ? 'bg-white text-slate-900 shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {f === 'delivered' ? 'Delivered Only (Revenue)' : f}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -1395,43 +1771,66 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   {allOrders.length === 0 ? (
                     <div className="p-8 text-center text-slate-400 text-xs">No orders recorded yet.</div>
                   ) : (
-                    allOrders.map((ord) => {
-                      const store = liveStores.find((s) => s.id === ord.storeId);
-                      return (
-                        <div key={ord.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-slate-900">#{ord.id}</span>
-                              <span className="font-semibold text-slate-800">
-                                {ord.buyerName} ({ord.buyerPhone})
+                    allOrders
+                      .filter((ord) => {
+                        if (orderStatusFilter === 'delivered') {
+                          return ord.status === 'completed' || (ord.status as string) === 'delivered';
+                        }
+                        if (orderStatusFilter === 'cancelled') {
+                          return ord.status === 'cancelled';
+                        }
+                        if (orderStatusFilter === 'pending') {
+                          return ord.status !== 'completed' && (ord.status as string) !== 'delivered' && ord.status !== 'cancelled';
+                        }
+                        return true;
+                      })
+                      .map((ord) => {
+                        const store = liveStores.find((s) => s.id === ord.storeId);
+                        const isDelivered = ord.status === 'completed' || (ord.status as string) === 'delivered';
+                        return (
+                          <div key={ord.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs hover:bg-slate-50/60 transition px-2 rounded-xl">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">
+                                  #{ord.id}
+                                </span>
+                                <span className="font-bold text-slate-900">
+                                  {ord.buyerName} ({ord.buyerPhone})
+                                </span>
+                                <span className="text-[11px] text-slate-500">
+                                  → <strong className="text-slate-800">{store?.name || ord.storeId}</strong>
+                                </span>
+                                {isDelivered && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                    <Check className="w-3 h-3" /> Delivered (Realized)
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-1">
+                                {ord.items.length} item(s): {ord.items.map((i) => i.productName).join(', ')}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                              <span className="font-mono font-bold text-slate-900 text-base">
+                                {formatPrice(ord.totalAmount, ord.currencySymbol || '₦')}
                               </span>
-                              <span className="text-[10px] text-slate-400">
-                                → <strong>{store?.name || ord.storeId}</strong>
+                              <span
+                                className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                                  isDelivered
+                                    ? 'bg-emerald-500 text-white'
+                                    : ord.status === 'confirmed' || ord.status === 'payment_confirmed'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : ord.status === 'cancelled'
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}
+                              >
+                                {ord.status}
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-500 mt-0.5">
-                              {ord.items.length} item(s): {ord.items.map((i) => i.productName).join(', ')}
-                            </div>
                           </div>
-                          <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                            <span className="font-mono font-bold text-slate-900 text-sm">
-                              {formatPrice(ord.totalAmount, ord.currencySymbol || '₦')}
-                            </span>
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                                ord.status === 'completed'
-                                  ? 'bg-emerald-50 text-emerald-700'
-                                  : ord.status === 'confirmed'
-                                  ? 'bg-blue-50 text-blue-700'
-                                  : 'bg-amber-50 text-amber-700'
-                              }`}
-                            >
-                              {ord.status}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
+                        );
+                      })
                   )}
                 </div>
               </div>

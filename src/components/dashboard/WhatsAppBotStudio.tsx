@@ -134,6 +134,30 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   const [serverMessage, setServerMessage] = useState<string>('');
   const [copiedPairingCode, setCopiedPairingCode] = useState(false);
   const hasSyncedMetadataRef = useRef(false);
+  const pairingRetryCountRef = useRef(0);
+  const baileysQrRef = useRef<string | null>(null);
+  const pairingCodeRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    baileysQrRef.current = baileysQr;
+  }, [baileysQr]);
+  useEffect(() => {
+    pairingCodeRef.current = pairingCode;
+  }, [pairingCode]);
+
+  // Strip large media and data URLs from catalog to keep payloads tiny (<10KB) and prevent 413 Payload Too Large
+  const sanitizeCatalogForBot = useCallback((rawProducts: Product[]) => {
+    if (!Array.isArray(rawProducts)) return [];
+    return rawProducts.slice(0, 150).map((p) => ({
+      id: p.id,
+      uid: p.uid || p.id,
+      name: p.name || '',
+      price: p.price || 0,
+      category: p.category || '',
+      inStock: typeof p.inStock === 'boolean' ? p.inStock : true,
+      description: (p.description || '').slice(0, 200),
+    }));
+  }, []);
 
   // Auto-detect whether local server or Render is responsive
   useEffect(() => {
@@ -290,7 +314,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                catalog: products,
+                catalog: sanitizeCatalogForBot(products),
                 storeInfo: {
                   name: store.name,
                   slug: store.slug,
@@ -303,11 +327,11 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
             }).catch(() => {});
           }
         } else if (data.qrDataUrl && baileysStatus === 'waiting_scan' && pairingMethod === 'qr') {
-          setBaileysQr(data.qrDataUrl);
+          setBaileysQr((prev) => (prev === data.qrDataUrl ? prev : data.qrDataUrl));
           setQrScannedConfirming(false);
           setServerMessage('');
           setServerStatus('online');
-        } else if ((data.status === 'connecting') && baileysStatus === 'waiting_scan' && (baileysQr || pairingCode)) {
+        } else if ((data.status === 'connecting') && baileysStatus === 'waiting_scan' && (baileysQrRef.current || pairingCodeRef.current)) {
           // QR was scanned or Pairing Code entered — Baileys is reconnecting to confirm it
           setQrScannedConfirming(true);
           setServerMessage(pairingMethod === 'code' ? 'Code entered on phone! 📱 Linking WhatsApp...' : 'QR scanned! Confirming pairing with WhatsApp...');
@@ -328,7 +352,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     }
 
     return () => { if (interval) clearInterval(interval); };
-  }, [baileysStatus, serverEndpoint, store.id, baileysQr, handleConnectedEvent]);
+  }, [baileysStatus, serverEndpoint, store.id, handleConnectedEvent, pairingMethod, sanitizeCatalogForBot]);
 
   const handleStartBaileysPairing = async (forceRefresh = false) => {
     if (store.tier === 'free' || store.tier === 'starter') {
@@ -338,7 +362,9 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     setIsPairingLoading(true);
     setPairingError(null);
     setBaileysStatus('waiting_scan');
-    setBaileysQr(null);
+    if (forceRefresh) {
+      setBaileysQr(null);
+    }
     setQrScannedConfirming(false);
     setServerMessage('Connecting to WhatsApp gateway...');
 
@@ -348,7 +374,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           forceRefresh,
-          catalog: products,
+          catalog: sanitizeCatalogForBot(products),
           storeInfo: {
             name: store.name,
             slug: store.slug,
@@ -364,6 +390,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       }
 
       const data = await res.json();
+      pairingRetryCountRef.current = 0;
       setServerStatus('online');
       if (data.connected) {
         setBaileysStatus('connected');
@@ -395,13 +422,27 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       }
     } catch (e: any) {
       console.warn('Pairing error:', e?.message);
-      setServerStatus('waking');
-      setServerMessage('WhatsApp bot server is warming up on Render (free tier takes ~20s)... retrying automatically');
-      setTimeout(() => {
-        if (baileysStatus === 'waiting_scan') {
-          handleStartBaileysPairing();
-        }
-      }, 4000);
+      const isClientError = e?.message && /4\d\d/.test(e.message);
+      if (isClientError) {
+        setPairingError(e.message || 'WhatsApp gateway error. Please try again.');
+        setServerMessage('');
+        setIsPairingLoading(false);
+        return;
+      }
+      pairingRetryCountRef.current += 1;
+      if (pairingRetryCountRef.current <= 3) {
+        setServerStatus('waking');
+        setServerMessage('WhatsApp bot server is warming up on Render (free tier takes ~20s)... retrying automatically');
+        setTimeout(() => {
+          if (baileysStatus === 'waiting_scan') {
+            handleStartBaileysPairing();
+          }
+        }, 4500);
+      } else {
+        setPairingError('WhatsApp server is taking longer than usual to wake. Please click "Refresh QR Code" to try again.');
+        setServerMessage('');
+        setIsPairingLoading(false);
+      }
     } finally {
       setIsPairingLoading(false);
     }
@@ -432,7 +473,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phoneNumber: clean,
-          catalog: products,
+          catalog: sanitizeCatalogForBot(products),
           storeInfo: {
             name: store.name,
             slug: store.slug,
@@ -457,7 +498,11 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       } else if (data.error) {
         setPairingError(data.error);
       } else if (!res.ok) {
-        setPairingError(`Server responded with ${res.status}: ${res.statusText || 'Unable to generate code'}. Please try scanning the QR code.`);
+        if (res.status === 413) {
+          setPairingError('Product catalog payload too large. Please retry now that the catalog is optimized.');
+        } else {
+          setPairingError(`Server responded with ${res.status}: ${res.statusText || 'Unable to generate code'}. Please try scanning the QR code.`);
+        }
       }
     } catch (e: any) {
       setPairingError('Failed to generate pairing code. Please ensure the WhatsApp bot server is running or try scanning the QR code.');
