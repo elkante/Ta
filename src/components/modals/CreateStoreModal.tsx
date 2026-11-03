@@ -186,6 +186,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
           },
         ],
         inquiryCount: 0,
+        approvalStatus: 'pending',
         createdAt: new Date().toISOString(),
       },
       {
@@ -201,6 +202,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
         inStock: true,
         variants: [],
         inquiryCount: 0,
+        approvalStatus: 'pending',
         createdAt: new Date().toISOString(),
       },
     ];

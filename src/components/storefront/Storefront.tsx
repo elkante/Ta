@@ -165,8 +165,8 @@ export const Storefront: React.FC<StorefrontProps> = ({
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       // Store owners previewing their store can see all their products (pending ones marked Under Review)
-      // Public buyers only see approved products (or legacy products without the field)
-      const isApproved = !p.approvalStatus || p.approvalStatus === 'approved' || isStoreOwner;
+      // Public buyers ONLY see products that have been approved by Super Admin
+      const isApproved = p.approvalStatus === 'approved' || isStoreOwner;
       if (!isApproved) return false;
 
       const matchSearch =

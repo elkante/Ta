@@ -561,7 +561,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       name: `${product.name} (Copy)`,
       inquiryCount: 0,
       createdAt: new Date().toISOString(),
-      approvalStatus: 'approved',
+      approvalStatus: 'pending',
     };
     try {
       await dbSaveProduct(duplicated);
@@ -585,7 +585,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         ...payload,
         price: safePrice,
         images: sanitizedImages,
-        approvalStatus: productToEdit.approvalStatus || 'approved',
+        approvalStatus: productToEdit.approvalStatus || 'pending',
       };
     } else {
       // Check tier product limit before adding new product
@@ -612,7 +612,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         variants: payload.variants || [],
         inquiryCount: 0,
         createdAt: new Date().toISOString(),
-        approvalStatus: 'approved',
+        approvalStatus: 'pending',
       };
     }
 

@@ -365,7 +365,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
               {productToEdit ? 'Edit Product' : 'Add New Product'}
             </h3>
             <p className="text-xs text-slate-500">
-              Update catalog details, categories, and inventory options
+              {productToEdit ? 'Update catalog details and inventory options' : 'New products are reviewed by platform admin before going live'}
             </p>
           </div>
           <button
@@ -923,7 +923,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
               type="submit"
               className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-md transition cursor-pointer"
             >
-              {productToEdit ? 'Save Changes' : 'Save Product'}
+              {productToEdit ? 'Save Changes' : 'Submit for Approval'}
             </button>
           </div>
         </form>

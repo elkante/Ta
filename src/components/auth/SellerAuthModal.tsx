@@ -317,6 +317,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
           },
         ],
         inquiryCount: 0,
+        approvalStatus: 'pending',
         createdAt: new Date().toISOString(),
       },
     ];

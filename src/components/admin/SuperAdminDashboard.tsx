@@ -271,7 +271,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const pendingVerificationsCount = liveStores.filter((s) => s.idVerification?.status === 'pending').length;
   const totalVerificationsCount = liveStores.filter((s) => s.idVerification).length;
   const totalProductsCount = allProducts.length;
-  const pendingProductsCount = allProducts.filter((p) => p.approvalStatus === 'pending').length;
+  const pendingProductsCount = allProducts.filter((p) => !p.approvalStatus || p.approvalStatus === 'pending').length;
   const totalOrdersCount = allOrders.length;
   const totalPlatformGMV = allOrders.reduce((sum, ord) => sum + (ord.totalAmount || 0), 0);
 
