@@ -1134,16 +1134,16 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
         <div className="divide-y divide-slate-100">
           {/* ── 1. PROMO BANNERS ACCORDION (3 Slots) ── */}
           <div className="p-4 sm:p-6">
-            <button
-              type="button"
-              onClick={() =>
-                setExpandedAdvancedSection(
-                  expandedAdvancedSection === 'banners' ? null : 'banners'
-                )
-              }
-              className="w-full flex items-center justify-between text-left cursor-pointer group"
-            >
-              <div className="flex items-center gap-3">
+            <div className="w-full flex items-center justify-between text-left">
+              <button
+                type="button"
+                onClick={() =>
+                  setExpandedAdvancedSection(
+                    expandedAdvancedSection === 'banners' ? null : 'banners'
+                  )
+                }
+                className="flex items-center gap-3 flex-1 text-left cursor-pointer group"
+              >
                 <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <Tag className="w-4 h-4" />
                 </div>
@@ -1167,15 +1167,40 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                     Highlight up to 3 seasonal drops, collections, or flash deals with custom banner cards.
                   </p>
                 </div>
+              </button>
+              <div className="flex items-center gap-3 shrink-0">
+                {/* Quick on/off toggle — always visible */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowPromoCards(!showPromoCards); }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+                    showPromoCards ? 'bg-emerald-600' : 'bg-slate-300'
+                  }`}
+                  title={showPromoCards ? 'Hide promo cards' : 'Show promo cards'}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      showPromoCards ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedAdvancedSection(
+                      expandedAdvancedSection === 'banners' ? null : 'banners'
+                    )
+                  }
+                  className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                >
+                  {expandedAdvancedSection === 'banners' ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </button>
               </div>
-              <div className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-slate-700 transition">
-                {expandedAdvancedSection === 'banners' ? (
-                  <ChevronUp className="w-4 h-4" />
-                ) : (
-                  <ChevronDown className="w-4 h-4" />
-                )}
-              </div>
-            </button>
+            </div>
 
             {expandedAdvancedSection === 'banners' && (
               <div className="mt-5 space-y-6 pt-2 animate-in fade-in duration-200">
