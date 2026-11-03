@@ -6,6 +6,7 @@ export interface ProductVariant {
   price: number;
   originalPrice?: number;
   inStock: boolean;
+  stockCount?: number;
   sku?: string;
 }
 
@@ -22,6 +23,8 @@ export interface Product {
   images: string[];
   videoUrl?: string; // Optional product video link (YouTube, TikTok, Vimeo, Cloudinary, or direct MP4)
   inStock: boolean;
+  stockCount?: number; // Actual available quantity (e.g. 15)
+  lowStockThreshold?: number; // Quantity at which "Only X left!" triggers (default: 3)
   isLowStock?: boolean;
   badge?: string; // "Bestseller", "New Arrival", "Viral", "Limited"
   options?: {
@@ -55,6 +58,142 @@ export interface StoreIdVerification {
   submittedAt?: string;
   verifiedAt?: string;
   rejectionReason?: string;
+}
+
+export interface StoreCoupon {
+  id: string;
+  storeId: string;
+  code: string; // uppercase, e.g. "LAUNCH10", "WELCOME20"
+  discountType: 'percent' | 'fixed'; // percent off vs amount off
+  discountValue: number; // e.g. 10 (%) or 2000 (₦)
+  usageLimit?: number | null; // e.g. 50 or null for unlimited
+  usageCount: number; // how many times used
+  minOrderAmount?: number | null; // min order requirement
+  expiryDate?: string | null; // YYYY-MM-DD
+  isActive: boolean;
+  createdAt: string;
+}
+
+export type StoreThemeId =
+  | 'mercato'
+  | 'margaux'
+  | 'cobalt'
+  | 'arena'
+  | 'colette'
+  | 'galactic'
+  | 'maison'
+  | 'aurum'
+  | 'default';
+
+export interface StorefrontCustomization {
+  isPublished?: boolean;
+  themeId?: StoreThemeId;
+  fontFamily?: 'sans' | 'serif' | 'playfair' | 'grotesk';
+  // Hero customizations
+  heroHeadline?: string;
+  heroSubtitle?: string;
+  heroCtaText?: string;
+  heroBgColor?: string; // custom hex color e.g. '#a84a32' for warm terracotta
+  heroLayout?: 'editorial' | 'banner' | 'split' | 'classic';
+  // About Us section
+  aboutTitle?: string;
+  aboutStory?: string;
+  aboutTagline?: string;
+  aboutImageUrl?: string;
+  // Trust Badges row
+  showTrustBadges?: boolean;
+  trustBadge1Title?: string;
+  trustBadge1Subtitle?: string;
+  trustBadge2Title?: string;
+  trustBadge2Subtitle?: string;
+  trustBadge3Title?: string;
+  trustBadge3Subtitle?: string;
+  trustBadge4Title?: string;
+  trustBadge4Subtitle?: string;
+  // Promotional Highlight banner
+  promoBannerEnabled?: boolean;
+  promoBannerText?: string;
+  promoBannerCta?: string;
+  // Navigation tabs
+  showNavLinks?: boolean;
+  // Advanced Setup
+  promoBanners?: PromoBannerSlot[];
+  featuredProductIds?: string[];
+  popularCategories?: string[];
+  showCustomerReviews?: boolean;
+  reviewsQuoteSnippet?: string;
+  footerText?: string;
+}
+
+export interface PromoBannerSlot {
+  imageUrl?: string;
+  eyebrow?: string; // e.g. "New collection"
+  title?: string; // e.g. "Jewelry & Charm rings"
+  buttonLabel?: string; // e.g. "See more"
+  categoryLink?: string; // category to filter to
+  textContrast?: 'light' | 'dark'; // 'light' = white text, 'dark' = dark text
+}
+
+export interface StoreCustomer {
+  id: string;
+  storeId: string;
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  state?: string;
+  totalOrders: number;
+  totalSpent: number;
+  firstOrderAt?: string;
+  lastOrderAt?: string;
+  notes?: string;
+  source?: 'order' | 'inquiry' | 'manual';
+  createdAt: string;
+}
+
+export interface StoreInvoiceItem {
+  id: string;
+  productId?: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface StoreInvoice {
+  id: string;
+  storeId: string;
+  type: 'invoice' | 'receipt';
+  docNumber: string; // e.g. "INV-1001" or "REC-1001"
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  customerAddress?: string;
+  issueDate: string;
+  dueDate?: string;
+  items: StoreInvoiceItem[];
+  subtotal: number;
+  discount: number;
+  deliveryFee: number;
+  total: number;
+  status: 'draft' | 'unpaid' | 'paid' | 'cancelled';
+  paidAt?: string;
+  paymentMethod?: string;
+  notes?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  createdAt: string;
+}
+
+export interface StoreDeliveryLocation {
+  id: string;
+  storeId: string;
+  state: string; // e.g. "Lagos", "Abuja FCT", "Rivers"
+  areaName: string; // e.g. "Lagos Island / Lekki / Ikoyi" or "All areas in state"
+  fee: number; // e.g. 2500
+  estimatedDays?: string; // e.g. "Same-day delivery", "1 - 2 business days"
+  isActive: boolean;
 }
 
 export interface Store {
@@ -96,6 +235,12 @@ export interface Store {
     customCap?: number; // Optional custom daily cap set by Super Admin
   };
   status?: 'active' | 'suspended' | 'deleted';
+  isPublished?: boolean;
+  storefrontCustomization?: StorefrontCustomization;
+  coupons?: StoreCoupon[];
+  deliveryLocations?: StoreDeliveryLocation[];
+  invoices?: StoreInvoice[];
+  customers?: StoreCustomer[];
   planExpiresAt?: string;
   planActivationSource?: 'paystack' | 'superadmin';
   lastPaymentRef?: string;
@@ -173,10 +318,13 @@ export interface StoreOrder {
   storeId: string;
   buyerName: string;
   buyerPhone: string;
+  buyerEmail?: string;
   fulfillmentMethod: 'delivery' | 'pickup';
   deliveryAddress?: string;
   deliveryArea?: string;
   buyerNotes?: string;
+  couponCode?: string;
+  discountAmount?: number;
   items: OrderItemPayload[];
   totalAmount: number;
   currencySymbol: string;

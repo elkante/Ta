@@ -59,9 +59,13 @@ import {
   TrendingDown,
   Percent,
   FileText,
+  Tag,
+  LayoutDashboard,
+  Home,
+  ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense } from '../../types';
+import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense, StoreCoupon } from '../../types';
 import { AddEditProductModal } from './AddEditProductModal';
 import { ProductLimitModal } from '../modals/ProductLimitModal';
 import { VerifiedBadge } from '../common/VerifiedBadge';
@@ -73,6 +77,11 @@ import { StatusStudioModal } from '../modals/StatusStudioModal';
 import { AIMarketingModal } from '../modals/AIMarketingModal';
 import { WaybillModal } from '../modals/WaybillModal';
 import { WhatsAppBotStudio } from './WhatsAppBotStudio';
+import { ManageStorefrontTab } from './ManageStorefrontTab';
+import { CouponsTab } from './CouponsTab';
+import { CustomersTab } from './CustomersTab';
+import { LocationsTab } from './LocationsTab';
+import { InvoicesTab } from './InvoicesTab';
 import { formatPrice, generateWhatsAppLink } from '../../utils/whatsapp';
 import { sanitizeSocialInput } from '../../utils/social';
 import { generateQRCodeSVG } from '../../utils/qrCode';
@@ -101,7 +110,24 @@ const COVER_PRESETS = [
   { name: 'Modern Tech', url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1600&auto=format&fit=crop&q=80' },
 ];
 
-type TabId = 'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing' | 'analytics' | 'notes' | 'expenses' | 'calculator';
+type TabId =
+  | 'home'
+  | 'storefront'
+  | 'orders'
+  | 'products'
+  | 'coupons'
+  | 'customers'
+  | 'locations'
+  | 'invoices'
+  | 'uid-bot'
+  | 'marketing'
+  | 'inquiries'
+  | 'settings'
+  | 'billing'
+  | 'analytics'
+  | 'notes'
+  | 'expenses'
+  | 'calculator';
 
 interface NavCategory {
   id: string;
@@ -112,10 +138,16 @@ interface NavCategory {
 
 const NAV_CATEGORIES: NavCategory[] = [
   {
+    id: 'home',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    tabs: ['home'],
+  },
+  {
     id: 'commerce',
-    label: 'Orders & Catalog',
+    label: 'Store & Catalog',
     icon: ShoppingBag,
-    tabs: ['orders', 'products', 'analytics'],
+    tabs: ['storefront', 'products', 'coupons', 'orders', 'customers', 'locations', 'invoices', 'analytics'],
   },
   {
     id: 'marketing',
@@ -156,19 +188,19 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   onSelectStore,
   onOpenGuide,
 }) => {
-  const [activeTab, setActiveTabState] = useState<'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing' | 'analytics' | 'notes' | 'expenses' | 'calculator'>(() => {
+  const [activeTab, setActiveTabState] = useState<TabId>(() => {
     try {
       const url = new URL(window.location.href);
       const urlTab = url.searchParams.get('tab') as any;
-      if (urlTab && ['orders', 'products', 'uid-bot', 'marketing', 'inquiries', 'settings', 'billing', 'analytics', 'notes', 'expenses', 'calculator'].includes(urlTab)) {
+      if (urlTab && ['home', 'storefront', 'orders', 'products', 'coupons', 'uid-bot', 'marketing', 'inquiries', 'settings', 'billing', 'analytics', 'notes', 'expenses', 'calculator'].includes(urlTab)) {
         return urlTab;
       }
       const saved = sessionStorage.getItem(`ta_seller_tab_${store.id}`) || sessionStorage.getItem('ta_seller_tab');
-      if (saved && ['orders', 'products', 'uid-bot', 'marketing', 'inquiries', 'settings', 'billing', 'analytics', 'notes', 'expenses', 'calculator'].includes(saved)) {
+      if (saved && ['home', 'storefront', 'orders', 'products', 'coupons', 'uid-bot', 'marketing', 'inquiries', 'settings', 'billing', 'analytics', 'notes', 'expenses', 'calculator'].includes(saved)) {
         return saved as any;
       }
     } catch (e) {}
-    return 'orders';
+    return 'home';
   });
 
   const setActiveTab = (tab: typeof activeTab) => {
@@ -334,6 +366,14 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
   // Subscription Expiry & 5-Day Grace Period Status
   const [planTick, setPlanTick] = useState(0);
+  // Home tab plan banner dismiss state
+  const [homeBannerDismissed, setHomeBannerDismissed] = useState(() => {
+    try { return sessionStorage.getItem(`ta_home_banner_${store.id}`) === '1'; } catch { return false; }
+  });
+  const dismissHomeBanner = () => {
+    setHomeBannerDismissed(true);
+    try { sessionStorage.setItem(`ta_home_banner_${store.id}`, '1'); } catch {}
+  };
   useEffect(() => {
     if (!store.planExpiresAt || store.tier === 'free') return;
     const id = setInterval(() => setPlanTick((t) => t + 1), 1000);
@@ -495,6 +535,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return {
+      home: false,
       commerce: false,
       orders: false,
       marketing: true,
@@ -781,10 +822,15 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   };
 
   // ─── Nav definition (shared by sidebar + mobile bottom bar) ───────────────
-  type TabId = 'orders' | 'products' | 'uid-bot' | 'marketing' | 'inquiries' | 'settings' | 'billing' | 'analytics' | 'notes' | 'expenses' | 'calculator';
   const allTabs: { id: TabId; label: string; icon: React.ElementType; badge?: string }[] = [
-    { id: 'orders',    label: 'Orders',          icon: ShoppingBag,   badge: pendingOrdersCount > 0 ? `${pendingOrdersCount}` : undefined },
+    { id: 'home',      label: 'Dashboard',        icon: Home },
+    { id: 'storefront',label: 'Manage Storefront',icon: Globe },
     { id: 'products',  label: 'Products',         icon: Package,       badge: `${products.length}` },
+    { id: 'coupons',   label: 'Coupons',          icon: Tag,           badge: store.coupons && store.coupons.filter(c => c.isActive).length > 0 ? `${store.coupons.filter(c => c.isActive).length}` : undefined },
+    { id: 'orders',    label: 'Orders',          icon: ShoppingBag,   badge: pendingOrdersCount > 0 ? `${pendingOrdersCount}` : undefined },
+    { id: 'customers', label: 'Customers',        icon: Users },
+    { id: 'locations', label: 'Where you deliver',icon: Truck },
+    { id: 'invoices',  label: 'Invoices & Receipts', icon: FileText },
     { id: 'analytics', label: 'Analytics',        icon: BarChart3 },
     { id: 'uid-bot',   label: 'Auto-Reply Bot',     icon: Bot,           badge: 'Auto' },
     { id: 'marketing', label: 'Share & Market',      icon: QrCode },
@@ -980,19 +1026,19 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         onClick={() => { setActiveTab(tab.id); setIsSidebarOpen(false); }}
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all cursor-pointer ${
           active
-            ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-            : 'text-slate-400 hover:text-white hover:bg-white/8 font-medium'
+            ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200/60 shadow-xs'
+            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
         }`}
       >
-        <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-slate-950' : 'text-slate-400'}`} />
+        <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-blue-600' : 'text-slate-400'}`} />
         {!compact && <span className="text-xs flex-1 truncate">{tab.label}</span>}
         {!compact && tab.badge && (
           <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${
             tab.id === 'orders' && pendingOrdersCount > 0
               ? 'bg-rose-500 text-white animate-pulse'
               : active
-              ? 'bg-slate-950/20 text-slate-950 font-extrabold'
-              : 'bg-white/15 text-white/70'
+              ? 'bg-blue-600 text-white font-extrabold'
+              : 'bg-slate-100 text-slate-600'
           }`}>
             {tab.badge}
           </span>
@@ -1018,10 +1064,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             <button
               type="button"
               onClick={() => toggleCategory(category.id)}
-              className="w-full flex items-center justify-between px-2.5 py-1.5 text-slate-400 hover:text-slate-200 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-white/5 transition-colors cursor-pointer group select-none"
+              className="w-full flex items-center justify-between px-2.5 py-1.5 text-slate-400 hover:text-slate-800 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-slate-100/60 transition-colors cursor-pointer group select-none"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <CategoryIcon className={`w-3.5 h-3.5 transition-colors ${hasActiveTab ? 'text-amber-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                <CategoryIcon className={`w-3.5 h-3.5 transition-colors ${hasActiveTab ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
                 <span className="truncate">{category.label}</span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
@@ -1029,16 +1075,16 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
                 )}
                 {isCollapsed ? (
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-transform" />
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform" />
                 ) : (
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-200 transition-transform" />
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform" />
                 )}
               </div>
             </button>
 
             {/* Category Tabs (Collapsible Dropdown Content) */}
             {!isCollapsed && (
-              <div className="space-y-0.5 pl-2 border-l border-white/10 ml-2.5 animate-in fade-in duration-150">
+              <div className="space-y-0.5 pl-2 border-l border-slate-200 ml-2.5 animate-in fade-in duration-150">
                 {category.tabs.map((tabId) => {
                   const tab = allTabs.find((t) => t.id === tabId);
                   if (!tab) return null;
@@ -1055,27 +1101,27 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 w-full max-w-full">
 
-      {/* ── DESKTOP SIDEBAR ── */}
-      <aside className="hidden md:flex flex-col w-60 min-h-screen bg-slate-900 flex-shrink-0 sticky top-0 overflow-y-auto">
+      {/* ── DESKTOP SIDEBAR (Matches clean dashboard palette) ── */}
+      <aside className="hidden md:flex flex-col w-60 min-h-screen bg-white border-r border-slate-200/90 flex-shrink-0 sticky top-0 overflow-y-auto">
         {/* Store identity */}
-        <div className="p-5 border-b border-white/10">
+        <div className="p-4 sm:p-5 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <img
               src={store.logoUrl}
               alt={store.name}
-              className="w-10 h-10 rounded-xl object-cover border border-white/20 flex-shrink-0"
+              className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs flex-shrink-0"
             />
             <div className="min-w-0">
-              <p className="text-white font-bold text-sm truncate leading-tight flex items-center gap-1.5">
+              <p className="text-slate-900 font-bold text-sm truncate leading-tight flex items-center gap-1.5">
                 <span className="truncate">{store.name}</span>
                 <VerifiedBadge tier={store.tier} verified={store.verified} size="xs" />
               </p>
               <span className={`inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${
                 store.tier === 'business'
-                  ? 'bg-violet-500/30 text-violet-300'
+                  ? 'bg-violet-50 text-violet-700 border border-violet-200'
                   : store.tier === 'pro'
-                  ? 'bg-amber-500/20 text-amber-300'
-                  : 'bg-white/10 text-slate-400'
+                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                  : 'bg-slate-100 text-slate-600 border border-slate-200'
               }`}>
                 {store.tier === 'business' ? '🤖 Business AI' : store.tier === 'pro' ? '⚡ Pro' : 'Starter'}
               </span>
@@ -1089,30 +1135,30 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         </nav>
 
         {/* Sidebar bottom actions */}
-        <div className="p-3 border-t border-white/10 space-y-2">
+        <div className="p-3 border-t border-slate-100 space-y-1.5 bg-slate-50/50">
           <button
             onClick={onOpenStorefront}
-            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition text-sm cursor-pointer"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition text-xs font-semibold cursor-pointer"
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-4 h-4 text-slate-400" />
             <span>View Store</span>
           </button>
           {onOpenGuide && (
             <button
               onClick={onOpenGuide}
-              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition text-sm cursor-pointer"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition text-xs font-semibold cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-amber-400" />
+              <Sparkles className="w-4 h-4 text-amber-500" />
               <span>Platform Guide</span>
             </button>
           )}
           {store.tier === 'free' && (
             <button
               onClick={() => setIsPaystackOpen(true)}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold shadow transition cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow transition cursor-pointer"
             >
-              <Zap className="w-4 h-4" />
-              Upgrade to Pro
+              <Zap className="w-4 h-4 text-amber-400" />
+              <span>Upgrade Plan</span>
             </button>
           )}
         </div>
@@ -1127,40 +1173,40 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             onClick={() => setIsSidebarOpen(false)}
           />
           {/* Drawer */}
-          <aside className="relative w-72 bg-slate-900 h-full flex flex-col shadow-2xl overflow-y-auto">
-            <div className="p-5 flex items-center justify-between border-b border-white/10">
+          <aside className="relative w-72 bg-white h-full flex flex-col shadow-2xl overflow-y-auto border-r border-slate-200">
+            <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <img src={store.logoUrl} alt={store.name} className="w-9 h-9 rounded-xl object-cover border border-white/20" />
+                <img src={store.logoUrl} alt={store.name} className="w-9 h-9 rounded-xl object-cover border border-slate-200" />
                 <div>
-                  <p className="text-white font-bold text-sm truncate">{store.name}</p>
+                  <p className="text-slate-900 font-bold text-sm truncate">{store.name}</p>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
-                    store.tier === 'business' ? 'bg-violet-500/30 text-violet-300' :
-                    store.tier === 'pro' ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-slate-400'
+                    store.tier === 'business' ? 'bg-violet-50 text-violet-700 border border-violet-200' :
+                    store.tier === 'pro' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
                   }`}>
                     {store.tier === 'business' ? '🤖 Business AI' : store.tier === 'pro' ? '⚡ Pro' : 'Starter'}
                   </span>
                 </div>
               </div>
-              <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-white p-1 cursor-pointer">
+              <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <nav className="flex-1 p-3 overflow-y-auto">
               {renderCategorizedNav()}
             </nav>
-            <div className="p-3 border-t border-white/10 space-y-2">
-              <button onClick={onOpenStorefront} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition text-sm cursor-pointer">
-                <Eye className="w-4 h-4" />
+            <div className="p-3 border-t border-slate-100 space-y-2 bg-slate-50/50">
+              <button onClick={onOpenStorefront} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition text-sm cursor-pointer">
+                <Eye className="w-4 h-4 text-slate-400" />
                 <span>View Store</span>
               </button>
               {onOpenGuide && (
-                <button onClick={onOpenGuide} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition text-sm cursor-pointer">
-                  <Sparkles className="w-4 h-4 text-amber-400" /><span>Platform Guide</span>
+                <button onClick={onOpenGuide} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition text-sm cursor-pointer">
+                  <Sparkles className="w-4 h-4 text-amber-500" /><span>Platform Guide</span>
                 </button>
               )}
               {store.tier === 'free' && (
-                <button onClick={() => { setIsPaystackOpen(true); setIsSidebarOpen(false); }} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold cursor-pointer">
-                  <Zap className="w-4 h-4" />Upgrade to Pro
+                <button onClick={() => { setIsPaystackOpen(true); setIsSidebarOpen(false); }} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer">
+                  <Zap className="w-4 h-4 text-amber-400" />Upgrade to Pro
                 </button>
               )}
             </div>
@@ -1326,6 +1372,337 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               </button>
             </div>
           </div>
+        )}
+
+        {/* ── HOME / DASHBOARD OVERVIEW TAB ── */}
+        {activeTab === 'home' && (() => {
+          const hour = new Date().getHours();
+          const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+          const storeDisplayUrl = getStoreDisplayUrl(store.slug, store.customDomain);
+          const storeCatalogUrl2 = getStoreUrl(store.slug, { customDomain: store.customDomain });
+
+          // Setup checklist
+          const setupSteps = [
+            { done: products.length > 0,            label: 'Add your first product' },
+            { done: !!(store.bannerUrl || store.logoUrl), label: 'Upload store logo or banner' },
+            { done: !!(store.description && store.description.trim()), label: 'Write a store description' },
+          ];
+          const setupDone = setupSteps.filter((s) => s.done).length;
+          const nextStep = setupSteps.find((s) => !s.done);
+
+          // Top sellers (by inquiry count)
+          const topSellers = [...products]
+            .filter((p) => p.approvalStatus === 'approved')
+            .sort((a, b) => (b.inquiryCount || 0) - (a.inquiryCount || 0))
+            .slice(0, 5);
+
+          // This month revenue
+          const now2 = new Date();
+          const thisMonthRevenue = storeOrders.filter((o) => {
+            if (o.status === 'cancelled') return false;
+            const d = new Date(o.createdAt);
+            return d.getMonth() === now2.getMonth() && d.getFullYear() === now2.getFullYear();
+          }).reduce((sum, o) => sum + o.totalAmount, 0);
+
+          return (
+            <div className="space-y-5 max-w-4xl">
+              {/* Plan Trial / Upgrade Banner — styled like Orderly */}
+              {!homeBannerDismissed && store.tier === 'free' && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3.5 flex items-center justify-between gap-4 animate-in fade-in">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-lg shrink-0">🎁</span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-extrabold text-amber-900 uppercase tracking-wide">Free Plan</p>
+                      <p className="text-xs text-amber-700 mt-0.5 truncate">
+                        Upgrade anytime — unlock unlimited products, AI bot, custom domain &amp; more.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => { setPaystackInitialPlan('pro'); setIsPaystackOpen(true); }}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl shadow transition cursor-pointer whitespace-nowrap"
+                    >
+                      Pick a plan →
+                    </button>
+                    <button onClick={dismissHomeBanner} className="text-amber-400 hover:text-amber-600 cursor-pointer p-1">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Greeting Card — store identity + live badge + view/share */}
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-5 sm:p-6 shadow-lg">
+                {/* Decorative circles */}
+                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 pointer-events-none" />
+                <div className="absolute -bottom-12 -right-4 w-52 h-52 rounded-full bg-white/5 pointer-events-none" />
+                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    {store.logoUrl ? (
+                      <img src={store.logoUrl} alt={store.name} className="w-14 h-14 rounded-2xl object-cover border-2 border-white/30 shadow-md shrink-0" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-2xl font-black shrink-0">
+                        {store.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-blue-200 mb-0.5">{greeting} 👋</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-lg sm:text-xl font-extrabold leading-tight">{store.name}</h2>
+                        <span className="inline-flex items-center gap-1 bg-emerald-500/30 border border-emerald-400/30 text-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          LIVE
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <a
+                          href={storeCatalogUrl2}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-200 hover:text-white font-mono underline underline-offset-2 transition truncate max-w-[200px]"
+                        >
+                          {storeDisplayUrl}
+                        </a>
+                        <button
+                          onClick={onOpenStorefront}
+                          className="text-[10px] font-bold bg-white/20 hover:bg-white/30 px-2.5 py-0.5 rounded-full transition cursor-pointer"
+                        >
+                          View →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="self-start sm:self-center p-2.5 rounded-xl bg-white/15 hover:bg-white/25 transition cursor-pointer"
+                    title="Share store"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Empty catalog alert */}
+              {products.length === 0 && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                      <Package className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900 text-sm">Your store is live — but the shelves are empty</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Add one product and you're officially open for business. Takes about two minutes.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleOpenAddProduct}
+                    className="shrink-0 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    Add your first product →
+                  </button>
+                </div>
+              )}
+
+              {/* Setup Progress */}
+              {setupDone < setupSteps.length && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-blue-600" />
+                      <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">Setup Progress</span>
+                    </div>
+                    <span className="text-xs font-bold text-slate-500">{setupDone} of {setupSteps.length} done</span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full mb-4 overflow-hidden">
+                    <div
+                      className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                      style={{ width: `${(setupDone / setupSteps.length) * 100}%` }}
+                    />
+                  </div>
+                  {/* Steps */}
+                  <div className="space-y-2">
+                    {setupSteps.map((step, i) => (
+                      <div key={i} className={`flex items-center gap-3 py-1 ${step.done ? 'opacity-50' : ''}`}>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${step.done ? 'bg-emerald-500' : 'border-2 border-slate-300'}`}>
+                          {step.done && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <span className={`text-xs font-medium ${step.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{step.label}</span>
+                        {!step.done && i === setupSteps.findIndex((s) => !s.done) && (
+                          <span className="ml-auto text-xs text-blue-600 font-bold flex items-center gap-0.5 cursor-pointer hover:text-blue-800 transition"
+                            onClick={() => {
+                              if (step.label.includes('product')) handleOpenAddProduct();
+                              else setActiveTab('settings');
+                            }}
+                          >
+                            Continue <ChevronRightIcon className="w-3 h-3" />
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {nextStep && (
+                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-400 font-medium">UP NEXT</span>
+                      <button
+                        className="text-xs font-bold text-blue-600 hover:text-blue-800 transition cursor-pointer flex items-center gap-0.5"
+                        onClick={() => {
+                          if (nextStep.label.includes('product')) handleOpenAddProduct();
+                          else setActiveTab('settings');
+                        }}
+                      >
+                        {nextStep.label} <ChevronRightIcon className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Store Overview Stats */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-slate-500" />
+                    <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">Store Overview</span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">This month</span>
+                </div>
+                {/* Revenue big number */}
+                <div className="text-center mb-5">
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Revenue</p>
+                  <p className={`text-3xl sm:text-4xl font-black font-mono ${thisMonthRevenue > 0 ? 'text-slate-900' : 'text-slate-300'}`}>
+                    {thisMonthRevenue > 0 ? formatPrice(thisMonthRevenue, store.currencySymbol) : (store.currencySymbol || '₦') + '0'}
+                  </p>
+                </div>
+                {/* Stat pills */}
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { icon: ShoppingBag, label: 'ORDERS', value: storeOrders.filter((o) => { const d = new Date(o.createdAt); return d.getMonth() === now2.getMonth() && d.getFullYear() === now2.getFullYear(); }).length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                    { icon: Package,     label: 'PRODUCTS', value: products.filter((p) => p.inStock).length, color: 'text-blue-600', bg: 'bg-blue-50' },
+                    { icon: MessageCircle, label: 'WA LEADS', value: inquiries.length, color: 'text-violet-600', bg: 'bg-violet-50' },
+                  ].map(({ icon: Icon, label, value, color, bg }) => (
+                    <div key={label} className={`${bg} rounded-xl p-3 flex flex-col items-center gap-1`}>
+                      <Icon className={`w-5 h-5 ${color}`} />
+                      <span className="text-xl font-black text-slate-800 font-mono">{value}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Actions Grid */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs">
+                <div className="flex items-center gap-2 mb-4">
+                  <Zap className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">Quick Actions</span>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2 sm:gap-2.5">
+                  {[
+                    { icon: Package,      label: 'Products',   action: () => setActiveTab('products') },
+                    { icon: ShoppingBag,  label: 'Orders',     action: () => setActiveTab('orders') },
+                    { icon: Users,        label: 'Customers',  action: () => setActiveTab('customers') },
+                    { icon: Truck,        label: 'Delivery',   action: () => setActiveTab('locations') },
+                    { icon: FileText,     label: 'Invoices',   action: () => setActiveTab('invoices') },
+                    { icon: Globe,        label: 'Storefront', action: () => setActiveTab('storefront') },
+                    { icon: Tag,          label: 'Coupons',    action: () => setActiveTab('coupons') },
+                    { icon: BarChart3,    label: 'Reports',    action: () => setActiveTab('analytics') },
+                    { icon: MessageCircle,label: 'Chats',      action: () => setActiveTab('inquiries') },
+                    { icon: QrCode,       label: 'Share',      action: () => setIsShareModalOpen(true) },
+                    { icon: Bot,          label: 'AI Bot',     action: () => setActiveTab('uid-bot') },
+                    { icon: Settings,     label: 'Settings',   action: () => setActiveTab('settings') },
+                  ].map(({ icon: Icon, label, action }) => (
+                    <button
+                      key={label}
+                      onClick={action}
+                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100 hover:border-slate-200 transition cursor-pointer group"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 group-hover:bg-blue-50 group-hover:border-blue-200 border border-transparent flex items-center justify-center transition">
+                        <Icon className="w-4 h-4 text-slate-600 group-hover:text-blue-600 transition" />
+                      </div>
+                      <span className="text-[10px] font-semibold text-slate-500 group-hover:text-slate-700 transition text-center leading-tight">{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top Sellers */}
+              {topSellers.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-emerald-600" />
+                      <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">Top Sellers</span>
+                    </div>
+                    <button onClick={() => setActiveTab('products')} className="text-[11px] font-bold text-blue-600 hover:text-blue-800 transition cursor-pointer">
+                      View all →
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {topSellers.map((product, idx) => (
+                      <div key={product.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition group">
+                        <span className="text-xs font-black text-slate-300 w-4 text-center shrink-0">#{idx + 1}</span>
+                        <img
+                          src={product.images?.[0] || 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=80&auto=format&fit=crop&q=80'}
+                          alt={product.name}
+                          className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{product.name}</p>
+                          <p className="text-[10px] text-slate-400">{product.category}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-bold text-slate-900 font-mono">{formatPrice(product.price, store.currencySymbol)}</p>
+                          <p className="text-[10px] text-emerald-600 font-semibold">{product.inquiryCount || 0} inquiries</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ── MANAGE STOREFRONT TAB ── */}
+        {activeTab === 'storefront' && (
+          <ManageStorefrontTab
+            store={store}
+            products={products}
+            onUpdateStore={onSelectStore}
+            onOpenStorefront={onOpenStorefront}
+          />
+        )}
+
+        {/* ── COUPONS TAB ── */}
+        {activeTab === 'coupons' && (
+          <CouponsTab
+            store={store}
+            onUpdateStore={onSelectStore}
+          />
+        )}
+
+        {/* ── CUSTOMERS TAB (Customer Memory CRM) ── */}
+        {activeTab === 'customers' && (
+          <CustomersTab
+            store={store}
+            orders={storeOrders}
+          />
+        )}
+
+        {/* ── LOCATIONS TAB (Where you deliver) ── */}
+        {activeTab === 'locations' && (
+          <LocationsTab
+            store={store}
+          />
+        )}
+
+        {/* ── INVOICES & RECEIPTS TAB ── */}
+        {activeTab === 'invoices' && (
+          <InvoicesTab
+            store={store}
+            products={products}
+          />
         )}
 
         {/* TAB 0: ORDERS MANAGEMENT */}

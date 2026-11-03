@@ -22,7 +22,19 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 export function mapStoreFromDB(row: any): Store {
   // idVerification, aiDailyUsage, planActivationSource and lastPaymentRef are stored inside ai_bot_config JSONB as _prefixed keys
   const botCfg = row.ai_bot_config || {};
-  const { _id_verification, _ai_daily_usage, _plan_source, _last_payment_ref, ...cleanBotCfg } = botCfg;
+  const {
+    _id_verification,
+    _ai_daily_usage,
+    _plan_source,
+    _last_payment_ref,
+    _storefront_customization,
+    _is_published,
+    _coupons,
+    _delivery_locations,
+    _invoices,
+    _customers,
+    ...cleanBotCfg
+  } = botCfg;
   return {
     id: row.id,
     name: row.name,
@@ -49,6 +61,12 @@ export function mapStoreFromDB(row: any): Store {
     tier: row.tier || 'free',
     verified: Boolean(row.verified),
     status: row.status || 'active',
+    isPublished: _is_published !== undefined ? Boolean(_is_published) : true,
+    storefrontCustomization: _storefront_customization || undefined,
+    coupons: Array.isArray(_coupons) ? _coupons : undefined,
+    deliveryLocations: Array.isArray(_delivery_locations) ? _delivery_locations : undefined,
+    invoices: Array.isArray(_invoices) ? _invoices : undefined,
+    customers: Array.isArray(_customers) ? _customers : undefined,
     planExpiresAt: row.plan_expires_at || undefined,
     adminNotes: Array.isArray(row.admin_notes) ? row.admin_notes : undefined,
     aiBotConfig: Object.keys(cleanBotCfg).length > 0 ? cleanBotCfg : undefined,
@@ -73,6 +91,12 @@ export function mapStoreToDB(store: Store): any {
   if (store.aiDailyUsage) botCfg._ai_daily_usage = store.aiDailyUsage;
   if (store.planActivationSource) botCfg._plan_source = store.planActivationSource;
   if (store.lastPaymentRef) botCfg._last_payment_ref = store.lastPaymentRef;
+  if (store.storefrontCustomization) botCfg._storefront_customization = store.storefrontCustomization;
+  if (store.isPublished !== undefined) botCfg._is_published = store.isPublished;
+  if (store.coupons) botCfg._coupons = store.coupons;
+  if (store.deliveryLocations) botCfg._delivery_locations = store.deliveryLocations;
+  if (store.invoices) botCfg._invoices = store.invoices;
+  if (store.customers) botCfg._customers = store.customers;
 
   return {
     id: store.id,
@@ -110,10 +134,16 @@ export function mapStoreToDB(store: Store): any {
 }
 
 export function mapProductFromDB(row: any): Product {
-  // Approval status is stored inside the `attributes` JSONB column using _prefixed keys
+  // Approval status and stock metrics are stored inside the `attributes` JSONB column using _prefixed keys
   // (zero-migration approach — no extra DB columns needed)
   const attrs = row.attributes || {};
-  const { _approval_status, _approval_rejection_reason, ...cleanAttrs } = attrs;
+  const {
+    _approval_status,
+    _approval_rejection_reason,
+    _stock_count,
+    _low_stock_threshold,
+    ...cleanAttrs
+  } = attrs;
   return {
     id: row.id,
     uid: row.uid || row.id.slice(-6).toUpperCase(),
@@ -128,8 +158,13 @@ export function mapProductFromDB(row: any): Product {
       Array.isArray(row.images) && row.images.length > 0 && row.images[0]
         ? row.images
         : ['https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80'],
-    inStock: Boolean(row.in_stock),
-    isLowStock: Boolean(row.is_low_stock),
+    inStock: typeof _stock_count === 'number' ? _stock_count > 0 : Boolean(row.in_stock),
+    stockCount: typeof _stock_count === 'number' ? _stock_count : undefined,
+    lowStockThreshold: typeof _low_stock_threshold === 'number' ? _low_stock_threshold : 3,
+    isLowStock:
+      typeof _stock_count === 'number'
+        ? _stock_count > 0 && _stock_count <= (typeof _low_stock_threshold === 'number' ? _low_stock_threshold : 3)
+        : Boolean(row.is_low_stock),
     badge: row.badge || undefined,
     options: row.options || [],
     variants: row.variants || [],
@@ -142,13 +177,19 @@ export function mapProductFromDB(row: any): Product {
 }
 
 export function mapProductToDB(product: Product): any {
-  // Merge approval state into attributes JSONB as hidden _prefixed keys
+  // Merge approval state and stock numbers into attributes JSONB as hidden _prefixed keys
   const attrs: Record<string, any> = {
     ...(product.attributes || {}),
     _approval_status: product.approvalStatus || 'pending',
   };
   if (product.approvalRejectionReason) {
     attrs._approval_rejection_reason = product.approvalRejectionReason;
+  }
+  if (typeof product.stockCount === 'number') {
+    attrs._stock_count = product.stockCount;
+  }
+  if (typeof product.lowStockThreshold === 'number') {
+    attrs._low_stock_threshold = product.lowStockThreshold;
   }
   return {
     id: product.id,

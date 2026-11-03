@@ -132,18 +132,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Bottom-right: stock status pill */}
         <div className="absolute bottom-2 right-2 z-10">
-          {!product.inStock ? (
-            <span className="bg-black/70 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+          {!product.inStock || (typeof product.stockCount === 'number' && product.stockCount <= 0) ? (
+            <span className="bg-black/75 backdrop-blur-xs text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
               Sold Out
+            </span>
+          ) : typeof product.stockCount === 'number' && product.stockCount <= (product.lowStockThreshold || 3) ? (
+            <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs animate-pulse">
+              Only {product.stockCount} left!
             </span>
           ) : product.isLowStock ? (
             <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
               Few Left
             </span>
           ) : (
-            <span className="bg-emerald-500/90 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span className="bg-emerald-600/90 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
               <span className="w-1.5 h-1.5 rounded-full bg-white" />
-              In Stock
+              {typeof product.stockCount === 'number' ? `${product.stockCount} in stock` : 'In Stock'}
             </span>
           )}
         </div>

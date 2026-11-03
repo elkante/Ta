@@ -9,6 +9,10 @@ import {
   PlatformSettings,
   StoreNote,
   StoreExpense,
+  StoreCoupon,
+  StoreCustomer,
+  StoreInvoice,
+  StoreDeliveryLocation,
   PlatformLead,
 } from '../types';
 import {
@@ -387,8 +391,8 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   basicPriceYearly: 15000,
   proPriceMonthly: 4900,
   proPriceYearly: 39000,
-  businessPriceMonthly: 25000,
-  businessPriceYearly: 200000,
+  businessPriceMonthly: 15000,
+  businessPriceYearly: 120000,
   badgePriceMonthly: 2000,
   badgePriceYearly: 20000,
   globalAnnouncement:
@@ -463,6 +467,7 @@ export function getPlatformSettings(): PlatformSettings {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed.proPriceMonthly === 3500) parsed.proPriceMonthly = 4900;
+      if (parsed.businessPriceMonthly === 25000) parsed.businessPriceMonthly = 15000;
       return { ...DEFAULT_PLATFORM_SETTINGS, ...parsed };
     }
   } catch (e) {}
@@ -723,6 +728,160 @@ export function getStoreExpenses(storeId: string): StoreExpense[] {
 export function saveStoreExpenses(storeId: string, expenses: StoreExpense[]): void {
   localStorage.setItem(`ta_store_expenses_${storeId}`, JSON.stringify(expenses));
 }
+
+export function getStoreCoupons(storeId: string): StoreCoupon[] {
+  try {
+    const raw = localStorage.getItem(`ta_store_coupons_${storeId}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return [];
+}
+
+export function saveStoreCoupons(storeId: string, coupons: StoreCoupon[]): void {
+  localStorage.setItem(`ta_store_coupons_${storeId}`, JSON.stringify(coupons));
+}
+
+// ─── Delivery Locations ───────────────────────────────────────────────────────
+
+export function getStoreDeliveryLocations(storeId: string): StoreDeliveryLocation[] {
+  try {
+    const raw = localStorage.getItem(`ta_store_locations_${storeId}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  // Default starter delivery locations for Nigeria
+  return [
+    {
+      id: 'loc_lag_isl',
+      storeId,
+      state: 'Lagos',
+      areaName: 'Lagos Island / Victoria Island / Ikoyi',
+      fee: 2500,
+      estimatedDays: 'Same-day or next-day',
+      isActive: true,
+    },
+    {
+      id: 'loc_lag_lek',
+      storeId,
+      state: 'Lagos',
+      areaName: 'Lekki Phase 1 / Oniru / Chevron',
+      fee: 2500,
+      estimatedDays: 'Same-day or next-day',
+      isActive: true,
+    },
+    {
+      id: 'loc_lag_main',
+      storeId,
+      state: 'Lagos',
+      areaName: 'Lagos Mainland (Ikeja, Surulere, Yaba, Gbagada)',
+      fee: 2000,
+      estimatedDays: 'Same-day or next-day',
+      isActive: true,
+    },
+    {
+      id: 'loc_abj_cbd',
+      storeId,
+      state: 'Abuja (FCT)',
+      areaName: 'Central Abuja (Maitama, Wuse 2, Garki, Jabi)',
+      fee: 3500,
+      estimatedDays: '1 - 2 business days',
+      isActive: true,
+    },
+    {
+      id: 'loc_other_states',
+      storeId,
+      state: 'Other Nigerian States',
+      areaName: 'Interstate Nationwide Park Delivery',
+      fee: 4500,
+      estimatedDays: '2 - 4 business days',
+      isActive: true,
+    },
+  ];
+}
+
+export function saveStoreDeliveryLocations(storeId: string, locations: StoreDeliveryLocation[]): void {
+  localStorage.setItem(`ta_store_locations_${storeId}`, JSON.stringify(locations));
+}
+
+// ─── Invoices & Receipts ──────────────────────────────────────────────────────
+
+export function getStoreInvoices(storeId: string): StoreInvoice[] {
+  try {
+    const raw = localStorage.getItem(`ta_store_invoices_${storeId}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return [];
+}
+
+export function saveStoreInvoices(storeId: string, invoices: StoreInvoice[]): void {
+  localStorage.setItem(`ta_store_invoices_${storeId}`, JSON.stringify(invoices));
+}
+
+// ─── Customers Memory CRM ─────────────────────────────────────────────────────
+
+export function getStoreCustomers(
+  storeId: string,
+  orders: StoreOrder[] = []
+): StoreCustomer[] {
+  let manualCustomers: StoreCustomer[] = [];
+  try {
+    const raw = localStorage.getItem(`ta_store_customers_${storeId}`);
+    if (raw) manualCustomers = JSON.parse(raw);
+  } catch (e) {}
+
+  // Aggregate customer memory map by phone number (or email)
+  const map = new Map<string, StoreCustomer>();
+
+  manualCustomers.forEach((c) => {
+    const key = (c.phone || c.email || c.id).replace(/\D/g, '').slice(-10) || c.id;
+    map.set(key, c);
+  });
+
+  // Automatically merge orders into Customer Memory
+  orders.forEach((o) => {
+    if (!o.buyerPhone && !o.buyerName) return;
+    const phoneDigits = (o.buyerPhone || '').replace(/\D/g, '').slice(-10);
+    const key = phoneDigits || (o.buyerEmail ? o.buyerEmail.toLowerCase().trim() : o.buyerName);
+
+    const existing = map.get(key);
+    if (existing) {
+      existing.totalOrders = (existing.totalOrders || 0) + 1;
+      existing.totalSpent = (existing.totalSpent || 0) + (o.totalAmount || 0);
+      if (!existing.email && o.buyerEmail) existing.email = o.buyerEmail;
+      if (!existing.address && o.deliveryAddress) existing.address = o.deliveryAddress;
+      if (!existing.state && o.deliveryArea) existing.state = o.deliveryArea;
+      if (new Date(o.createdAt).getTime() > new Date(existing.lastOrderAt || 0).getTime()) {
+        existing.lastOrderAt = o.createdAt;
+      }
+    } else {
+      map.set(key, {
+        id: `cust_${Math.random().toString(36).slice(2, 9)}`,
+        storeId,
+        name: o.buyerName || 'Valued Customer',
+        phone: o.buyerPhone || '',
+        email: o.buyerEmail || undefined,
+        address: o.deliveryAddress || undefined,
+        state: o.deliveryArea || undefined,
+        totalOrders: 1,
+        totalSpent: o.totalAmount || 0,
+        firstOrderAt: o.createdAt,
+        lastOrderAt: o.createdAt,
+        source: 'order',
+        createdAt: o.createdAt,
+      });
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const tA = new Date(a.lastOrderAt || a.createdAt).getTime();
+    const tB = new Date(b.lastOrderAt || b.createdAt).getTime();
+    return tB - tA;
+  });
+}
+
+export function saveStoreCustomers(storeId: string, customers: StoreCustomer[]): void {
+  localStorage.setItem(`ta_store_customers_${storeId}`, JSON.stringify(customers));
+}
+
 
 // ─── Stale-While-Revalidate (SWR) Local Cache for Instant Storefront Loading ─
 const SWR_STORE_PREFIX = 'ta_cache_store_';

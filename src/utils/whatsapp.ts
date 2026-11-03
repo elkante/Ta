@@ -134,8 +134,13 @@ export function createFullOrderWhatsAppMessage(options: {
     `━━━━━━━━━━━━━━━━━━━━━`,
     `👤 *Customer*: *${order.buyerName}*`,
     `📞 *Phone*: *${order.buyerPhone}*`,
-    `📦 *Fulfillment*: *${order.fulfillmentMethod === 'delivery' ? '🚚 Delivery' : '🏬 Store Pickup'}*`,
   ];
+
+  if (order.buyerEmail) {
+    lines.push(`✉️ *Email*: ${order.buyerEmail}`);
+  }
+
+  lines.push(`📦 *Fulfillment*: *${order.fulfillmentMethod === 'delivery' ? '🚚 Delivery' : '🏬 Store Pickup'}*`);
 
   if (order.fulfillmentMethod === 'delivery') {
     lines.push(`📍 *Delivery Address*: ${order.deliveryAddress || 'Not specified'}`);
@@ -161,6 +166,9 @@ export function createFullOrderWhatsAppMessage(options: {
   });
 
   lines.push(`━━━━━━━━━━━━━━━━━━━━━`);
+  if (order.couponCode && order.discountAmount) {
+    lines.push(`🎟️ *Coupon Applied*: ${order.couponCode} (-${formatPrice(order.discountAmount, store.currencySymbol)})`);
+  }
   lines.push(`💰 *TOTAL BILL*: *${formatPrice(order.totalAmount, store.currencySymbol)}*`);
   lines.push(`🆔 *Order ID*: *#${order.id}*`);
   lines.push(`🔗 *Order Link*: ${orderUrl}`);

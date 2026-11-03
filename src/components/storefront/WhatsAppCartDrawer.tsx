@@ -1,34 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   AlertCircle,
   Building,
   Check,
   CheckCircle2,
+  ChevronDown,
   Copy,
   ExternalLink,
+  Lock,
+  Mail,
   MapPin,
   MessageCircle,
   Minus,
   Navigation,
   Phone,
   Plus,
+  ShieldCheck,
   ShoppingBag,
+  Tag,
   Trash2,
   Truck,
   User,
   Volume2,
   X,
+  Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { CartItem, Store, StoreOrder } from '../../types';
+import { CartItem, Store, StoreOrder, StoreDeliveryLocation } from '../../types';
 import { playOrderNotificationSound } from '../../utils/audio';
 import {
   createFullOrderWhatsAppMessage,
   formatPrice,
   generateWhatsAppLink,
 } from '../../utils/whatsapp';
-import { createStoreOrder } from '../../utils/storage';
+import { createStoreOrder, getStoreCoupons, getStoreDeliveryLocations } from '../../utils/storage';
 import { dbSaveOrder } from '../../utils/supabase';
+import { ALL_NIGERIAN_STATE_NAMES } from '../../utils/nigeriaStates';
 
 interface WhatsAppCartDrawerProps {
   isOpen: boolean;
@@ -54,10 +61,17 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
   // Buyer Details Form State
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
+  const [buyerEmail, setBuyerEmail] = useState('');
   const [fulfillmentMethod, setFulfillmentMethod] = useState<'delivery' | 'pickup'>('delivery');
+  const [deliveryState, setDeliveryState] = useState('Lagos');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryArea, setDeliveryArea] = useState('');
   const [buyerNote, setBuyerNote] = useState('');
+
+  // Coupon code state
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; percent?: number; fixed?: number } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
 
   // Validation & Submission State
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -65,25 +79,122 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
   const [placedOrder, setPlacedOrder] = useState<StoreOrder | null>(null);
   const [copiedOrderId, setCopiedOrderId] = useState(false);
 
+  const configuredLocations = useMemo(() => {
+    return (store.deliveryLocations && store.deliveryLocations.length > 0)
+      ? store.deliveryLocations
+      : getStoreDeliveryLocations(store.id);
+  }, [store.deliveryLocations, store.id]);
+
+  // Delivery areas in the selected state
+  const stateDeliveryAreas = useMemo(() => {
+    return configuredLocations.filter(
+      (l: StoreDeliveryLocation) => l.isActive && l.state.toLowerCase().includes(deliveryState.toLowerCase())
+    );
+  }, [configuredLocations, deliveryState]);
+
+  // Selected delivery location / fee
+  const selectedLocation = useMemo(() => {
+    if (fulfillmentMethod !== 'delivery') return null;
+    return stateDeliveryAreas.find((a: StoreDeliveryLocation) => a.areaName === deliveryArea) || stateDeliveryAreas[0] || null;
+  }, [fulfillmentMethod, stateDeliveryAreas, deliveryArea]);
+
+  const deliveryFee = selectedLocation ? selectedLocation.fee : 0;
+
   if (!isOpen) return null;
 
-  const totalAmount = items.reduce((sum, item) => {
+  const rawSubtotal = items.reduce((sum, item) => {
     const p = item.variant ? item.variant.price : item.product.price;
     return sum + p * item.quantity;
   }, 0);
 
+  // Compute discount
+  let discountAmount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.percent) {
+      discountAmount = Math.round((rawSubtotal * appliedCoupon.percent) / 100);
+    } else if (appliedCoupon.fixed) {
+      discountAmount = Math.min(rawSubtotal, appliedCoupon.fixed);
+    }
+  }
+  const totalAmount = Math.max(
+    0,
+    rawSubtotal - discountAmount + (fulfillmentMethod === 'delivery' ? deliveryFee : 0)
+  );
+
   const totalItemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  const handleApplyCoupon = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = couponInput.trim().toUpperCase();
+    if (!clean) return;
+
+    // Check seller store coupons first
+    const storeCoupons = (store.coupons && store.coupons.length > 0) ? store.coupons : getStoreCoupons(store.id);
+    const matched = storeCoupons.find((c) => c.code.toUpperCase() === clean);
+
+    if (matched) {
+      if (!matched.isActive) {
+        setCouponError('This coupon is currently inactive');
+        return;
+      }
+      if (matched.expiryDate && new Date(matched.expiryDate).getTime() < new Date().setHours(0, 0, 0, 0)) {
+        setCouponError(`This coupon expired on ${matched.expiryDate}`);
+        return;
+      }
+      if (matched.minOrderAmount && rawSubtotal < matched.minOrderAmount) {
+        setCouponError(
+          `Minimum order of ${formatPrice(matched.minOrderAmount, store.currencySymbol)} required for this coupon`
+        );
+        return;
+      }
+      if (matched.usageLimit && matched.usageCount >= matched.usageLimit) {
+        setCouponError('This coupon has reached its maximum usage limit');
+        return;
+      }
+
+      setAppliedCoupon({
+        code: matched.code,
+        percent: matched.discountType === 'percent' ? matched.discountValue : undefined,
+        fixed: matched.discountType === 'fixed' ? matched.discountValue : undefined,
+      });
+      setCouponError(null);
+      return;
+    }
+
+    // Default platform promotional codes
+    if (clean === 'WELCOME10' || clean === 'TA10') {
+      setAppliedCoupon({ code: clean, percent: 10 });
+      setCouponError(null);
+    } else if (clean === 'VIP20' || clean === 'DISCOUNT20') {
+      setAppliedCoupon({ code: clean, percent: 20 });
+      setCouponError(null);
+    } else if (clean === 'SAVE500' || clean === 'OFF500') {
+      setAppliedCoupon({ code: clean, fixed: 500 });
+      setCouponError(null);
+    } else if (clean === 'SAVE1000' || clean === 'OFF1000') {
+      setAppliedCoupon({ code: clean, fixed: 1000 });
+      setCouponError(null);
+    } else {
+      setCouponError('Invalid or expired coupon code. Please verify with the seller.');
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponError(null);
+  };
 
   const handlePlaceOrder = () => {
     const errors: string[] = [];
     if (!buyerName.trim()) {
-      errors.push('Please enter your full name');
+      errors.push('Please enter your full name (so the vendor recognizes you)');
     }
     if (!buyerPhone.trim() || buyerPhone.replace(/\D/g, '').length < 7) {
-      errors.push('Please enter a valid WhatsApp number — your invoice will be sent to this number');
+      errors.push('Please enter a valid WhatsApp phone number — order updates will be sent there');
     }
     if (fulfillmentMethod === 'delivery' && !deliveryAddress.trim()) {
-      errors.push('Please enter your delivery street address');
+      errors.push('Please enter your delivery street address & landmark');
     }
 
     if (errors.length > 0) {
@@ -123,35 +234,26 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
       };
     });
 
-    // 4. Generate WhatsApp link draft
-    const tempOrderForMsg: any = {
-      id: 'PENDING',
-      storeId: store.id,
-      buyerName: buyerName.trim(),
-      buyerPhone: buyerPhone.trim(),
-      fulfillmentMethod,
-      deliveryAddress: fulfillmentMethod === 'delivery' ? deliveryAddress.trim() : undefined,
-      deliveryArea: fulfillmentMethod === 'delivery' ? deliveryArea.trim() : undefined,
-      buyerNotes: buyerNote.trim() || undefined,
-      items: orderItemsPayload,
-      totalAmount,
-      currencySymbol: store.currencySymbol,
-      whatsappUrl: '',
-    };
+    const fullArea = fulfillmentMethod === 'delivery'
+      ? `${deliveryState}${deliveryArea ? ` · ${deliveryArea.trim()}` : ''}`
+      : undefined;
 
-    // 5. Persist to store dashboard
+    // 4. Persist to store dashboard
     const savedOrder = createStoreOrder({
       storeId: store.id,
       buyerName: buyerName.trim(),
       buyerPhone: buyerPhone.trim(),
+      buyerEmail: buyerEmail.trim() || undefined,
       fulfillmentMethod,
       deliveryAddress: fulfillmentMethod === 'delivery' ? deliveryAddress.trim() : undefined,
-      deliveryArea: fulfillmentMethod === 'delivery' ? deliveryArea.trim() : undefined,
+      deliveryArea: fullArea,
       buyerNotes: buyerNote.trim() || undefined,
       items: orderItemsPayload,
       totalAmount,
       currencySymbol: store.currencySymbol,
       whatsappUrl: '',
+      couponCode: appliedCoupon?.code,
+      discountAmount: discountAmount > 0 ? discountAmount : undefined,
     });
 
     // Generate accurate WA message containing assigned Order ID
@@ -169,7 +271,7 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
     setPlacedOrder(savedOrder);
     setIsSubmitting(false);
 
-    // Trigger Instant Baileys System Notification (Arrives directly on seller's & buyer's WhatsApp without relying on buyer opening app)
+    // Trigger Instant Baileys System Notification
     try {
       const serverBase =
         (import.meta as any).env?.VITE_BAILEYS_SERVER_URL ||
@@ -180,9 +282,7 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: savedOrder, store }),
-      }).catch(() => {
-        // Silent fallback if server is offline
-      });
+      }).catch(() => {});
     } catch (e) {}
 
     if (onOrderPlaced) {
@@ -204,36 +304,45 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="fixed inset-0" onClick={onClose} />
 
-      <div className="relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-200 border-l border-slate-100">
-        {/* Drawer Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900 text-base leading-tight">
-                {placedOrder ? 'Order Placed!' : 'Shopping Cart'}
-              </h3>
-              <p className="text-xs text-slate-500">
-                {placedOrder
-                  ? `Order #${placedOrder.id} sent to ${store.name}`
-                  : `${totalItemsCount} item${totalItemsCount !== 1 ? 's' : ''} • ${store.name}`}
-              </p>
+      <div className="relative w-full max-w-xl bg-[#fafafa] h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-200 border-l border-slate-200">
+        {/* Checkout Header (Store identity + Secure checkout pill) */}
+        <div className="p-4 sm:p-5 border-b border-slate-200 bg-white flex items-center justify-between shrink-0 shadow-xs">
+          <div className="flex items-center gap-3 min-w-0">
+            {store.logoUrl ? (
+              <img
+                src={store.logoUrl}
+                alt={store.name}
+                className="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                {store.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0">
+              <span className="font-extrabold text-slate-900 text-sm truncate block">{store.name}</span>
+              <span className="text-[11px] text-slate-400">Direct WhatsApp Order</span>
             </div>
           </div>
-          <button
-            onClick={placedOrder ? handleCloseAndClear : onClose}
-            className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase tracking-wider">
+              <Lock className="w-3 h-3 text-emerald-600" />
+              <span>Secure Checkout</span>
+            </span>
+            <button
+              onClick={placedOrder ? handleCloseAndClear : onClose}
+              className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Drawer Content */}
+        {/* Content Body */}
         {placedOrder ? (
           /* SUCCESS CELEBRATION VIEW */
           <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 pb-safe">
@@ -246,17 +355,17 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
                 Loud Order Alert Dispatched to Seller Dashboard!
               </span>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                Order Received!
+                Order Confirmed!
               </h2>
               <p className="text-xs text-slate-600 max-w-sm mx-auto">
-                Your order was saved to <strong>{store.name}</strong>'s dashboard. Your invoice &amp; order confirmation will be sent to your WhatsApp number shortly!
+                Your order was saved to <strong>{store.name}</strong>'s dashboard. A pre-typed WhatsApp message is ready for you to finalize payment &amp; delivery!
               </p>
             </div>
 
             {/* Generated Order ID Card */}
-            <div className="bg-slate-900 text-white p-4 sm:p-5 rounded-3xl shadow-lg space-y-3">
+            <div className="bg-slate-900 text-white p-5 rounded-3xl shadow-lg space-y-3 border border-slate-800">
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="uppercase tracking-wider font-semibold">Generated Order ID</span>
+                <span className="uppercase tracking-wider font-semibold">Assigned Order ID</span>
                 <span className="text-emerald-400 font-medium">Pending Store Confirmation</span>
               </div>
               <div className="flex items-center justify-between">
@@ -281,188 +390,164 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
                   <span className="text-[11px] text-slate-400 block">Phone</span>
                   <span className="font-semibold text-white">{placedOrder.buyerPhone}</span>
                 </div>
+                {placedOrder.buyerEmail && (
+                  <div className="col-span-2">
+                    <span className="text-[11px] text-slate-400 block">Email Receipt</span>
+                    <span className="font-semibold text-white">{placedOrder.buyerEmail}</span>
+                  </div>
+                )}
                 <div className="col-span-2 pt-1">
                   <span className="text-[11px] text-slate-400 block">Fulfillment</span>
                   <span className="font-semibold text-white">
                     {placedOrder.fulfillmentMethod === 'delivery'
-                      ? `🚚 Delivery: ${placedOrder.deliveryAddress}${placedOrder.deliveryArea ? `, ${placedOrder.deliveryArea}` : ''}`
+                      ? `🚚 Delivery: ${placedOrder.deliveryAddress}${placedOrder.deliveryArea ? ` (${placedOrder.deliveryArea})` : ''}`
                       : `🏬 Pickup: ${store.location}`}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Done & Continue Shopping + Optional Chat Link */}
+            {/* Done & Continue Shopping + Chat Link */}
             <div className="space-y-2.5">
-              <button
-                type="button"
-                onClick={handleCloseAndClear}
-                className="w-full py-4 px-5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2 transition active:scale-[0.99] cursor-pointer"
-              >
-                <span>Done & Continue Shopping</span>
-              </button>
-
               <a
                 href={placedOrder.whatsappUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+                className="w-full py-4 px-5 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2 transition active:scale-[0.99] cursor-pointer"
               >
-                <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                <span>Need immediate support? Chat on WhatsApp</span>
-                <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                <MessageCircle className="w-4 h-4 fill-white" />
+                <span>Open Pre-Typed WhatsApp Chat →</span>
               </a>
 
               <button
                 type="button"
-                onClick={() => playOrderNotificationSound(1.0)}
-                className="w-full py-2 px-3 rounded-lg text-slate-400 hover:text-slate-600 text-[11px] font-medium flex items-center justify-center gap-1.5 transition cursor-pointer"
+                onClick={handleCloseAndClear}
+                className="w-full py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
               >
-                <Volume2 className="w-3.5 h-3.5 text-amber-500" />
-                <span>Replay Cash Register Chime 🔊</span>
+                <span>Done &amp; Continue Shopping</span>
               </button>
             </div>
-
-            {/* Order Items Breakdown */}
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                Order Items ({placedOrder.items.length})
-              </span>
-              <div className="divide-y divide-slate-200/70">
-                {placedOrder.items.map((item, idx) => (
-                  <div key={idx} className="py-2.5 flex items-center justify-between text-xs">
-                    <div>
-                      <div className="font-semibold text-slate-900">
-                        {item.productName}
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        UID: #{item.productUid} {item.variantName ? `• ${item.variantName}` : ''}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold font-mono text-slate-900">
-                        {formatPrice(item.subtotal, store.currencySymbol)}
-                      </div>
-                      <div className="text-[10px] text-slate-400">Qty: {item.quantity}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-2 border-t border-slate-200 flex justify-between font-bold text-sm text-slate-900">
-                <span>Total Amount:</span>
-                <span className="font-mono text-base">
-                  {formatPrice(placedOrder.totalAmount, store.currencySymbol)}
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleCloseAndClear}
-              className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition cursor-pointer"
-            >
-              Done & Continue Shopping
-            </button>
           </div>
         ) : (
-          /* REGULAR CART & CHECKOUT FORM */
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          /* FULL CHECKOUT VIEW */
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
             {items.length === 0 ? (
               <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 space-y-3">
-                <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
+                <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
                   <ShoppingBag className="w-8 h-8" />
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-800 text-sm">Your cart is empty</p>
-                  <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                    Add products from {store.name}'s catalog to view and complete your order.
+                  <p className="font-bold text-slate-800 text-sm">Your order bag is empty</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+                    Select items from {store.name}'s storefront to complete your checkout.
                   </p>
                 </div>
               </div>
             ) : (
               <>
-                {/* Cart Items list */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Selected Items ({totalItemsCount})
+                {/* Title & Explainer */}
+                <div className="text-center space-y-1">
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">Checkout</h2>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                    <strong>{store.name}</strong> takes orders via WhatsApp. Tell us how to reach you and we'll open a chat with your full order pre-typed.
+                  </p>
+                </div>
+
+                {/* Unique Total Card (Luxury Dark Navy + Warm Gold/Emerald Glow) */}
+                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white p-5 sm:p-6 shadow-xl border border-slate-800">
+                  {/* Subtle decorative circles */}
+                  <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-emerald-500/10 pointer-events-none blur-2xl" />
+                  <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-amber-500/10 pointer-events-none blur-2xl" />
+
+                  <div className="relative z-10 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                        <MessageCircle className="w-3 h-3 text-emerald-400" />
+                        <span>Checking Out via WhatsApp</span>
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-medium">0% Commission</span>
+                    </div>
+
+                    <div className="pt-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white">
+                          {formatPrice(totalAmount, store.currencySymbol)}
+                        </span>
+                        {discountAmount > 0 && (
+                          <span className="text-sm font-mono text-slate-400 line-through">
+                            {formatPrice(rawSubtotal, store.currencySymbol)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-300 mt-1">
+                        {totalItemsCount} item{totalItemsCount > 1 ? 's' : ''} from <strong>{store.name}</strong>
+                        {appliedCoupon && (
+                          <span className="ml-2 text-emerald-400 font-semibold">
+                            (Code {appliedCoupon.code} saved {formatPrice(discountAmount, store.currencySymbol)})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coupon Code Section (Dotted Border Card) */}
+                <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-3.5 space-y-2 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Have a coupon code?</span>
+                      <span className="text-[10px] text-slate-400">(optional)</span>
                     </span>
-                    <button
-                      onClick={onClearCart}
-                      className="text-xs text-rose-500 hover:text-rose-600 font-medium cursor-pointer"
-                    >
-                      Clear Cart
-                    </button>
+                    {appliedCoupon && (
+                      <button
+                        onClick={handleRemoveCoupon}
+                        className="text-[11px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
 
-                  {items.map((item) => {
-                    const itemPrice = item.variant ? item.variant.price : item.product.price;
-                    return (
-                      <div
-                        key={item.id}
-                        className="p-3 rounded-2xl border border-slate-200/80 bg-white flex gap-3 items-center shadow-2xs"
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-2 rounded-xl font-medium">
+                      <span className="flex items-center gap-1.5 font-bold">
+                        <Check className="w-4 h-4 text-emerald-600" />
+                        <span>Code "{appliedCoupon.code}" applied!</span>
+                      </span>
+                      <span className="font-mono font-bold text-emerald-700">
+                        -{formatPrice(discountAmount, store.currencySymbol)}
+                      </span>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleApplyCoupon} className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Enter code here (e.g. WELCOME10)"
+                        value={couponInput}
+                        onChange={(e) => {
+                          setCouponInput(e.target.value);
+                          setCouponError(null);
+                        }}
+                        className="flex-1 px-3 py-2 text-xs font-mono uppercase rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      />
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer"
                       >
-                        <img
-                          src={item.product.images[0]}
-                          alt={item.product.name}
-                          className="w-14 h-14 rounded-xl object-cover bg-slate-100 shrink-0 border border-slate-100"
-                        />
+                        Apply
+                      </button>
+                    </form>
+                  )}
 
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-slate-900 text-xs truncate">
-                            {item.product.name}
-                          </h4>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[10px] font-mono bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-semibold">
-                              #{item.product.uid || item.product.id}
-                            </span>
-                            {item.variant && (
-                              <span className="text-[10px] text-slate-500 truncate">
-                                {item.variant.name}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs font-bold text-slate-900 font-mono mt-1">
-                            {formatPrice(itemPrice, store.currencySymbol)}
-                          </p>
-                        </div>
-
-                        {/* Quantity controls */}
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <button
-                            onClick={() => onRemoveItem(item.id)}
-                            className="text-slate-400 hover:text-rose-500 transition cursor-pointer p-0.5"
-                            title="Remove item"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-
-                          <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50 overflow-hidden">
-                            <button
-                              onClick={() => onUpdateQuantity(item.id, -1)}
-                              className="px-2 py-1 text-slate-600 hover:bg-slate-200 transition cursor-pointer"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="px-2 text-xs font-bold font-mono text-slate-800">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => onUpdateQuantity(item.id, 1)}
-                              className="px-2 py-1 text-slate-600 hover:bg-slate-200 transition cursor-pointer"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {couponError && (
+                    <p className="text-[11px] text-rose-600 font-medium">{couponError}</p>
+                  )}
                 </div>
 
                 {/* Validation Errors Box */}
                 {validationErrors.length > 0 && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 space-y-1 animate-in fade-in">
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 space-y-1 animate-in fade-in">
                     <div className="flex items-center gap-1.5 font-bold">
                       <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                       <span>Please complete the required fields:</span>
@@ -475,145 +560,292 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
                   </div>
                 )}
 
-                {/* CUSTOMER DETAILS FORM (Mobile-First) */}
-                <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200/80 space-y-3.5">
-                  <div className="flex items-center justify-between">
+                {/* Buyer Details Card */}
+                <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Buyer Information</span>
+                      <span>Contact Details</span>
                     </span>
-                    <span className="text-[10px] text-slate-400">No account required</span>
+                    <span className="text-[10px] text-slate-400">No login required</span>
                   </div>
 
-                  {/* Name and Phone */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <div>
-                      <label className="text-[11px] font-semibold text-slate-700 block mb-1">
-                        Your Full Name <span className="text-rose-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Amara Johnson"
-                        value={buyerName}
-                        onChange={(e) => setBuyerName(e.target.value)}
-                        className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-semibold text-slate-700 block mb-1">
-                        WhatsApp Number <span className="text-rose-500">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        placeholder="e.g. 0803 123 4567"
-                        value={buyerPhone}
-                        onChange={(e) => setBuyerPhone(e.target.value)}
-                        className="w-full px-3 py-2.5 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                      <p className="mt-1.5 text-[10px] text-emerald-700 flex items-center gap-1 leading-tight">
-                        <span>📲</span>
-                        <span>
-                          <strong>WhatsApp number only</strong> — your invoice &amp; order
-                          updates will be sent directly to this number on WhatsApp.
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Fulfillment Method Segmented Buttons (Delivery vs Pickup) */}
-                  <div className="pt-2 border-t border-slate-200/80">
-                    <label className="text-[11px] font-semibold text-slate-700 block mb-1.5">
-                      How would you like to receive your items? <span className="text-rose-500">*</span>
-                    </label>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setFulfillmentMethod('delivery')}
-                        className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
-                          fulfillmentMethod === 'delivery'
-                            ? 'bg-slate-900 border-slate-900 text-white shadow-sm ring-2 ring-slate-900/10'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        <Truck className="w-4 h-4" />
-                        <span>🚚 Doorstep Delivery</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setFulfillmentMethod('pickup')}
-                        className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
-                          fulfillmentMethod === 'pickup'
-                            ? 'bg-slate-900 border-slate-900 text-white shadow-sm ring-2 ring-slate-900/10'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        <Building className="w-4 h-4" />
-                        <span>🏬 In-Store Pickup</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Dynamic Fulfillment Fields */}
-                  {fulfillmentMethod === 'delivery' ? (
-                    <div className="space-y-2.5 pt-1 animate-in fade-in">
-                      <div>
-                        <label className="text-[11px] font-semibold text-slate-700 block mb-1 flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400" />
-                          <span>Delivery Street Address / Flat <span className="text-rose-500">*</span></span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Block 4, Plot 12, Admiralty Way, Lekki Phase 1"
-                          value={deliveryAddress}
-                          onChange={(e) => setDeliveryAddress(e.target.value)}
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[11px] font-semibold text-slate-700 block mb-1">
-                          City / State / Area
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Lagos Island / Mainland or Abuja"
-                          value={deliveryArea}
-                          onChange={(e) => setDeliveryArea(e.target.value)}
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    /* In-Store Pickup Info */
-                    <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs space-y-1.5 animate-in fade-in">
-                      <div className="flex items-center gap-1.5 font-bold text-amber-900">
-                        <MapPin className="w-4 h-4 text-amber-600" />
-                        <span>Store Pickup Location:</span>
-                      </div>
-                      <p className="text-slate-800 font-medium pl-5">
-                        {store.location || 'Visit store location for pickup.'}
-                      </p>
-                      <p className="text-[11px] text-amber-800/80 pl-5">
-                        ✨ No delivery charges apply. Present your generated Order ID upon pickup.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Special Note */}
+                  {/* Name Input */}
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-700 block mb-1">
-                      Customer Note / Instructions (Optional)
+                    <label className="text-xs font-bold text-slate-800 block mb-1">
+                      Your name <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Call when dispatch rider arrives"
-                      value={buyerNote}
-                      onChange={(e) => setBuyerNote(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="As the vendor will recognise you"
+                      value={buyerName}
+                      onChange={(e) => setBuyerName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder:text-slate-400 font-medium"
                     />
+                  </div>
+
+                  {/* WhatsApp / Phone Input */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-800 block mb-1">
+                      WhatsApp / phone <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="+234..."
+                      value={buyerPhone}
+                      onChange={(e) => setBuyerPhone(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder:text-slate-400"
+                    />
+                    <p className="mt-1 text-[10px] text-slate-400 flex items-center gap-1">
+                      <span>📲</span>
+                      <span>The vendor will contact this number directly on WhatsApp</span>
+                    </p>
+                  </div>
+
+                  {/* Email Input (Optional for receipt) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-slate-800">
+                        Email
+                      </label>
+                      <span className="text-[10px] text-slate-400">Optional - for the receipt</span>
+                    </div>
+                    <div className="relative">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="email"
+                        placeholder="you@example.com"
+                        value={buyerEmail}
+                        onChange={(e) => setBuyerEmail(e.target.value)}
+                        className="w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fulfillment Card ("How do you want this delivered?") */}
+                <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs space-y-3.5">
+                  <label className="text-xs font-bold text-slate-800 block">
+                    How do you want this delivered? <span className="text-rose-500">*</span>
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {/* Deliver to me */}
+                    <button
+                      type="button"
+                      onClick={() => setFulfillmentMethod('delivery')}
+                      className={`p-3.5 rounded-2xl border text-left transition cursor-pointer flex flex-col gap-1 ${
+                        fulfillmentMethod === 'delivery'
+                          ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/20'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Truck className={`w-4 h-4 ${fulfillmentMethod === 'delivery' ? 'text-emerald-700' : 'text-slate-500'}`} />
+                        <span className="text-xs font-bold text-slate-900">Deliver to me</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 pl-6">We'll bring it</span>
+                    </button>
+
+                    {/* Pick up */}
+                    <button
+                      type="button"
+                      onClick={() => setFulfillmentMethod('pickup')}
+                      className={`p-3.5 rounded-2xl border text-left transition cursor-pointer flex flex-col gap-1 ${
+                        fulfillmentMethod === 'pickup'
+                          ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/20'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Building className={`w-4 h-4 ${fulfillmentMethod === 'pickup' ? 'text-emerald-700' : 'text-slate-500'}`} />
+                        <span className="text-xs font-bold text-slate-900">Pick up</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 pl-6">At the store</span>
+                    </button>
+                  </div>
+
+                  {/* Delivery Location Fields */}
+                  {fulfillmentMethod === 'delivery' ? (
+                    <div className="space-y-3 pt-2 border-t border-slate-100 animate-in fade-in">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {/* State Dropdown */}
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                            State <span className="text-rose-500">*</span>
+                          </label>
+                          <select
+                            value={deliveryState}
+                            onChange={(e) => {
+                              const st = e.target.value;
+                              setDeliveryState(st);
+                              const matchingAreas = configuredLocations.filter((l: StoreDeliveryLocation) =>
+                                l.isActive && l.state.toLowerCase().includes(st.toLowerCase())
+                              );
+                              if (matchingAreas.length > 0) {
+                                setDeliveryArea(matchingAreas[0].areaName);
+                              } else {
+                                setDeliveryArea('');
+                              }
+                            }}
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 cursor-pointer"
+                          >
+                            {ALL_NIGERIAN_STATE_NAMES.map((st) => (
+                              <option key={st} value={st}>
+                                {st}
+                              </option>
+                            ))}
+                            <option value="Other Nigerian States">Other Nigerian States</option>
+                          </select>
+                        </div>
+
+                        {/* Area */}
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                            Area / Zone
+                          </label>
+                          {stateDeliveryAreas.length > 0 ? (
+                            <select
+                              value={deliveryArea || stateDeliveryAreas[0]?.areaName}
+                              onChange={(e) => setDeliveryArea(e.target.value)}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 cursor-pointer font-medium"
+                            >
+                              {stateDeliveryAreas.map((area: StoreDeliveryLocation) => (
+                                <option key={area.id} value={area.areaName}>
+                                  {area.areaName} ({formatPrice(area.fee, store.currencySymbol)})
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              placeholder="e.g. Central Town, Airport Road"
+                              value={deliveryArea}
+                              onChange={(e) => setDeliveryArea(e.target.value)}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder:text-slate-400"
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Delivery Address */}
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                          Delivery address <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Street, house number, area, landmarks..."
+                          value={deliveryAddress}
+                          onChange={(e) => setDeliveryAddress(e.target.value)}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder:text-slate-400"
+                        />
+                      </div>
+
+                      {/* Delivery fee breakdown notification */}
+                      {deliveryFee > 0 && (
+                        <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center justify-between">
+                          <span className="text-slate-600 flex items-center gap-1.5">
+                            <Truck className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Estimated Delivery Fee:</span>
+                          </span>
+                          <span className="font-mono font-bold text-slate-900">
+                            +{formatPrice(deliveryFee, store.currencySymbol)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Pickup info */
+                    <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs space-y-1 animate-in fade-in">
+                      <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                        <MapPin className="w-4 h-4 text-amber-600" />
+                        <span>Pickup Location:</span>
+                      </div>
+                      <p className="text-slate-800 font-medium pl-5">
+                        {store.location || 'Direct in-store pickup. Address confirmed on WhatsApp.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Note to vendor Card */}
+                <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800">
+                      Note to vendor
+                    </label>
+                    <span className="text-[10px] text-slate-400">Optional - packaging requests, gift message...</span>
+                  </div>
+                  <textarea
+                    rows={2}
+                    placeholder="Anything they should know before packing?"
+                    value={buyerNote}
+                    onChange={(e) => setBuyerNote(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder:text-slate-400 resize-none font-medium"
+                  />
+                </div>
+
+                {/* Selected Items Accordion / List */}
+                <div className="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Items in Order ({totalItemsCount})
+                    </span>
+                    <button
+                      onClick={onClearCart}
+                      className="text-xs text-rose-500 hover:text-rose-600 font-medium cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-slate-100">
+                    {items.map((item) => {
+                      const itemPrice = item.variant ? item.variant.price : item.product.price;
+                      return (
+                        <div key={item.id} className="py-2.5 flex items-center gap-3">
+                          <img
+                            src={item.product.images[0]}
+                            alt={item.product.name}
+                            className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-900 truncate">{item.product.name}</p>
+                            <p className="text-[10px] text-slate-400">
+                              #{item.product.uid || item.product.id} {item.variant ? `• ${item.variant.name}` : ''}
+                            </p>
+                            <p className="text-xs font-mono font-bold text-slate-800 mt-0.5">
+                              {formatPrice(itemPrice, store.currencySymbol)}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50">
+                              <button
+                                onClick={() => onUpdateQuantity(item.id, -1)}
+                                className="px-1.5 py-0.5 text-slate-600 hover:bg-slate-200 cursor-pointer"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="px-1.5 text-xs font-mono font-bold">{item.quantity}</span>
+                              <button
+                                onClick={() => onUpdateQuantity(item.id, 1)}
+                                className="px-1.5 py-0.5 text-slate-600 hover:bg-slate-200 cursor-pointer"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <button
+                              onClick={() => onRemoveItem(item.id)}
+                              className="text-slate-300 hover:text-rose-500 p-1 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </>
@@ -621,40 +853,24 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
           </div>
         )}
 
-        {/* Drawer Sticky Footer with Subtotal & Action */}
+        {/* Sticky Footer CTA */}
         {!placedOrder && items.length > 0 && (
-          <div className="p-4 sm:p-5 pb-safe border-t border-slate-100 bg-white space-y-3 shrink-0 shadow-lg">
-            <div className="flex items-baseline justify-between">
-              <div>
-                <span className="text-xs font-semibold text-slate-500 block">Total Items: {totalItemsCount}</span>
-                <span className="text-xs text-slate-400">
-                  {fulfillmentMethod === 'delivery' ? 'Delivery fee confirmed on WhatsApp' : 'Store pickup selected'}
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-xs text-slate-400 block">Subtotal</span>
-                <span className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
-                  {formatPrice(totalAmount, store.currencySymbol)}
-                </span>
-              </div>
-            </div>
-
+          <div className="p-4 sm:p-5 pb-safe border-t border-slate-200 bg-white space-y-3 shrink-0 shadow-lg">
             <button
               onClick={handlePlaceOrder}
               disabled={isSubmitting}
-              className="w-full py-3.5 px-4 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] active:bg-[#1da851] text-white font-bold text-sm shadow-md shadow-emerald-500/25 flex items-center justify-center gap-2 transition active:scale-[0.99] cursor-pointer"
+              className="w-full py-4 px-5 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] active:bg-[#1da851] text-white font-extrabold text-sm shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition active:scale-[0.99] cursor-pointer"
             >
-              <MessageCircle className="w-4 h-4 fill-white" />
+              <MessageCircle className="w-5 h-5 fill-white" />
               <span>
                 {isSubmitting
-                  ? 'Generating Order...'
-                  : `Send Order to Dashboard & WhatsApp (${totalItemsCount} items)`}
+                  ? 'Preparing Order...'
+                  : `Checkout via WhatsApp →`}
               </span>
             </button>
-            <p className="text-[10px] text-slate-400 text-center flex items-center justify-center gap-1">
-              <span>🔊 Plays loud alert on order dispatch</span>
-              <span>•</span>
-              <span>Generates #TA-ORD-ID copy</span>
+            <p className="text-[11px] text-slate-400 text-center flex items-center justify-center gap-2">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Direct order to vendor · No transaction fees · Instant WhatsApp response</span>
             </p>
           </div>
         )}

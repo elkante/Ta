@@ -90,8 +90,8 @@ export const PLAN_CONFIGS: Record<StoreTier, PlanConfig> = {
   business: {
     id: 'business',
     name: 'Business Store Bot',
-    priceMonthly: 25000,
-    priceYearly: 200000,
+    priceMonthly: 15000,
+    priceYearly: 120000,
     productLimit: Infinity,
     badge: '🤖 AI WhatsApp Bot',
     description: 'Fully automated WhatsApp commerce with verified trust and unlimited products.',

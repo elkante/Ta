@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Sparkles, AlertCircle, Check, Image as ImageIcon, Link, Lock, Plus, Star, Tag, Trash2, Upload, Video, X } from 'lucide-react';
+  Sparkles, AlertCircle, Check, Image as ImageIcon, Link, Lock, Package, Plus, Star, Tag, Trash2, Upload, Video, X } from 'lucide-react';
 import { Product, ProductVariant, Store } from '../../types';
 import { addStoreCategory, getStoreCategories } from '../../utils/storage';
 import { generateProductDescription, getDescriptionCapByTier } from '../../utils/aiMarketing';
@@ -50,6 +50,9 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [inStock, setInStock] = useState(true);
+  const [trackExactStock, setTrackExactStock] = useState(false);
+  const [stockCount, setStockCount] = useState<number | undefined>(undefined);
+  const [lowStockThreshold, setLowStockThreshold] = useState<number>(3);
   const [badge, setBadge] = useState('');
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +151,14 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
         setImageTab('upload');
       }
       setInStock(productToEdit.inStock);
+      if (typeof productToEdit.stockCount === 'number') {
+        setStockCount(productToEdit.stockCount);
+        setTrackExactStock(true);
+      } else {
+        setStockCount(undefined);
+        setTrackExactStock(false);
+      }
+      setLowStockThreshold(typeof productToEdit.lowStockThreshold === 'number' ? productToEdit.lowStockThreshold : 3);
       setBadge(productToEdit.badge || '');
       setVideoUrl(productToEdit.videoUrl || '');
       setVariants(productToEdit.variants || []);
@@ -166,6 +177,9 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
       setVideoUrl('');
       setImageTab('upload');
       setInStock(true);
+      setTrackExactStock(false);
+      setStockCount(undefined);
+      setLowStockThreshold(3);
       setBadge('');
       setVariants([]);
     }
@@ -342,7 +356,12 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
       category: finalCategory,
       images: finalImages,
       videoUrl: videoUrl.trim() || undefined,
-      inStock,
+      inStock: trackExactStock ? (Number(stockCount || 0) > 0) : inStock,
+      stockCount: trackExactStock ? Math.max(0, Number(stockCount || 0)) : undefined,
+      lowStockThreshold: trackExactStock ? Number(lowStockThreshold || 3) : undefined,
+      isLowStock: trackExactStock
+        ? Number(stockCount || 0) > 0 && Number(stockCount || 0) <= Number(lowStockThreshold || 3)
+        : undefined,
       badge: badge.trim() || undefined,
       variants,
     };
@@ -809,23 +828,100 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
             </p>
           </div>
 
-          {/* Stock Toggle */}
-          <div className="pt-2 flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
-            <div>
-              <span className="text-xs font-semibold text-slate-800 block">Inventory Stock Status</span>
-              <span className="text-[11px] text-slate-500">
-                {inStock ? 'Available for catalog orders' : 'Marked as Sold Out on storefront'}
-              </span>
+          {/* Inventory & Stock Count Section */}
+          <div className="pt-2 p-3.5 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-amber-600" />
+                  Inventory & Stock Count
+                </span>
+                <span className="text-[11px] text-slate-500 block">
+                  {trackExactStock
+                    ? `Tracking exact units (${stockCount ?? 0} in stock)`
+                    : inStock
+                    ? 'Always available (standard catalog mode)'
+                    : 'Marked as Sold Out on storefront'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !trackExactStock;
+                  setTrackExactStock(next);
+                  if (next && (stockCount === undefined || stockCount === null)) {
+                    setStockCount(10);
+                    setInStock(true);
+                  }
+                }}
+                className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer ${
+                  trackExactStock
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                {trackExactStock ? '✓ Tracking Exact Quantity' : '+ Track Exact Stock #'}
+              </button>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={inStock}
-                onChange={(e) => setInStock(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-            </label>
+
+            {trackExactStock ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/80">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Actual Stock Quantity *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 15"
+                    value={stockCount ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? undefined : Number(e.target.value);
+                      setStockCount(val);
+                      if (typeof val === 'number') {
+                        setInStock(val > 0);
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    {stockCount === 0 ? '⚠️ Zero stock automatically flags "Sold Out"' : 'Real units available to sell'}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Low Stock Alert Level
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="3"
+                    value={lowStockThreshold}
+                    onChange={(e) => setLowStockThreshold(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Shows "Only {lowStockThreshold} left!" urgency pill
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between pt-1 border-t border-slate-200/70">
+                <span className="text-[11px] text-slate-600">
+                  {inStock ? 'Available for customer orders' : 'Marked as Sold Out on storefront'}
+                </span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={inStock}
+                    onChange={(e) => setInStock(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+            )}
           </div>
 
           {/* Variants & Options Section */}

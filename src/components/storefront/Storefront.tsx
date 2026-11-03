@@ -1,15 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ArrowRight,
+  Award,
   BadgeCheck,
   CheckCircle,
   ChevronDown,
   ChevronRight,
+  CreditCard,
   Facebook,
   Filter,
+  Headphones,
   Heart,
   Instagram,
+  Lock,
   MapPin,
+  Menu,
   MessageCircle,
+  Package,
+  PackageCheck,
   Phone,
   QrCode,
   Search,
@@ -18,8 +26,11 @@ import {
   ShoppingBag,
   Sparkles,
   Star,
+  Tag,
   Truck,
   Twitter,
+  User,
+  X,
   Zap,
 } from 'lucide-react';
 import { CartItem, Product, ProductVariant, Store, StoreReview } from '../../types';
@@ -76,6 +87,26 @@ export const Storefront: React.FC<StorefrontProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [onlyInStock, setOnlyInStock] = useState(false);
+
+  // Storefront Customization & Navigation States
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isAboutExpanded, setIsAboutExpanded] = useState(false);
+
+  const custom = store.storefrontCustomization || {};
+  const fontClass =
+    custom.fontFamily === 'serif'
+      ? 'font-serif'
+      : custom.fontFamily === 'grotesk'
+      ? 'font-mono'
+      : 'font-sans';
+
+  const scrollToSection = (id: string) => {
+    setIsMobileNavOpen(false);
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   // Modals state
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -158,6 +189,21 @@ export const Storefront: React.FC<StorefrontProps> = ({
     });
     return ['All', ...Array.from(set)];
   }, [products]);
+
+  // Featured collections with representative products
+  const featuredCollections = useMemo(() => {
+    const map = new Map<string, Product>();
+    products.forEach((p) => {
+      if (p.category && !map.has(p.category) && p.approvalStatus === 'approved') {
+        map.set(p.category, p);
+      }
+    });
+    return Array.from(map.entries()).map(([cat, prod]) => ({
+      name: cat,
+      sampleProduct: prod,
+      count: products.filter((p) => p.category === cat && (p.approvalStatus === 'approved' || isStoreOwner)).length,
+    }));
+  }, [products, isStoreOwner]);
 
   const cleanSearch = searchQuery.trim().toLowerCase().replace(/^#/, '');
 
@@ -324,7 +370,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
   }, 0);
 
   return (
-    <div className="min-h-screen bg-[#fafbfc] text-slate-900 pb-28 sm:pb-24 overflow-x-hidden w-full max-w-full">
+    <div id="top" className="min-h-screen bg-[#fafbfc] text-slate-900 pb-28 sm:pb-24 overflow-x-hidden w-full max-w-full">
       {/* Top Store Announcement Bar */}
       {store.announcement && (
         <div
@@ -336,187 +382,441 @@ export const Storefront: React.FC<StorefrontProps> = ({
         </div>
       )}
 
-      {/* Hero Banner Header */}
-      <div className="relative bg-slate-900 text-white overflow-hidden">
-        {/* Background Image with Gradient Overlay */}
-        <div className="absolute inset-0 z-0">
-          {store.bannerUrl ? (
-            <img
-              src={store.bannerUrl}
-              alt={store.name}
-              className="w-full h-full object-cover opacity-30"
-              loading="eager"
-              decoding="async"
-            />
-          ) : (
-            /* Gradient fallback generated from store accent colour */
-            <div
-              className="w-full h-full"
-              style={{
-                background: `linear-gradient(135deg, ${store.accentColor || '#0f172a'} 0%, ${store.accentColor || '#1e293b'}cc 50%, #0f172a 100%)`,
-              }}
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/70 to-slate-900/40" />
-        </div>
-
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-            {/* Store Logo Avatar */}
-            <div className="relative">
+      {/* ── TOP NAVIGATION BAR (Orderly-inspired bespoke boutique nav) ── */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-shadow shadow-xs">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+          {/* Logo & Store Name */}
+          <button
+            type="button"
+            onClick={() => scrollToSection('top')}
+            className="flex items-center gap-2.5 cursor-pointer text-left group"
+          >
+            {store.logoUrl ? (
               <img
                 src={store.logoUrl}
                 alt={store.name}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-2xl bg-slate-800 ring-4 ring-amber-400/70 ring-offset-2 ring-offset-slate-900"
-                loading="eager"
-                decoding="async"
+                className="w-9 h-9 rounded-xl object-cover border border-slate-200 group-hover:scale-105 transition-transform"
               />
-              <div className="absolute -bottom-1 -right-1 ring-2 ring-slate-900 rounded-full shadow-sm">
-                <VerifiedBadge tier={store.tier} verified={store.verified} size="md" />
-              </div>
-            </div>
-
-            {/* Store Title, Tagline & Meta */}
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans">
-                  {store.name}
-                </h1>
-                <VerifiedBadge tier={store.tier} verified={store.verified} size="md" showLabel />
-              </div>
-
-              <p className="text-base sm:text-xl text-white mt-1 font-black leading-snug">{store.tagline}</p>
-
-              <div className="flex flex-wrap items-center gap-y-1 gap-x-4 mt-3 text-xs text-slate-300">
-                <div className="flex items-center gap-1 text-slate-300">
-                  <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>{store.location}</span>
-                </div>
-
-                {/* Open Hours — dynamic badge */}
-                {store.openHours ? (
-                  <div className={`flex items-center gap-1 font-medium ${store.openHours.isOpenNow ? 'text-emerald-400' : 'text-slate-400'}`}>
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${store.openHours.isOpenNow ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-                    <span>{store.openHours.isOpenNow ? 'Open now' : 'Closed'} · {store.openHours.label}</span>
-                    {store.openHours.replyTime && store.openHours.isOpenNow && (
-                      <span className="text-slate-400 ml-1">· {store.openHours.replyTime}</span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 text-emerald-400 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Accepting WhatsApp orders</span>
-                  </div>
-                )}
-
-                {/* Restock countdown badge */}
-                {store.restockCountdown && (
-                  <span className="flex items-center gap-1 bg-amber-400/20 border border-amber-400/30 text-amber-300 px-2.5 py-0.5 rounded-full font-semibold">
-                    🔔 {store.restockCountdown.label}
-                  </span>
-                )}
-
-                {/* Social media links */}
-                {(() => {
-                  const ig = parseSocialLink('instagram', store.socialLinks?.instagram);
-                  const tt = parseSocialLink('tiktok', store.socialLinks?.tiktok);
-                  const fb = parseSocialLink('facebook', store.socialLinks?.facebook);
-                  const tw = parseSocialLink('twitter', store.socialLinks?.twitter);
-
-                  return (
-                    <>
-                      {ig && (
-                        <a
-                          href={ig.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-1 hover:text-white transition"
-                          title={`Instagram: ${ig.display}`}
-                        >
-                          <Instagram className="w-3.5 h-3.5 text-pink-400 shrink-0" />
-                          <span>{ig.display}</span>
-                        </a>
-                      )}
-
-                      {tt && (
-                        <a
-                          href={tt.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-1 hover:text-white transition"
-                          title={`TikTok: ${tt.display}`}
-                        >
-                          <svg className="w-3.5 h-3.5 text-cyan-400 fill-current shrink-0" viewBox="0 0 24 24">
-                            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.86 4.43 6.3 6.3 0 0 0 1.93-4.52V8.58a8.28 8.28 0 0 0 4.8 1.54V6.69z"/>
-                          </svg>
-                          <span>{tt.display}</span>
-                        </a>
-                      )}
-
-                      {fb && (
-                        <a
-                          href={fb.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-1 hover:text-white transition"
-                          title={`Facebook: ${fb.display}`}
-                        >
-                          <Facebook className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                          <span>{fb.display}</span>
-                        </a>
-                      )}
-
-                      {tw && (
-                        <a
-                          href={tw.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-1 hover:text-white transition"
-                          title={`X / Twitter: ${tw.display}`}
-                        >
-                          <Twitter className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                          <span>{tw.display}</span>
-                        </a>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Direct Contact & Share Buttons */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <a
-                href={generateWhatsAppLink(
-                  store.whatsappCountryCode,
-                  store.whatsappNumber,
-                  `👋 Hello ${store.name}! I am browsing your catalog at ${window.location.origin}?store=${store.slug} and would like to ask a question.`
-                )}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 sm:flex-initial py-2.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg transition active:scale-[0.98] cursor-pointer"
+            ) : (
+              <div
+                className="w-9 h-9 rounded-xl text-white font-black text-xs flex items-center justify-center shadow-xs"
+                style={{ backgroundColor: store.accentColor || '#0f172a' }}
               >
-                <MessageCircle className="w-4 h-4" />
-                <span>Chat on WhatsApp</span>
-              </a>
+                {store.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <span className={`font-black text-base tracking-tight text-slate-900 group-hover:text-amber-600 transition-colors ${fontClass}`}>
+                {store.name}
+              </span>
+              <VerifiedBadge tier={store.tier} verified={store.verified} size="xs" />
+            </div>
+          </button>
 
+          {/* Center Navigation Links (Desktop) */}
+          {custom.showNavLinks !== false && (
+            <nav className="hidden md:flex items-center gap-6 text-xs font-bold uppercase tracking-wider text-slate-600">
               <button
-                onClick={() => {
-                  setShareTargetProduct(undefined);
-                  setIsShareOpen(true);
-                }}
-                className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
-                title="Share store link & QR code"
+                type="button"
+                onClick={() => scrollToSection('top')}
+                className="hover:text-slate-950 transition cursor-pointer"
               >
-                <Share2 className="w-4 h-4" />
+                Home
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollToSection('catalog')}
+                className="hover:text-slate-950 transition cursor-pointer"
+              >
+                Shop
+              </button>
+              {featuredCollections.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => scrollToSection('collections')}
+                  className="hover:text-slate-950 transition cursor-pointer"
+                >
+                  Collections
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => scrollToSection('about')}
+                className="hover:text-slate-950 transition cursor-pointer"
+              >
+                About
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollToSection('reviews')}
+                className="hover:text-slate-950 transition cursor-pointer"
+              >
+                Reviews
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollToSection('contact')}
+                className="hover:text-slate-950 transition cursor-pointer"
+              >
+                Contact
+              </button>
+            </nav>
+          )}
+
+          {/* Right Action Icons (Search trigger, Cart Bag with badge, Mobile menu) */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Owner Dashboard link if owner */}
+            {isStoreOwner && onOpenDashboard && (
+              <button
+                type="button"
+                onClick={onOpenDashboard}
+                className="hidden sm:flex px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold items-center gap-1.5 hover:bg-slate-800 transition cursor-pointer"
+              >
+                <span>Dashboard</span>
+              </button>
+            )}
+
+            {/* Cart / Bag Icon with Badge */}
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              className="relative p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 transition cursor-pointer flex items-center justify-center"
+              title="View Cart"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              {totalCartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-xs animate-in zoom-in">
+                  {totalCartCount}
+                </span>
+              )}
+            </button>
+
+            {/* Mobile Menu Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+              className="md:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+            >
+              {isMobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Nav Dropdown */}
+        {isMobileNavOpen && (
+          <div className="md:hidden border-t border-slate-100 bg-white px-4 py-3 space-y-2 animate-in slide-in-from-top-2 duration-150">
+            <button
+              type="button"
+              onClick={() => scrollToSection('top')}
+              className="w-full text-left py-2 text-xs font-bold uppercase tracking-wider text-slate-700 hover:text-slate-950 cursor-pointer"
+            >
+              Home
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToSection('catalog')}
+              className="w-full text-left py-2 text-xs font-bold uppercase tracking-wider text-slate-700 hover:text-slate-950 cursor-pointer"
+            >
+              Shop All Products
+            </button>
+            {featuredCollections.length > 0 && (
+              <button
+                type="button"
+                onClick={() => scrollToSection('collections')}
+                className="w-full text-left py-2 text-xs font-bold uppercase tracking-wider text-slate-700 hover:text-slate-950 cursor-pointer"
+              >
+                Collections
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => scrollToSection('about')}
+              className="w-full text-left py-2 text-xs font-bold uppercase tracking-wider text-slate-700 hover:text-slate-950 cursor-pointer"
+            >
+              About {store.name}
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToSection('reviews')}
+              className="w-full text-left py-2 text-xs font-bold uppercase tracking-wider text-slate-700 hover:text-slate-950 cursor-pointer"
+            >
+              Customer Reviews
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToSection('contact')}
+              className="w-full text-left py-2 text-xs font-bold uppercase tracking-wider text-slate-700 hover:text-slate-950 cursor-pointer"
+            >
+              Contact &amp; Location
+            </button>
+            {isStoreOwner && onOpenDashboard && (
+              <button
+                type="button"
+                onClick={onOpenDashboard}
+                className="w-full text-left py-2 text-xs font-bold text-blue-600 cursor-pointer"
+              >
+                Go to Seller Dashboard →
+              </button>
+            )}
+          </div>
+        )}
+      </header>
+
+      {/* Paused Store Banner */}
+      {store.isPublished === false && !isStoreOwner && (
+        <div className="bg-amber-400 text-slate-950 px-4 py-2.5 text-center text-xs font-bold flex items-center justify-center gap-2">
+          <span>⚠️ {store.name} is currently updating their store. You can still message the seller on WhatsApp!</span>
+        </div>
+      )}
+
+      {/* ── CUSTOMIZABLE HERO BANNER (Inspired by Solar Haven in Image 3) ── */}
+      <section
+        className="relative text-white overflow-hidden py-14 sm:py-20 px-4 sm:px-6 transition-colors"
+        style={{
+          backgroundColor: custom.heroBgColor || store.accentColor || '#a84a32',
+        }}
+      >
+        {/* Subtle patterned overlay or cover banner image */}
+        {store.bannerUrl && (
+          <div className="absolute inset-0 z-0 opacity-20">
+            <img
+              src={store.bannerUrl}
+              alt={store.name}
+              className="w-full h-full object-cover"
+              loading="eager"
+            />
+          </div>
+        )}
+
+        <div className="relative z-10 max-w-4xl mx-auto text-center space-y-4">
+          {/* Store Logo & Verified Tick */}
+          <div className="flex items-center justify-center gap-2.5">
+            {store.logoUrl ? (
+              <img
+                src={store.logoUrl}
+                alt={store.name}
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover shadow-2xl bg-white/20 ring-4 ring-white/30"
+              />
+            ) : (
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/20 text-white font-black text-2xl flex items-center justify-center shadow-xl ring-4 ring-white/30">
+                {store.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+          </div>
+
+          {/* Store Headline Title */}
+          <div className="space-y-1">
+            <h1 className={`text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight text-white drop-shadow-sm ${fontClass}`}>
+              {custom.heroHeadline || store.name}
+            </h1>
+            <p className="text-xs sm:text-sm uppercase tracking-widest text-white/80 font-bold max-w-xl mx-auto">
+              {custom.heroSubtitle || store.tagline || 'TASTEFUL PIECES FOR EVERY OCCASION'}
+            </p>
+          </div>
+
+          {/* Call to action button */}
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => scrollToSection('catalog')}
+              className="px-8 py-3 rounded-full bg-white text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-xl hover:bg-slate-100 transition active:scale-95 cursor-pointer"
+            >
+              {custom.heroCtaText || 'Shop Now'}
+            </button>
+
+            <a
+              href={generateWhatsAppLink(
+                store.whatsappCountryCode,
+                store.whatsappNumber,
+                `👋 Hello ${store.name}! I am browsing your catalog at ${window.location.origin}?store=${store.slug} and would like to ask a question.`
+              )}
+              target="_blank"
+              rel="noreferrer"
+              className="px-5 py-3 rounded-full bg-white/20 hover:bg-white/30 text-white font-bold text-xs uppercase tracking-wider transition cursor-pointer flex items-center gap-2 backdrop-blur-xs"
+            >
+              <MessageCircle className="w-4 h-4 text-[#25D366] fill-[#25D366]" />
+              <span>Chat on WhatsApp</span>
+            </a>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShareTargetProduct(undefined);
+                setIsShareOpen(true);
+              }}
+              className="p-3 rounded-full bg-white/20 hover:bg-white/30 text-white transition cursor-pointer"
+              title="Share store link & QR code"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Meta badges: Location & Open hours */}
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-3 text-xs text-white/80">
+            {store.location && (
+              <div className="flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-white/90 shrink-0" />
+                <span>{store.location}</span>
+              </div>
+            )}
+            {store.openHours ? (
+              <div className="flex items-center gap-1 font-medium">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${store.openHours.isOpenNow ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+                <span>{store.openHours.isOpenNow ? 'Open now' : 'Closed'} · {store.openHours.label}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 font-medium text-emerald-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Accepting WhatsApp orders</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── OUR COLLECTIONS SECTION (Featured Categories Showcase) ── */}
+      {featuredCollections.length > 0 && (
+        <section id="collections" className="py-12 bg-white border-b border-slate-100">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6">
+            <div className="text-center mb-8">
+              <h2 className={`text-2xl sm:text-3xl font-black text-slate-900 tracking-tight ${fontClass}`}>
+                Our Collections
+              </h2>
+              <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest font-semibold">
+                Timeless pieces, curated with care
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {featuredCollections.map((col) => (
+                <div
+                  key={col.name}
+                  onClick={() => {
+                    setSelectedCategory(col.name);
+                    scrollToSection('catalog');
+                  }}
+                  className="group relative rounded-2xl overflow-hidden border border-slate-200/80 shadow-2xs hover:shadow-lg transition cursor-pointer bg-slate-900"
+                >
+                  <div className="h-44 sm:h-52 w-full overflow-hidden">
+                    <img
+                      src={col.sampleProduct?.images[0] || 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=600&auto=format&fit=crop&q=80'}
+                      alt={col.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-80 group-hover:opacity-90"
+                    />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-3.5 text-white">
+                    <h3 className="font-bold text-sm sm:text-base leading-tight drop-shadow-sm">{col.name}</h3>
+                    <p className="text-[11px] text-slate-300 mt-0.5">{col.count} Product{col.count !== 1 ? 's' : ''}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('All');
+                  scrollToSection('catalog');
+                }}
+                className="px-6 py-2.5 rounded-full border border-slate-900 text-slate-900 hover:bg-slate-900 hover:text-white transition text-xs font-bold uppercase tracking-wider cursor-pointer"
+              >
+                View All Products
               </button>
             </div>
           </div>
-        </div>
-      </div>
+        </section>
+      )}
 
-      {/* Main Content Area */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6">
+      {/* ── PROMOTIONAL HIGHLIGHT BANNER (If Enabled) ── */}
+      {(custom.promoBannerEnabled || false) && (
+        <section
+          className="py-10 px-4 sm:px-6 text-white text-center transition-colors"
+          style={{ backgroundColor: custom.heroBgColor || store.accentColor || '#a84a32' }}
+        >
+          <div className="max-w-3xl mx-auto space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full inline-block">
+              LIMITED TIME
+            </span>
+            <h3 className={`text-2xl sm:text-3xl font-black tracking-tight ${fontClass}`}>
+              {custom.promoBannerText || 'Save big across our latest arrivals!'}
+            </h3>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => scrollToSection('catalog')}
+                className="px-6 py-2.5 rounded-full bg-white text-slate-900 text-xs font-bold uppercase tracking-wider shadow hover:bg-slate-100 transition cursor-pointer"
+              >
+                {custom.promoBannerCta || 'Shop The Sale →'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── TRUST GUARANTEES ROW (PACKAGED WITH CARE, AUTHENTIC, SUPPORT, PAYMENTS) ── */}
+      {custom.showTrustBadges !== false && (
+        <section id="trust" className="py-8 bg-[#fafafa] border-b border-slate-200/80">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+              {/* Badge 1 */}
+              <div className="flex flex-col items-center gap-1.5 p-3">
+                <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-700 shadow-2xs">
+                  <PackageCheck className="w-5 h-5 text-amber-600" />
+                </div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-900">
+                  {custom.trustBadge1Title || 'PACKAGED WITH CARE'}
+                </h4>
+                <p className="text-[10px] text-slate-500 leading-tight">
+                  {custom.trustBadge1Subtitle || 'Carefully inspected before dispatch'}
+                </p>
+              </div>
+
+              {/* Badge 2 */}
+              <div className="flex flex-col items-center gap-1.5 p-3">
+                <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-700 shadow-2xs">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                </div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-900">
+                  {custom.trustBadge2Title || 'AUTHENTIC GUARANTEE'}
+                </h4>
+                <p className="text-[10px] text-slate-500 leading-tight">
+                  {custom.trustBadge2Subtitle || '100% genuine products directly sourced'}
+                </p>
+              </div>
+
+              {/* Badge 3 */}
+              <div className="flex flex-col items-center gap-1.5 p-3">
+                <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-700 shadow-2xs">
+                  <Headphones className="w-5 h-5 text-blue-600" />
+                </div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-900">
+                  {custom.trustBadge3Title || 'DIRECT WHATSAPP SUPPORT'}
+                </h4>
+                <p className="text-[10px] text-slate-500 leading-tight">
+                  {custom.trustBadge3Subtitle || 'Fast assistance from our friendly team'}
+                </p>
+              </div>
+
+              {/* Badge 4 */}
+              <div className="flex flex-col items-center gap-1.5 p-3">
+                <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-700 shadow-2xs">
+                  <CreditCard className="w-5 h-5 text-violet-600" />
+                </div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-900">
+                  {custom.trustBadge4Title || 'SECURE PAYMENTS'}
+                </h4>
+                <p className="text-[10px] text-slate-500 leading-tight">
+                  {custom.trustBadge4Subtitle || 'Bank transfer & instant invoice receipts'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Main Content Area: Catalog Section */}
+      <main id="catalog" className="max-w-5xl mx-auto px-4 sm:px-6 pt-10">
         {/* Search & Category Tabs Bar */}
         <div className="space-y-3 mb-6">
           <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
@@ -718,7 +1018,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
         )}
 
         {/* Social Proof & Customer Reviews Section */}
-        <section className="mt-16 pt-10 border-t border-slate-200/80">
+        <section id="reviews" className="mt-16 pt-10 border-t border-slate-200/80">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <h3 className="font-bold text-slate-900 text-lg leading-tight flex items-center gap-2">
@@ -828,6 +1128,120 @@ export const Storefront: React.FC<StorefrontProps> = ({
               <span className="font-bold text-slate-900 block text-xs">3. Confirm & Receive</span>
               <p>{store.deliveryInfo || 'Fast same-day and nationwide dispatch with tracking.'}</p>
             </div>
+          </div>
+        </section>
+
+        {/* ── ABOUT US & BRAND STORY SECTION (Inspired by Image 3) ── */}
+        <section id="about" className="mt-16 py-12 px-6 sm:px-12 bg-white rounded-3xl border border-slate-200/80 text-center shadow-2xs space-y-4">
+          <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 block">
+            {custom.aboutTagline || 'OUR STORY'}
+          </span>
+          <h3 className={`text-2xl sm:text-3xl font-black text-slate-900 tracking-tight ${fontClass}`}>
+            {custom.aboutTitle || `About ${store.name}`}
+          </h3>
+          <div className="max-w-2xl mx-auto text-xs sm:text-sm text-slate-600 leading-relaxed space-y-3 font-normal">
+            <p className={!isAboutExpanded ? 'line-clamp-3 sm:line-clamp-4' : ''}>
+              {custom.aboutStory ||
+                store.description ||
+                `${store.name} was established with a singular vision: to bring customers thoughtfully curated, reliable products that elevate everyday lifestyle. Each product in our collection is carefully inspected and packaged to guarantee 100% satisfaction upon delivery.`}
+            </p>
+            {custom.aboutImageUrl && (
+              <div className="pt-3 max-w-md mx-auto rounded-2xl overflow-hidden shadow-sm">
+                <img src={custom.aboutImageUrl} alt={store.name} className="w-full h-48 object-cover" />
+              </div>
+            )}
+          </div>
+          <div>
+            <button
+              type="button"
+              onClick={() => setIsAboutExpanded(!isAboutExpanded)}
+              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full border border-slate-900 text-slate-900 hover:bg-slate-900 hover:text-white transition text-xs font-bold uppercase tracking-wider cursor-pointer"
+            >
+              <span>{isAboutExpanded ? 'Read Less' : 'Read More →'}</span>
+            </button>
+          </div>
+        </section>
+
+        {/* ── FOLLOW US & CONNECT SECTION (Inspired by Image 3) ── */}
+        <section id="contact" className="mt-12 py-10 text-center space-y-4">
+          <h4 className={`text-xl sm:text-2xl font-black text-slate-900 tracking-tight ${fontClass}`}>
+            Follow us
+          </h4>
+          <p className="text-xs text-slate-400">Stay updated with new drops, behind the scenes &amp; private discounts.</p>
+
+          <div className="flex items-center justify-center gap-3 pt-1">
+            {(() => {
+              const ig = parseSocialLink('instagram', store.socialLinks?.instagram);
+              const tt = parseSocialLink('tiktok', store.socialLinks?.tiktok);
+              const fb = parseSocialLink('facebook', store.socialLinks?.facebook);
+              const tw = parseSocialLink('twitter', store.socialLinks?.twitter);
+
+              return (
+                <>
+                  {ig && (
+                    <a
+                      href={ig.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-3 rounded-2xl bg-white border border-slate-200 text-pink-600 hover:shadow-md hover:scale-105 transition"
+                      title="Follow on Instagram"
+                    >
+                      <Instagram className="w-5 h-5" />
+                    </a>
+                  )}
+                  {tt && (
+                    <a
+                      href={tt.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-3 rounded-2xl bg-white border border-slate-200 text-slate-900 hover:shadow-md hover:scale-105 transition"
+                      title="Follow on TikTok"
+                    >
+                      <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.86 4.43 6.3 6.3 0 0 0 1.93-4.52V8.58a8.28 8.28 0 0 0 4.8 1.54V6.69z" />
+                      </svg>
+                    </a>
+                  )}
+                  {fb && (
+                    <a
+                      href={fb.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-3 rounded-2xl bg-white border border-slate-200 text-blue-600 hover:shadow-md hover:scale-105 transition"
+                      title="Follow on Facebook"
+                    >
+                      <Facebook className="w-5 h-5" />
+                    </a>
+                  )}
+                  {tw && (
+                    <a
+                      href={tw.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-3 rounded-2xl bg-white border border-slate-200 text-sky-500 hover:shadow-md hover:scale-105 transition"
+                      title="Follow on Twitter / X"
+                    >
+                      <Twitter className="w-5 h-5" />
+                    </a>
+                  )}
+
+                  {/* WhatsApp Direct */}
+                  <a
+                    href={generateWhatsAppLink(
+                      store.whatsappCountryCode,
+                      store.whatsappNumber,
+                      `👋 Hello ${store.name}! I would like to make an inquiry.`
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-3 rounded-2xl bg-[#25D366] text-white hover:shadow-md hover:scale-105 transition"
+                    title="Chat on WhatsApp"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                  </a>
+                </>
+              );
+            })()}
           </div>
         </section>
 
