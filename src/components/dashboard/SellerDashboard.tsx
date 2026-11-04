@@ -66,7 +66,7 @@ import {
   ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense, StoreCoupon } from '../../types';
+import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense, StoreCoupon, StoreTier } from '../../types';
 import { AddEditProductModal } from './AddEditProductModal';
 import { ProductLimitModal } from '../modals/ProductLimitModal';
 import { VerifiedBadge } from '../common/VerifiedBadge';
@@ -413,7 +413,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
   // Paystack & Share Modals
   const [isPaystackOpen, setIsPaystackOpen] = useState(false);
-  const [paystackInitialPlan, setPaystackInitialPlan] = useState<'starter' | 'basic' | 'badge' | 'pro' | 'business'>('pro');
+  const [paystackInitialPlan, setPaystackInitialPlan] = useState<StoreTier | 'badge'>('pro');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [planConfigs, setPlanConfigs] = useState(() => getActivePlanConfigs());
 
@@ -1070,13 +1070,15 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 <VerifiedBadge tier={store.tier} verified={store.verified} size="xs" />
               </p>
               <span className={`inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${
-                store.tier === 'business'
+                store.tier === 'enterprise'
+                  ? 'bg-amber-100 text-amber-900 border border-amber-300 font-black'
+                  : store.tier === 'business'
                   ? 'bg-violet-50 text-violet-700 border border-violet-200'
                   : store.tier === 'pro'
                   ? 'bg-amber-50 text-amber-800 border border-amber-200'
                   : 'bg-slate-100 text-slate-600 border border-slate-200'
               }`}>
-                {store.tier === 'business' ? '🤖 Business AI' : store.tier === 'pro' ? '⚡ Pro' : 'Starter'}
+                {store.tier === 'enterprise' ? '🌐 Enterprise .ng' : store.tier === 'business' ? '🤖 Business AI' : store.tier === 'pro' ? '⚡ Pro' : store.tier === 'basic' ? 'Basic' : 'Starter'}
               </span>
             </div>
           </div>
@@ -1133,10 +1135,11 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 <div>
                   <p className="text-slate-900 font-bold text-sm truncate">{store.name}</p>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
+                    store.tier === 'enterprise' ? 'bg-amber-100 text-amber-900 border border-amber-300 font-black' :
                     store.tier === 'business' ? 'bg-violet-50 text-violet-700 border border-violet-200' :
                     store.tier === 'pro' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
                   }`}>
-                    {store.tier === 'business' ? '🤖 Business AI' : store.tier === 'pro' ? '⚡ Pro' : 'Starter'}
+                    {store.tier === 'enterprise' ? '🌐 Enterprise .ng' : store.tier === 'business' ? '🤖 Business AI' : store.tier === 'pro' ? '⚡ Pro' : store.tier === 'basic' ? 'Basic' : 'Starter'}
                   </span>
                 </div>
               </div>
@@ -3255,7 +3258,9 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   </span>
                   <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2 mt-0.5">
                     <span>
-                      {store.tier === 'business'
+                      {store.tier === 'enterprise'
+                        ? 'Tá.shop Enterprise (.ng Domain)'
+                        : store.tier === 'business'
                         ? 'Tá.shop Business AI Plan'
                         : store.tier === 'pro'
                         ? 'Tá.shop Pro Seller'
@@ -3263,13 +3268,15 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                         ? 'Tá.shop Basic Plan (₦1,500/mo)'
                         : 'Tá.shop Starter Plan (₦500/mo)'}
                     </span>
-                    {store.tier === 'business' && (
-                      <BadgeCheck className="w-5 h-5 text-blue-500" />
+                    {(store.tier === 'business' || store.tier === 'enterprise') && (
+                      <BadgeCheck className="w-5 h-5 text-amber-500 fill-amber-100" />
                     )}
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
-                    {store.tier === 'business'
-                      ? 'Active 24/7 AI WhatsApp Bot, unlimited catalog products, verified badge & priority infrastructure.'
+                    {store.tier === 'enterprise'
+                      ? 'Active Enterprise tier with official .ng custom domain, unlimited products, 24/7 WhatsApp bot & Golden Tick.'
+                      : store.tier === 'business'
+                      ? 'Active 24/7 AI WhatsApp Bot, up to 100 products, Golden Tick badge & priority infrastructure.'
                       : store.tier === 'pro'
                       ? 'Active recurring subscription via Paystack. Up to 70 products and customer reviews enabled.'
                       : store.tier === 'basic'
@@ -3361,7 +3368,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             </div>
 
             {/* Plan Comparison Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               {/* Starter Plan */}
               <div className={`p-5 rounded-2xl border bg-white flex flex-col justify-between ${store.tier === 'free' ? 'ring-2 ring-slate-900' : 'border-slate-200'}`}>
                 <div>
@@ -3505,16 +3512,16 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   )}
 
                   <ul className="mt-4 space-y-2 text-xs text-slate-700">
-                    <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg">✓ <strong>UNLIMITED Products</strong> (Only plan with no limit)</li>
+                    <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg">✓ <strong>Up to 100 Products</strong> in catalog</li>
                     <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-300 px-2 py-1 rounded-lg">✓ <strong>Official Golden Tick Badge</strong> (Exclusive to Business AI)</li>
                     <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by Tá.shop"</strong> (100% white-label)</li>
                     <li className="flex items-center gap-2 font-medium">✓ <strong>24/7 AI WhatsApp Bot</strong> auto-replies with photos & prices</li>
                     <li className="flex items-center gap-2 font-medium">✓ Instant WhatsApp order receipts & merchant alerts</li>
-                    <li className="flex items-center gap-2 font-medium">✓ All Pro features + VIP priority support</li>
+                    <li className="flex items-center gap-2 font-medium">✓ All Pro features + priority support</li>
                   </ul>
                 </div>
 
-                {store.tier !== 'business' && (
+                {store.tier !== 'business' && store.tier !== 'enterprise' && (
                   <button
                     onClick={() => {
                       setPaystackInitialPlan('business');
@@ -3523,6 +3530,55 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     className="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white text-xs font-semibold shadow transition cursor-pointer"
                   >
                     Activate Business AI (₦{billingCycle === 'yearly' ? planConfigs.business.priceYearly.toLocaleString() + '/yr' : planConfigs.business.priceMonthly.toLocaleString() + '/mo'})
+                  </button>
+                )}
+              </div>
+
+              {/* Enterprise (.ng Domain) Plan */}
+              <div className={`p-5 rounded-2xl border bg-gradient-to-br from-amber-50/70 via-white to-amber-50/30 flex flex-col justify-between ${store.tier === 'enterprise' ? 'ring-2 ring-amber-500 border-amber-400' : 'border-amber-200 shadow-sm'}`}>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <span>Enterprise</span>
+                      <Globe className="w-3.5 h-3.5 text-amber-600" />
+                    </h4>
+                    <span className="bg-amber-100 text-amber-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase border border-amber-300">
+                      🌐 .ng Domain
+                    </span>
+                  </div>
+
+                  <div className="mt-2 text-2xl font-black font-mono text-amber-950">
+                    ₦{billingCycle === 'monthly' ? (planConfigs.enterprise?.priceMonthly ?? 35000).toLocaleString() : (planConfigs.enterprise?.priceYearly ?? 350000).toLocaleString()}
+                    <span className="text-xs font-normal text-slate-400">
+                      {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                    </span>
+                  </div>
+
+                  {billingCycle === 'yearly' && (
+                    <div className="mt-1 flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md inline-flex">
+                      <span>Save ₦{(((planConfigs.enterprise?.priceMonthly ?? 35000) * 12) - (planConfigs.enterprise?.priceYearly ?? 350000)).toLocaleString()}/yr</span>
+                    </div>
+                  )}
+
+                  <ul className="mt-4 space-y-2 text-xs text-slate-700">
+                    <li className="flex items-center gap-2 font-bold text-amber-950 bg-amber-100/90 px-2 py-1 rounded-lg border border-amber-300">✓ <strong>UNLIMITED Products</strong> (No limit)</li>
+                    <li className="flex items-center gap-2 font-bold text-indigo-950 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg">✓ <strong>Official .ng Domain</strong> (.com.ng included)</li>
+                    <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-300 px-2 py-1 rounded-lg">✓ <strong>Official Golden Tick Badge</strong></li>
+                    <li className="flex items-center gap-2 font-medium">✓ <strong>24/7 AI WhatsApp Bot</strong> with automatic SSL setup</li>
+                    <li className="flex items-center gap-2 font-medium">✓ 100% White-label (remove Tá.shop promo)</li>
+                    <li className="flex items-center gap-2 font-medium">✓ VIP 24/7 dedicated priority concierge</li>
+                  </ul>
+                </div>
+
+                {store.tier !== 'enterprise' && (
+                  <button
+                    onClick={() => {
+                      setPaystackInitialPlan('enterprise');
+                      setIsPaystackOpen(true);
+                    }}
+                    className="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs shadow-md transition cursor-pointer"
+                  >
+                    Activate Enterprise (₦{billingCycle === 'yearly' ? (planConfigs.enterprise?.priceYearly ?? 350000).toLocaleString() + '/yr' : (planConfigs.enterprise?.priceMonthly ?? 35000).toLocaleString() + '/mo'})
                   </button>
                 )}
               </div>

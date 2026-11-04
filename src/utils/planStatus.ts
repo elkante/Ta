@@ -1,12 +1,12 @@
-import { Store } from '../types';
+import { Store, StoreTier } from '../types';
 import { getProductLimitByTier } from './planLimits';
 
 export const GRACE_PERIOD_DAYS = 5;
 
 export interface StorePlanStatus {
-  tier: 'free' | 'starter' | 'basic' | 'pro' | 'business';
+  tier: StoreTier;
   /** The tier currently in effect. Reverts to 'free' once 5-day grace period ends. */
-  effectiveTier: 'free' | 'starter' | 'basic' | 'pro' | 'business';
+  effectiveTier: StoreTier;
   isExpired: boolean;
   isGracePeriod: boolean;
   daysRemainingInGrace: number;

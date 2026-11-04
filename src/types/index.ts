@@ -217,6 +217,8 @@ export interface StoreDeliveryLocation {
   isActive: boolean;
 }
 
+export type StoreTier = 'free' | 'starter' | 'basic' | 'pro' | 'business' | 'enterprise';
+
 export interface Store {
   id: string;
   name: string;
@@ -245,7 +247,7 @@ export interface Store {
     twitter?: string;
     facebook?: string;
   };
-  tier: 'free' | 'starter' | 'basic' | 'pro' | 'business';
+  tier: StoreTier;
   verified: boolean;
   hasVerifiedBadgeAddon?: boolean; // Standalone ₦2,000/mo verification add-on
   verifiedBadgeExpiresAt?: string;
@@ -450,6 +452,8 @@ export interface PlatformSettings {
   proPriceYearly: number;
   businessPriceMonthly: number;
   businessPriceYearly: number;
+  enterprisePriceMonthly: number;
+  enterprisePriceYearly: number;
   badgePriceMonthly?: number;
   badgePriceYearly?: number;
   globalAnnouncement: string;

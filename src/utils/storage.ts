@@ -394,6 +394,8 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   proPriceYearly: 39000,
   businessPriceMonthly: 15000,
   businessPriceYearly: 120000,
+  enterprisePriceMonthly: 35000,
+  enterprisePriceYearly: 350000,
   badgePriceMonthly: 2000,
   badgePriceYearly: 20000,
   globalAnnouncement:

@@ -314,7 +314,7 @@ export const PlatformLeadBotBubble: React.FC<PlatformLeadBotBubbleProps> = ({
 
     if (q.includes('price') || q.includes('cost') || q.includes('plan') || q.includes('subscription')) {
       addBotMessage(
-        `Our pricing is transparent and affordable! 💳\n\n• 🟡 **Basic Plan:** ₦1,500/month (Custom link, WhatsApp bot, 3 AI descriptions/day)\n• 🟢 **Pro Plan:** ₦4,900/month (Unlimited products, 5 AI descriptions/day, verified badge option)\n• 🔵 **Business Plan:** ₦25,000/month (15 AI descriptions/day, VIP priority)\n• ⚪ **Free Trial:** Get started today for free!`
+        `Our pricing is transparent and affordable! 💳\n\n• 🟡 **Basic Plan:** ₦1,500/month (30 products, AI descriptions)\n• 🟢 **Pro Plan:** ₦4,900/month (70 products, Blue Tick badge)\n• 🟣 **Business AI:** ₦15,000/month (100 products, 24/7 WhatsApp AI Bot, Golden Tick)\n• 🌐 **Enterprise:** ₦35,000/month (Unlimited products + Official .ng custom domain)\n• ⚪ **Free Trial:** Get started today for free!`
       );
     } else if (q.includes('whatsapp') || q.includes('bot') || q.includes('waybill') || q.includes('receipt')) {
       addBotMessage(

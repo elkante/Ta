@@ -1,8 +1,10 @@
 import React from 'react';
 import { BadgeCheck } from 'lucide-react';
 
+import { StoreTier } from '../../types';
+
 interface VerifiedBadgeProps {
-  tier?: 'free' | 'starter' | 'basic' | 'pro' | 'business';
+  tier?: StoreTier;
   verified?: boolean;
   size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
@@ -13,7 +15,7 @@ interface VerifiedBadgeProps {
  * VerifiedBadge
  * ─────────────────────────────────────────────────────────────────────────────
  * • Pro Tier (₦4,900/mo) or manual verification → Verified Blue Tick
- * • Business AI Tier (₦25,000/mo) → Official Golden Tick
+ * • Business AI & Enterprise Tier → Official Golden Tick
  * • Free / Starter / Basic without verification → renders nothing
  */
 export const VerifiedBadge: React.FC<VerifiedBadgeProps> = ({
@@ -23,7 +25,7 @@ export const VerifiedBadge: React.FC<VerifiedBadgeProps> = ({
   className = '',
   showLabel = false,
 }) => {
-  const isBusinessGold = tier === 'business';
+  const isBusinessGold = tier === 'business' || tier === 'enterprise';
   const isProBlue = tier === 'pro' || Boolean(verified);
 
   if (!isBusinessGold && !isProBlue) return null;

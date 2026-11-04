@@ -13,7 +13,7 @@ interface ProductLimitModalProps {
   onClose: () => void;
   store: Store;
   currentProductCount: number;
-  onOpenUpgrade: (targetPlan: 'starter' | 'basic' | 'pro' | 'business') => void;
+  onOpenUpgrade: (targetPlan: 'starter' | 'basic' | 'pro' | 'business' | 'enterprise') => void;
 }
 
 export const ProductLimitModal: React.FC<ProductLimitModalProps> = ({
@@ -124,15 +124,31 @@ export const ProductLimitModal: React.FC<ProductLimitModalProps> = ({
                 <>
                   <li className="flex items-center gap-2 font-semibold text-violet-900">
                     <Check className="w-4 h-4 text-violet-600 shrink-0" />
-                    <span>Verified Merchant Blue Tick (Exclusive)</span>
+                    <span>Up to 100 products in catalog</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Remove "Powered by Tá.shop" promotion</span>
+                    <span>Official Golden Tick Badge</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>24/7 AI WhatsApp Bot (auto-replies & cards)</span>
+                  </li>
+                </>
+              )}
+              {store.tier === 'business' && (
+                <>
+                  <li className="flex items-center gap-2 font-semibold text-amber-900">
+                    <Check className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>UNLIMITED catalog products (No cap)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <span>Official .ng custom domain included</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>VIP 24/7 dedicated priority concierge</span>
                   </li>
                 </>
               )}

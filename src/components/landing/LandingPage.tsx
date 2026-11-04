@@ -856,7 +856,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </p>
                 <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 pt-2">
                   <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-400" /> Free Plan: ₦0 forever</span>
-                  <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-400" /> Pro & Business AI Available</span>
+                  <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-400" /> Pro, Business & Enterprise (.ng)</span>
                   <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-400" /> Cancel anytime</span>
                 </div>
               </div>

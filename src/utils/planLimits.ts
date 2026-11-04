@@ -1,6 +1,6 @@
 import { getPlatformSettings, DEFAULT_PLATFORM_SETTINGS } from './storage';
 
-export type StoreTier = 'free' | 'starter' | 'basic' | 'pro' | 'business';
+export type StoreTier = 'free' | 'starter' | 'basic' | 'pro' | 'business' | 'enterprise';
 
 export interface PlanConfig {
   id: StoreTier;
@@ -92,11 +92,11 @@ export const PLAN_CONFIGS: Record<StoreTier, PlanConfig> = {
     name: 'Business Store Bot',
     priceMonthly: 15000,
     priceYearly: 120000,
-    productLimit: Infinity,
+    productLimit: 100,
     badge: '🤖 AI WhatsApp Bot',
-    description: 'Fully automated WhatsApp commerce with verified trust and unlimited products.',
+    description: 'Automated WhatsApp commerce with verified trust and up to 100 products.',
     features: [
-      'UNLIMITED products (the only plan with no cap)',
+      'Up to 100 products in catalog',
       'Official Golden Tick Badge (Exclusive to Business AI)',
       'AI product descriptions (15 daily credits)',
       'AI viral marketing studio (30 daily credits)',
@@ -106,6 +106,27 @@ export const PLAN_CONFIGS: Record<StoreTier, PlanConfig> = {
       'Auto-replies with product photos, prices & status',
       'Automated WhatsApp receipts to customers',
       'Instant merchant order alerts on WhatsApp',
+    ],
+  },
+  enterprise: {
+    id: 'enterprise',
+    name: 'Enterprise (.ng Domain)',
+    priceMonthly: 35000,
+    priceYearly: 350000,
+    productLimit: Infinity,
+    badge: '🌐 Official .ng Domain',
+    description: 'Autonomous WhatsApp commerce, official .ng domain & unlimited catalog capacity.',
+    features: [
+      'UNLIMITED products (the only plan with no cap)',
+      'Official .ng custom domain included (e.g. yourstore.com.ng / yourstore.ng)',
+      'Automated SSL & custom domain routing',
+      'Official Golden Tick Badge (Exclusive verified trust)',
+      '24/7 WhatsApp AI Assistant Bot (Baileys connection)',
+      'Auto-replies with product photos, prices & status',
+      'Remove "Powered by Tá.shop" promotion (100% white-label)',
+      'AI product descriptions (50 daily credits)',
+      'AI viral marketing studio (50 daily credits)',
+      'VIP 24/7 dedicated priority concierge',
     ],
   },
 };
@@ -142,6 +163,11 @@ export function getActivePlanConfigs(): Record<StoreTier, PlanConfig> {
       ...PLAN_CONFIGS.business,
       priceMonthly: settings?.businessPriceMonthly ?? PLAN_CONFIGS.business.priceMonthly,
       priceYearly: settings?.businessPriceYearly ?? PLAN_CONFIGS.business.priceYearly,
+    },
+    enterprise: {
+      ...PLAN_CONFIGS.enterprise,
+      priceMonthly: settings?.enterprisePriceMonthly ?? PLAN_CONFIGS.enterprise.priceMonthly,
+      priceYearly: settings?.enterprisePriceYearly ?? PLAN_CONFIGS.enterprise.priceYearly,
     },
   };
 }
@@ -194,7 +220,7 @@ export function getPlanNameByTier(tier?: string): string {
  * Recommends the next higher plan for upgrading.
  */
 export function getNextUpgradePlan(tier?: string): {
-  targetPlan: 'starter' | 'basic' | 'pro' | 'business';
+  targetPlan: 'starter' | 'basic' | 'pro' | 'business' | 'enterprise';
   name: string;
   priceMonthly: number;
   productLimit: number;
@@ -223,12 +249,19 @@ export function getNextUpgradePlan(tier?: string): {
         productLimit: configs.pro.productLimit,
       };
     case 'pro':
-    default:
       return {
         targetPlan: 'business',
         name: configs.business.name,
         priceMonthly: configs.business.priceMonthly,
         productLimit: configs.business.productLimit,
+      };
+    case 'business':
+    default:
+      return {
+        targetPlan: 'enterprise',
+        name: configs.enterprise.name,
+        priceMonthly: configs.enterprise.priceMonthly,
+        productLimit: configs.enterprise.productLimit,
       };
   }
 }

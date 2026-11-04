@@ -276,10 +276,9 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
               if (pairingMethod === 'qr') handleStartBaileysPairing();
             }, 30000);
           } else if (data.event === 'connecting') {
-            // Plain reconnect (not scan-related) — just show loading state
+            // Plain reconnect (not scan-related) — keep existing QR visible to avoid flickering
             setQrScannedConfirming(false);
-            setBaileysQr(null);
-            setServerMessage('Reconnecting to WhatsApp gateway...');
+            setServerMessage('Connecting to WhatsApp gateway...');
           }
         } catch (e) {}
       };
@@ -295,7 +294,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       es?.close();
       if (confirmingTimeout) clearTimeout(confirmingTimeout);
     };
-  }, [baileysStatus, serverEndpoint, store.id, handleConnectedEvent, pairingMethod]);
+  }, [baileysStatus, serverEndpoint, store.id, handleConnectedEvent]);
 
   // Fast fallback polling (every 1.2s) when waiting for scan — covers SSE gaps
   useEffect(() => {
@@ -374,13 +373,9 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           forceRefresh,
-          catalog: sanitizeCatalogForBot(products),
           storeInfo: {
             name: store.name,
             slug: store.slug,
-            deliveryInfo: store.deliveryInfo,
-            location: store.location,
-            openHours: store.openHours,
           },
         }),
       });
@@ -430,16 +425,18 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         return;
       }
       pairingRetryCountRef.current += 1;
-      if (pairingRetryCountRef.current <= 3) {
+      if (pairingRetryCountRef.current <= 2 && !baileysQrRef.current) {
         setServerStatus('waking');
-        setServerMessage('WhatsApp bot server is warming up on Render (free tier takes ~20s)... retrying automatically');
+        setServerMessage('WhatsApp bot server is warming up on Render... retrying automatically');
         setTimeout(() => {
-          if (baileysStatus === 'waiting_scan') {
+          if (baileysStatus === 'waiting_scan' && !baileysQrRef.current) {
             handleStartBaileysPairing();
           }
-        }, 4500);
+        }, 5000);
       } else {
-        setPairingError('WhatsApp server is taking longer than usual to wake. Please click "Refresh QR Code" to try again.');
+        if (!baileysQrRef.current) {
+          setPairingError('WhatsApp server is taking longer than usual to wake. Please click "Refresh QR Code" to try again.');
+        }
         setServerMessage('');
         setIsPairingLoading(false);
       }
@@ -473,14 +470,9 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phoneNumber: clean,
-          catalog: sanitizeCatalogForBot(products),
           storeInfo: {
             name: store.name,
             slug: store.slug,
-            customDomain: store.customDomain,
-            deliveryInfo: store.deliveryInfo,
-            location: store.location,
-            openHours: store.openHours,
           },
         }),
       });

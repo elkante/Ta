@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   Bot,
   Check,
+  Globe,
   Zap,
 } from 'lucide-react';
 import { getActivePlanConfigs } from '../../utils/planLimits';
@@ -98,7 +99,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
         </div>
 
         {/* Plan Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
 
           {/* 1. Free Trial */}
           <div className="p-6 rounded-3xl border border-slate-200 bg-white flex flex-col justify-between shadow-2xs">
@@ -223,8 +224,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
           </div>
 
           {/* 5. Business AI */}
-          <div className="p-6 rounded-3xl border-2 border-violet-500 bg-gradient-to-b from-violet-50/60 to-white relative flex flex-col justify-between shadow-lg">
-            <span className="absolute -top-3 right-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-2xs">
+          <div className="p-5 sm:p-6 rounded-3xl border-2 border-violet-500 bg-gradient-to-b from-violet-50/60 to-white relative flex flex-col justify-between shadow-lg">
+            <span className="absolute -top-3 right-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-2xs">
               🤖 AI WhatsApp Bot
             </span>
             <div>
@@ -232,8 +233,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
                 <span>Business AI</span>
                 <Bot className="w-4 h-4 text-violet-600" />
               </h3>
-              <p className="text-xs text-slate-500 mt-1">Autonomous WhatsApp commerce & unlimited inventory.</p>
-              <div className="mt-4 text-3xl font-black font-mono text-violet-950">
+              <p className="text-xs text-slate-500 mt-1">Autonomous WhatsApp commerce & 100 products.</p>
+              <div className="mt-4 text-2xl sm:text-3xl font-black font-mono text-violet-950">
                 ₦{billingCycle === 'monthly' ? planConfigs.business.priceMonthly.toLocaleString() : planConfigs.business.priceYearly.toLocaleString()}
                 <span className="text-xs font-normal text-slate-400 block mt-0.5">/ {billingCycle === 'yearly' ? 'year' : 'month'}</span>
               </div>
@@ -244,7 +245,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
               )}
               <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
                 <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg">
-                  <Check className="w-4 h-4 text-violet-700 shrink-0" /><span>UNLIMITED Products (No limit)</span>
+                  <Check className="w-4 h-4 text-violet-700 shrink-0" /><span>Up to 100 Products</span>
                 </li>
                 <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-300 px-2 py-1 rounded-lg">
                   <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" /><span>Official Golden Tick Badge</span>
@@ -260,7 +261,51 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
               onClick={() => onOpenSignup()}
               className="mt-6 w-full py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
             >
-              Launch Business AI Store
+              Choose Business
+            </button>
+          </div>
+
+          {/* 6. Enterprise (.ng Domain) */}
+          <div className="p-5 sm:p-6 rounded-3xl border-2 border-amber-500 bg-gradient-to-b from-amber-50/70 via-white to-amber-50/30 relative flex flex-col justify-between shadow-xl">
+            <span className="absolute -top-3 right-4 bg-gradient-to-r from-amber-600 to-yellow-500 text-slate-950 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-md">
+              🌐 Official .ng Domain
+            </span>
+            <div>
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
+                <span>Enterprise</span>
+                <Globe className="w-4 h-4 text-amber-600" />
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">Unlimited catalog with official custom domain.</p>
+              <div className="mt-4 text-2xl sm:text-3xl font-black font-mono text-amber-950">
+                ₦{billingCycle === 'monthly' ? (planConfigs.enterprise?.priceMonthly ?? 35000).toLocaleString() : (planConfigs.enterprise?.priceYearly ?? 350000).toLocaleString()}
+                <span className="text-xs font-normal text-slate-400 block mt-0.5">/ {billingCycle === 'yearly' ? 'year' : 'month'}</span>
+              </div>
+              {billingCycle === 'yearly' && (
+                <span className="inline-block mt-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                  Save ₦{(((planConfigs.enterprise?.priceMonthly ?? 35000) * 12) - (planConfigs.enterprise?.priceYearly ?? 350000)).toLocaleString()}/yr
+                </span>
+              )}
+              <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
+                <li className="flex items-center gap-2 font-bold text-amber-950 bg-amber-100/90 px-2 py-1 rounded-lg border border-amber-300">
+                  <Check className="w-4 h-4 text-amber-700 shrink-0" /><span>UNLIMITED Products (No Cap)</span>
+                </li>
+                <li className="flex items-center gap-2 font-bold text-slate-900 bg-white border border-slate-300 px-2 py-1 rounded-lg">
+                  <Globe className="w-4 h-4 text-indigo-600 shrink-0" /><span>Official .ng Domain (.com.ng)</span>
+                </li>
+                <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+                  <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" /><span>Official Golden Tick Badge</span>
+                </li>
+                <li className="flex items-center gap-2 font-medium text-violet-900">
+                  <Bot className="w-4 h-4 text-violet-600 shrink-0" /><span>24/7 AI WhatsApp Bot Engine</span>
+                </li>
+                <li className="flex items-center gap-2 font-medium"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>100% White-Label & VIP Concierge</span></li>
+              </ul>
+            </div>
+            <button
+              onClick={() => onOpenSignup()}
+              className="mt-6 w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs rounded-xl shadow-md transition cursor-pointer"
+            >
+              Get Enterprise .ng
             </button>
           </div>
         </div>
@@ -281,30 +326,31 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
                   <th className="text-center px-4 py-3 font-bold text-emerald-700">Basic</th>
                   <th className="text-center px-4 py-3 font-bold text-slate-900">Pro</th>
                   <th className="text-center px-4 py-3 font-bold text-violet-700">Business AI</th>
+                  <th className="text-center px-4 py-3 font-bold text-amber-800">Enterprise</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {[
-                  ['Max products', '4', '10', '30', '70', 'Unlimited'],
-                  ['Photos per product', '5', '5', '5', '5', '5'],
-                  ['Product video link', '✓', '✓', '✓', '✓', '✓'],
-                  ['WhatsApp checkout', '✓', '✓', '✓', '✓', '✓'],
-                  ['UID fast search', '✓', '✓', '✓', '✓', '✓'],
-                  ['Waybill generator', '✓', '✓', '✓', '✓', '✓'],
-                  ['Audio order alerts', '✓', '✓', '✓', '✓', '✓'],
-                  ['Custom store link', '—', '✓', '✓', '✓', '✓'],
-                  ['Store QR code', '—', '✓', '✓', '✓', '✓'],
-                  ['AI product descriptions', '—', '—', '✓', '✓', '✓'],
-                  ['Status Studio cards', '—', '—', '✓', '✓', '✓'],
-                  ['Notes & profit tool', '—', '—', '✓', '✓', '✓'],
-                  ['Customer reviews', '—', '—', '—', '✓', '✓'],
-                  ['Verified Blue Tick', '—', '—', '—', '✓', '—'],
-                  ['Golden Tick Badge', '—', '—', '—', '—', '✓'],
-                  ['24/7 AI WhatsApp bot', '—', '—', '—', '—', '✓'],
-                  ['Bot pause / schedule', '—', '—', '—', '—', '✓'],
-                  ['White-label (no branding)', '—', '—', '—', '—', '✓'],
-                  ['Custom domain (.com)', '—', '—', '—', '—', '✓'],
-                  ['Automated WA receipts', '—', '—', '—', '—', '✓'],
+                  ['Max products', '4', '10', '30', '70', '100', 'Unlimited'],
+                  ['Photos per product', '5', '5', '5', '5', '5', '5'],
+                  ['Product video link', '✓', '✓', '✓', '✓', '✓', '✓'],
+                  ['WhatsApp checkout', '✓', '✓', '✓', '✓', '✓', '✓'],
+                  ['UID fast search', '✓', '✓', '✓', '✓', '✓', '✓'],
+                  ['Waybill generator', '✓', '✓', '✓', '✓', '✓', '✓'],
+                  ['Audio order alerts', '✓', '✓', '✓', '✓', '✓', '✓'],
+                  ['Custom store link', '—', '✓', '✓', '✓', '✓', '✓'],
+                  ['Store QR code', '—', '✓', '✓', '✓', '✓', '✓'],
+                  ['AI product descriptions', '—', '—', '✓', '✓', '✓', '✓'],
+                  ['Status Studio cards', '—', '—', '✓', '✓', '✓', '✓'],
+                  ['Notes & profit tool', '—', '—', '✓', '✓', '✓', '✓'],
+                  ['Customer reviews', '—', '—', '—', '✓', '✓', '✓'],
+                  ['Verified Blue Tick', '—', '—', '—', '✓', '—', '—'],
+                  ['Golden Tick Badge', '—', '—', '—', '—', '✓', '✓'],
+                  ['24/7 AI WhatsApp bot', '—', '—', '—', '—', '✓', '✓'],
+                  ['Bot pause / schedule', '—', '—', '—', '—', '✓', '✓'],
+                  ['White-label (no branding)', '—', '—', '—', '—', '✓', '✓'],
+                  ['Official .ng domain', '—', '—', '—', '—', '—', '✓'],
+                  ['Automated WA receipts', '—', '—', '—', '—', '✓', '✓'],
                 ].map(([feature, ...cols]) => (
                   <tr key={feature} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-5 py-2.5 font-medium text-slate-700">{feature}</td>

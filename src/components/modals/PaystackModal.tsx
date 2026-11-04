@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { AlertCircle, BadgeCheck, Bot, Check, CheckCircle2, CreditCard, Lock, ShieldCheck, Sparkles, Upload, X, Zap } from 'lucide-react';
+import { AlertCircle, BadgeCheck, Bot, Check, CheckCircle2, CreditCard, Globe, Lock, ShieldCheck, Sparkles, Upload, X, Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { Store, StoreIdVerification } from '../../types';
+import { Store, StoreIdVerification, StoreTier } from '../../types';
 import { getRootDomain } from '../../utils/storage';
 import { dbSaveStore } from '../../utils/supabase';
 import { getPlanAmount } from '../../utils/planLimits';
@@ -12,9 +12,9 @@ interface PaystackModalProps {
   isOpen: boolean;
   onClose: () => void;
   store: Store;
-  initialPlan?: 'starter' | 'basic' | 'badge' | 'pro' | 'business';
+  initialPlan?: StoreTier | 'badge';
   initialCycle?: 'monthly' | 'yearly';
-  onUpgradeSuccess: (plan: 'starter' | 'basic' | 'badge' | 'pro' | 'business') => void;
+  onUpgradeSuccess: (plan: StoreTier | 'badge') => void;
 }
 
 export const PaystackModal: React.FC<PaystackModalProps> = ({
@@ -25,7 +25,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
   initialCycle = 'monthly',
   onUpgradeSuccess,
 }) => {
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'basic' | 'badge' | 'pro' | 'business'>(initialPlan);
+  const [selectedPlan, setSelectedPlan] = useState<StoreTier | 'badge'>(initialPlan);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>(initialCycle);
   const [isProcessing, setIsProcessing] = useState(false);
   const [step, setStep] = useState<'checkout' | 'processing' | 'success'>('checkout');
@@ -85,8 +85,8 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
     const updatedStore: Store = {
       ...store,
       tier: selectedPlan === 'badge' ? store.tier : selectedPlan,
-      verified: selectedPlan === 'pro' || selectedPlan === 'business' ? true : store.verified,
-      hasVerifiedBadgeAddon: selectedPlan === 'business' ? true : store.hasVerifiedBadgeAddon,
+      verified: selectedPlan === 'pro' || selectedPlan === 'business' || selectedPlan === 'enterprise' ? true : store.verified,
+      hasVerifiedBadgeAddon: selectedPlan === 'business' || selectedPlan === 'enterprise' ? true : store.hasVerifiedBadgeAddon,
       planExpiresAt: expiry.toISOString(),
       planActivationSource: 'paystack',
       lastPaymentRef: _reference || undefined,
@@ -252,7 +252,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
             </div>
 
             {/* Plan Selector Tabs */}
-            <div className="grid grid-cols-5 gap-1 p-1 bg-slate-100 rounded-2xl text-[10px] sm:text-[11px] font-bold">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 p-1 bg-slate-100 rounded-2xl text-[10px] sm:text-[11px] font-bold">
               <button
                 type="button"
                 onClick={() => setSelectedPlan('starter')}
@@ -313,7 +313,20 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                 }`}
               >
                 <Bot className="w-3 h-3" />
-                <span>Store Bot</span>
+                <span>Business</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedPlan('enterprise')}
+                className={`py-2 px-1 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer truncate ${
+                  selectedPlan === 'enterprise'
+                    ? 'bg-amber-500 text-slate-950 shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Globe className="w-3 h-3" />
+                <span>Enterprise</span>
               </button>
             </div>
 
@@ -323,7 +336,9 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
               </span>
               <h3 className="text-xl font-bold text-slate-900 mt-0.5 flex items-center justify-center gap-1.5">
                 <span>
-                  {selectedPlan === 'business'
+                  {selectedPlan === 'enterprise'
+                    ? 'Tá.shop Enterprise (.ng Domain)'
+                    : selectedPlan === 'business'
                     ? 'Tá.shop Business Store Bot'
                     : selectedPlan === 'badge'
                     ? 'Tá.shop Verified Blue Tick'
@@ -333,9 +348,10 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                     ? 'Tá.shop Basic Plan'
                     : 'Tá.shop Starter Plan'}
                 </span>
+                {selectedPlan === 'enterprise' && <Globe className="w-5 h-5 text-amber-600" />}
+                {selectedPlan === 'business' && <Bot className="w-4 h-4 text-violet-600" />}
                 {selectedPlan === 'badge' && <BadgeCheck className="w-5 h-5 text-blue-600 fill-blue-100" />}
                 {selectedPlan === 'pro' && <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />}
-                {selectedPlan === 'business' && <Bot className="w-4 h-4 text-violet-600" />}
               </h3>
               
               <div className="mt-2 flex items-baseline justify-center gap-1.5">
@@ -356,11 +372,38 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
 
             {/* Feature Perks according to plan */}
             <div className="space-y-2 bg-slate-50 p-4 rounded-2xl text-xs text-slate-700">
-              {selectedPlan === 'business' ? (
+              {selectedPlan === 'enterprise' ? (
                 <>
-                  <div className="flex items-center gap-2 font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-200">
+                  <div className="flex items-center gap-2 font-bold text-amber-950 bg-amber-100/90 px-2.5 py-1.5 rounded-xl border border-amber-300">
+                    <Check className="w-4 h-4 text-amber-700 shrink-0" />
+                    <span>UNLIMITED Products (No product limit)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-indigo-950 font-bold bg-indigo-50 px-2.5 py-1.5 rounded-xl border border-indigo-200">
+                    <Globe className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <span>Official .ng Custom Domain (e.g. yourstore.com.ng / yourstore.ng)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-amber-900 font-bold bg-amber-50 px-2.5 py-1.5 rounded-xl border border-amber-300">
+                    <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" />
+                    <span>Official Golden Tick Badge (Exclusive to Enterprise & Business)</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-semibold text-slate-900">
                     <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>UNLIMITED Products (Only plan with no product cap)</span>
+                    <span>Remove "Powered by Tá.shop" promotion (100% White-Label)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-violet-800 font-semibold">
+                    <Bot className="w-4 h-4 text-violet-600 shrink-0" />
+                    <span>24/7 WhatsApp AI Assistant Bot (auto-replies with photos & prices)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-violet-600 shrink-0" />
+                    <span>VIP 24/7 dedicated priority concierge & automated SSL</span>
+                  </div>
+                </>
+              ) : selectedPlan === 'business' ? (
+                <>
+                  <div className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/80 px-2.5 py-1.5 rounded-xl border border-violet-200">
+                    <Check className="w-4 h-4 text-violet-700 shrink-0" />
+                    <span>Up to 100 Products in catalog</span>
                   </div>
                   <div className="flex items-center gap-2 text-amber-900 font-bold bg-amber-50 px-2.5 py-1.5 rounded-xl border border-amber-300">
                     <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" />

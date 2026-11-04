@@ -2149,8 +2149,8 @@ export const Storefront: React.FC<StorefrontProps> = ({
 
         {/* Footer & Platform Branding */}
         <footer className="mt-16 text-center text-xs text-slate-400 space-y-4">
-          {/* Explore Stores & Platform Hub — Hidden for Gold Tick Business Plan stores */}
-          {store.tier !== 'business' && (
+          {/* Explore Stores & Platform Hub — Hidden for Gold Tick Business & Enterprise Plan stores */}
+          {store.tier !== 'business' && store.tier !== 'enterprise' && (
             <div className="flex flex-wrap items-center justify-center gap-2.5">
               {onOpenLanding && (
                 <button
@@ -2178,7 +2178,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
 
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[11px] text-slate-500">
             <span>© {new Date().getFullYear()} {store.name}</span>
-            {store.tier !== 'business' && onOpenLanding && (
+            {store.tier !== 'business' && store.tier !== 'enterprise' && onOpenLanding && (
               <>
                 <span>•</span>
                 <button
