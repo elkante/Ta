@@ -392,10 +392,10 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   basicPriceYearly: 15000,
   proPriceMonthly: 4900,
   proPriceYearly: 39000,
-  businessPriceMonthly: 15000,
+  businessPriceMonthly: 12000,
   businessPriceYearly: 120000,
-  enterprisePriceMonthly: 35000,
-  enterprisePriceYearly: 350000,
+  enterprisePriceMonthly: 21000,
+  enterprisePriceYearly: 210000,
   badgePriceMonthly: 2000,
   badgePriceYearly: 20000,
   globalAnnouncement:
@@ -470,7 +470,9 @@ export function getPlatformSettings(): PlatformSettings {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed.proPriceMonthly === 3500) parsed.proPriceMonthly = 4900;
-      if (parsed.businessPriceMonthly === 25000) parsed.businessPriceMonthly = 15000;
+      if (parsed.businessPriceMonthly === 25000 || parsed.businessPriceMonthly === 15000) parsed.businessPriceMonthly = 12000;
+      if (parsed.enterprisePriceMonthly === 35000) parsed.enterprisePriceMonthly = 21000;
+      if (parsed.enterprisePriceYearly === 350000) parsed.enterprisePriceYearly = 210000;
       return { ...DEFAULT_PLATFORM_SETTINGS, ...parsed };
     }
   } catch (e) {}

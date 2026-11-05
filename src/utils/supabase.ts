@@ -33,6 +33,7 @@ export function mapStoreFromDB(row: any): Store {
     _delivery_locations,
     _invoices,
     _customers,
+    _admin_notes,
     ...cleanBotCfg
   } = botCfg;
   return {
@@ -68,7 +69,7 @@ export function mapStoreFromDB(row: any): Store {
     invoices: Array.isArray(_invoices) ? _invoices : undefined,
     customers: Array.isArray(_customers) ? _customers : undefined,
     planExpiresAt: row.plan_expires_at || undefined,
-    adminNotes: Array.isArray(row.admin_notes) ? row.admin_notes : undefined,
+    adminNotes: (Array.isArray(row.admin_notes) && row.admin_notes.length > 0) ? row.admin_notes : (Array.isArray(_admin_notes) ? _admin_notes : undefined),
     aiBotConfig: Object.keys(cleanBotCfg).length > 0 ? cleanBotCfg : undefined,
     whatsappBotConnected: Boolean(cleanBotCfg?.whatsappConnected),
     whatsappBotPhone: cleanBotCfg?.whatsappPhone || undefined,
@@ -97,6 +98,7 @@ export function mapStoreToDB(store: Store): any {
   if (store.deliveryLocations) botCfg._delivery_locations = store.deliveryLocations;
   if (store.invoices) botCfg._invoices = store.invoices;
   if (store.customers) botCfg._customers = store.customers;
+  if (store.adminNotes) botCfg._admin_notes = store.adminNotes;
 
   return {
     id: store.id,

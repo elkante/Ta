@@ -124,7 +124,7 @@ export const ProductLimitModal: React.FC<ProductLimitModalProps> = ({
                 <>
                   <li className="flex items-center gap-2 font-semibold text-violet-900">
                     <Check className="w-4 h-4 text-violet-600 shrink-0" />
-                    <span>Up to 100 products in catalog</span>
+                    <span>Up to 200 products in catalog</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -144,7 +144,11 @@ export const ProductLimitModal: React.FC<ProductLimitModalProps> = ({
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-indigo-600 shrink-0" />
-                    <span>Official .ng custom domain included</span>
+                    <span>Official .com.ng or .ng custom domain included</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-violet-600 shrink-0" />
+                    <span>Customized Digital Card for store (1 year plan)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-600 shrink-0" />

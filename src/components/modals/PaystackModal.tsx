@@ -380,7 +380,11 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                   </div>
                   <div className="flex items-center gap-2 text-indigo-950 font-bold bg-indigo-50 px-2.5 py-1.5 rounded-xl border border-indigo-200">
                     <Globe className="w-4 h-4 text-indigo-600 shrink-0" />
-                    <span>Official .ng Custom Domain (e.g. yourstore.com.ng / yourstore.ng)</span>
+                    <span>Official .com.ng or .ng Custom Domain Included</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-violet-950 font-bold bg-violet-100/80 px-2.5 py-1.5 rounded-xl border border-violet-200">
+                    <Check className="w-4 h-4 text-violet-700 shrink-0" />
+                    <span>Customized Digital Card for store (1 year plan)</span>
                   </div>
                   <div className="flex items-center gap-2 text-amber-900 font-bold bg-amber-50 px-2.5 py-1.5 rounded-xl border border-amber-300">
                     <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" />
@@ -403,7 +407,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
                 <>
                   <div className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/80 px-2.5 py-1.5 rounded-xl border border-violet-200">
                     <Check className="w-4 h-4 text-violet-700 shrink-0" />
-                    <span>Up to 100 Products in catalog</span>
+                    <span>Up to 200 Products in catalog</span>
                   </div>
                   <div className="flex items-center gap-2 text-amber-900 font-bold bg-amber-50 px-2.5 py-1.5 rounded-xl border border-amber-300">
                     <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" />

@@ -327,6 +327,53 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     }
   }, [activeTab, fetchLiveChats]);
 
+  // Urgent Admin Notes from Super Admin
+  const latestAdminNote = store.adminNotes && store.adminNotes.length > 0 ? store.adminNotes[0] : null;
+  const [isUrgentNoteOpen, setIsUrgentNoteOpen] = useState<boolean>(() => {
+    if (!latestAdminNote) return false;
+    try {
+      const ack = localStorage.getItem(`tashop_ack_admin_note_${store.id}`);
+      return ack !== latestAdminNote;
+    } catch (e) {
+      return true;
+    }
+  });
+
+  // Whenever latestAdminNote changes, if unacknowledged, pop up immediately
+  useEffect(() => {
+    if (latestAdminNote) {
+      try {
+        const ack = localStorage.getItem(`tashop_ack_admin_note_${store.id}`);
+        if (ack !== latestAdminNote) {
+          setIsUrgentNoteOpen(true);
+        }
+      } catch (e) {
+        setIsUrgentNoteOpen(true);
+      }
+    }
+  }, [latestAdminNote, store.id]);
+
+  // Listen to real-time custom event from SuperAdmin
+  useEffect(() => {
+    const handleUrgentNoteEvent = (e: any) => {
+      if (e.detail?.storeId === store.id) {
+        setIsUrgentNoteOpen(true);
+        onRefreshData();
+      }
+    };
+    window.addEventListener('tashop:urgent_admin_note', handleUrgentNoteEvent);
+    return () => window.removeEventListener('tashop:urgent_admin_note', handleUrgentNoteEvent);
+  }, [store.id, onRefreshData]);
+
+  const handleAcknowledgeAdminNote = () => {
+    if (latestAdminNote) {
+      try {
+        localStorage.setItem(`tashop_ack_admin_note_${store.id}`, latestAdminNote);
+      } catch (e) {}
+    }
+    setIsUrgentNoteOpen(false);
+  };
+
   // Status & Story Studio Modal state
   const [isStatusStudioOpen, setIsStatusStudioOpen] = useState(false);
   const [statusStudioProduct, setStatusStudioProduct] = useState<Product | null>(null);
@@ -1449,6 +1496,39 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     </button>
                     <button onClick={dismissHomeBanner} className="text-amber-400 hover:text-amber-600 cursor-pointer p-1">
                       <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* URGENT ADMIN NOTICE BANNER */}
+              {latestAdminNote && (
+                <div className="bg-gradient-to-r from-rose-50 via-amber-50 to-rose-50 border-2 border-rose-300 rounded-2xl p-4 shadow-sm animate-in fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                        <AlertTriangle className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white px-2 py-0.5 rounded-full shadow-2xs">
+                            🚨 Urgent Admin Notice
+                          </span>
+                          <span className="text-xs text-slate-500 font-medium">
+                            Official Platform Message
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm font-bold text-slate-900 mt-1 line-clamp-2">
+                          {latestAdminNote}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setIsUrgentNoteOpen(true)}
+                      className="shrink-0 px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer self-start sm:self-center"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View Notice</span>
                     </button>
                   </div>
                 </div>
@@ -3741,7 +3821,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   )}
 
                   <ul className="mt-4 space-y-2 text-xs text-slate-700">
-                    <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg">✓ <strong>Up to 100 Products</strong> in catalog</li>
+                    <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg">✓ <strong>Up to 200 Products</strong> in catalog</li>
                     <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-300 px-2 py-1 rounded-lg">✓ <strong>Official Golden Tick Badge</strong> (Exclusive to Business AI)</li>
                     <li className="flex items-center gap-2 font-medium">✓ <strong>Remove "Powered by Tá.shop"</strong> (100% white-label)</li>
                     <li className="flex items-center gap-2 font-medium">✓ <strong>24/7 AI WhatsApp Bot</strong> auto-replies with photos & prices</li>
@@ -3763,7 +3843,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 )}
               </div>
 
-              {/* Enterprise (.ng Domain) Plan */}
+              {/* Enterprise (.com.ng / .ng Domain & Card) Plan */}
               <div className={`p-5 rounded-2xl border bg-gradient-to-br from-amber-50/70 via-white to-amber-50/30 flex flex-col justify-between ${store.tier === 'enterprise' ? 'ring-2 ring-amber-500 border-amber-400' : 'border-amber-200 shadow-sm'}`}>
                 <div>
                   <div className="flex items-center justify-between">
@@ -3772,12 +3852,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                       <Globe className="w-3.5 h-3.5 text-amber-600" />
                     </h4>
                     <span className="bg-amber-100 text-amber-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase border border-amber-300">
-                      🌐 .ng Domain
+                      🌐 .com.ng / .ng + Card
                     </span>
                   </div>
 
                   <div className="mt-2 text-2xl font-black font-mono text-amber-950">
-                    ₦{billingCycle === 'monthly' ? (planConfigs.enterprise?.priceMonthly ?? 35000).toLocaleString() : (planConfigs.enterprise?.priceYearly ?? 350000).toLocaleString()}
+                    ₦{billingCycle === 'monthly' ? (planConfigs.enterprise?.priceMonthly ?? 21000).toLocaleString() : (planConfigs.enterprise?.priceYearly ?? 210000).toLocaleString()}
                     <span className="text-xs font-normal text-slate-400">
                       {billingCycle === 'monthly' ? ' / month' : ' / year'}
                     </span>
@@ -3785,13 +3865,14 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
                   {billingCycle === 'yearly' && (
                     <div className="mt-1 flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md inline-flex">
-                      <span>Save ₦{(((planConfigs.enterprise?.priceMonthly ?? 35000) * 12) - (planConfigs.enterprise?.priceYearly ?? 350000)).toLocaleString()}/yr</span>
+                      <span>Save ₦{(((planConfigs.enterprise?.priceMonthly ?? 21000) * 12) - (planConfigs.enterprise?.priceYearly ?? 210000)).toLocaleString()}/yr</span>
                     </div>
                   )}
 
                   <ul className="mt-4 space-y-2 text-xs text-slate-700">
                     <li className="flex items-center gap-2 font-bold text-amber-950 bg-amber-100/90 px-2 py-1 rounded-lg border border-amber-300">✓ <strong>UNLIMITED Products</strong> (No limit)</li>
-                    <li className="flex items-center gap-2 font-bold text-indigo-950 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg">✓ <strong>Official .ng Domain</strong> (.com.ng included)</li>
+                    <li className="flex items-center gap-2 font-bold text-indigo-950 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg">✓ <strong>Official .com.ng or .ng Domain</strong> included</li>
+                    <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/80 border border-violet-200 px-2 py-1 rounded-lg">✓ <strong>Customized Digital Card</strong> for your store (1 year plan)</li>
                     <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-300 px-2 py-1 rounded-lg">✓ <strong>Official Golden Tick Badge</strong></li>
                     <li className="flex items-center gap-2 font-medium">✓ <strong>24/7 AI WhatsApp Bot</strong> with automatic SSL setup</li>
                     <li className="flex items-center gap-2 font-medium">✓ 100% White-label (remove Tá.shop promo)</li>
@@ -3807,7 +3888,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     }}
                     className="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs shadow-md transition cursor-pointer"
                   >
-                    Activate Enterprise (₦{billingCycle === 'yearly' ? (planConfigs.enterprise?.priceYearly ?? 350000).toLocaleString() + '/yr' : (planConfigs.enterprise?.priceMonthly ?? 35000).toLocaleString() + '/mo'})
+                    Activate Enterprise (₦{billingCycle === 'yearly' ? (planConfigs.enterprise?.priceYearly ?? 210000).toLocaleString() + '/yr' : (planConfigs.enterprise?.priceMonthly ?? 21000).toLocaleString() + '/mo'})
                   </button>
                 )}
               </div>
@@ -5176,6 +5257,94 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               >
                 <MessageCircle className="w-4 h-4 text-emerald-400" />
                 <span>Open Chat</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── URGENT ADMIN NOTICE POPUP MODAL ── */}
+      {isUrgentNoteOpen && latestAdminNote && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="fixed inset-0" onClick={handleAcknowledgeAdminNote} />
+          <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-lg w-full border-2 border-rose-400/80 z-10 flex flex-col max-h-[92vh] my-0 sm:my-auto overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Mobile drag handle */}
+            <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+
+            {/* Alert Header */}
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-rose-600 via-rose-700 to-amber-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center text-white shrink-0 animate-bounce">
+                  <AlertTriangle className="w-6 h-6 text-amber-300" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 border border-white/30 px-2 py-0.5 rounded-full inline-block mb-1">
+                    🚨 URGENT NOTICE
+                  </span>
+                  <h3 className="font-extrabold text-white text-base leading-tight">
+                    Message from Platform Admin
+                  </h3>
+                  <p className="text-xs text-rose-100">
+                    Important advisory for {store.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleAcknowledgeAdminNote}
+                className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Note Content */}
+            <div className="p-5 overflow-y-auto space-y-4 bg-slate-50/50">
+              <div className="bg-white border-2 border-rose-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-bold text-rose-700 border-b border-rose-100 pb-2">
+                  <span>Advisory Content</span>
+                  <span className="font-mono text-[10px] text-slate-400">High Priority</span>
+                </div>
+                <p className="text-slate-800 text-sm font-medium leading-relaxed whitespace-pre-wrap">
+                  {latestAdminNote}
+                </p>
+              </div>
+
+              {/* Previous notes if any */}
+              {store.adminNotes && store.adminNotes.length > 1 && (
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-600 block">
+                    Previous Advisories ({store.adminNotes.length - 1})
+                  </span>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {store.adminNotes.slice(1).map((note, idx) => (
+                      <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 text-xs text-slate-600 leading-relaxed">
+                        {note}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-4 bg-white border-t border-slate-100 flex flex-col sm:flex-row gap-2.5">
+              <button
+                type="button"
+                onClick={handleAcknowledgeAdminNote}
+                className="flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-md transition cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+              >
+                <Check className="w-4 h-4" />
+                <span>I Have Read &amp; Understand</span>
+              </button>
+              <a
+                href={`https://wa.me/2348039874521?text=${encodeURIComponent(`Hi Tá.shop Admin, I received an urgent notice for my store "${store.name}".`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer text-center"
+              >
+                <MessageCircle className="w-4 h-4 text-emerald-600" />
+                <span>Contact Admin on WhatsApp</span>
               </a>
             </div>
           </div>

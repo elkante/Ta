@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   Bot,
   Check,
+  CreditCard,
   Globe,
   Zap,
 } from 'lucide-react';
@@ -245,7 +246,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
               )}
               <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
                 <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg">
-                  <Check className="w-4 h-4 text-violet-700 shrink-0" /><span>Up to 100 Products</span>
+                  <Check className="w-4 h-4 text-violet-700 shrink-0" /><span>Up to 200 Products</span>
                 </li>
                 <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-300 px-2 py-1 rounded-lg">
                   <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" /><span>Official Golden Tick Badge</span>
@@ -265,24 +266,24 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
             </button>
           </div>
 
-          {/* 6. Enterprise (.ng Domain) */}
+          {/* 6. Enterprise (.com.ng / .ng Domain & Card) */}
           <div className="p-5 sm:p-6 rounded-3xl border-2 border-amber-500 bg-gradient-to-b from-amber-50/70 via-white to-amber-50/30 relative flex flex-col justify-between shadow-xl">
             <span className="absolute -top-3 right-4 bg-gradient-to-r from-amber-600 to-yellow-500 text-slate-950 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-md">
-              🌐 Official .ng Domain
+              🌐 Official .com.ng / .ng + Card
             </span>
             <div>
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
                 <span>Enterprise</span>
                 <Globe className="w-4 h-4 text-amber-600" />
               </h3>
-              <p className="text-xs text-slate-500 mt-1">Unlimited catalog with official custom domain.</p>
+              <p className="text-xs text-slate-500 mt-1">Unlimited catalog with official domain, customized digital card & 1 year plan.</p>
               <div className="mt-4 text-2xl sm:text-3xl font-black font-mono text-amber-950">
-                ₦{billingCycle === 'monthly' ? (planConfigs.enterprise?.priceMonthly ?? 35000).toLocaleString() : (planConfigs.enterprise?.priceYearly ?? 350000).toLocaleString()}
+                ₦{billingCycle === 'monthly' ? (planConfigs.enterprise?.priceMonthly ?? 21000).toLocaleString() : (planConfigs.enterprise?.priceYearly ?? 210000).toLocaleString()}
                 <span className="text-xs font-normal text-slate-400 block mt-0.5">/ {billingCycle === 'yearly' ? 'year' : 'month'}</span>
               </div>
               {billingCycle === 'yearly' && (
                 <span className="inline-block mt-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
-                  Save ₦{(((planConfigs.enterprise?.priceMonthly ?? 35000) * 12) - (planConfigs.enterprise?.priceYearly ?? 350000)).toLocaleString()}/yr
+                  Save ₦{(((planConfigs.enterprise?.priceMonthly ?? 21000) * 12) - (planConfigs.enterprise?.priceYearly ?? 210000)).toLocaleString()}/yr
                 </span>
               )}
               <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
@@ -290,7 +291,10 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
                   <Check className="w-4 h-4 text-amber-700 shrink-0" /><span>UNLIMITED Products (No Cap)</span>
                 </li>
                 <li className="flex items-center gap-2 font-bold text-slate-900 bg-white border border-slate-300 px-2 py-1 rounded-lg">
-                  <Globe className="w-4 h-4 text-indigo-600 shrink-0" /><span>Official .ng Domain (.com.ng)</span>
+                  <Globe className="w-4 h-4 text-indigo-600 shrink-0" /><span>Official .com.ng or .ng Domain</span>
+                </li>
+                <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg border border-violet-200">
+                  <CreditCard className="w-4 h-4 text-violet-700 shrink-0" /><span>Customized Digital Card (1 Year Plan)</span>
                 </li>
                 <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
                   <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" /><span>Official Golden Tick Badge</span>
@@ -305,7 +309,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
               onClick={() => onOpenSignup()}
               className="mt-6 w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs rounded-xl shadow-md transition cursor-pointer"
             >
-              Get Enterprise .ng
+              Get Enterprise
             </button>
           </div>
         </div>
@@ -331,7 +335,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {[
-                  ['Max products', '4', '10', '30', '70', '100', 'Unlimited'],
+                  ['Max products', '4', '10', '30', '70', '200', 'Unlimited'],
                   ['Photos per product', '5', '5', '5', '5', '5', '5'],
                   ['Product video link', '✓', '✓', '✓', '✓', '✓', '✓'],
                   ['WhatsApp checkout', '✓', '✓', '✓', '✓', '✓', '✓'],
@@ -349,7 +353,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
                   ['24/7 AI WhatsApp bot', '—', '—', '—', '—', '✓', '✓'],
                   ['Bot pause / schedule', '—', '—', '—', '—', '✓', '✓'],
                   ['White-label (no branding)', '—', '—', '—', '—', '✓', '✓'],
-                  ['Official .ng domain', '—', '—', '—', '—', '—', '✓'],
+                  ['Official .com.ng / .ng domain', '—', '—', '—', '—', '—', '✓'],
+                  ['Custom digital card (1yr)', '—', '—', '—', '—', '—', '✓'],
                   ['Automated WA receipts', '—', '—', '—', '—', '✓', '✓'],
                 ].map(([feature, ...cols]) => (
                   <tr key={feature} className="hover:bg-slate-50/60 transition-colors">

@@ -298,8 +298,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     const starterPrice = platformSettings.starterPriceMonthly ?? 500;
     const basicPrice = platformSettings.basicPriceMonthly ?? 1500;
     const proPrice = platformSettings.proPriceMonthly ?? 4900;
-    const businessPrice = platformSettings.businessPriceMonthly ?? 15000;
-    const enterprisePrice = platformSettings.enterprisePriceMonthly ?? 35000;
+    const businessPrice = platformSettings.businessPriceMonthly ?? 12000;
+    const enterprisePrice = platformSettings.enterprisePriceMonthly ?? 21000;
 
     const freeRev = 0;
     const starterRev = planStoreCounts.starter * starterPrice;
@@ -406,7 +406,20 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     } catch (e) {
       console.warn('Supabase store save error:', e);
     }
-    // 3. Tell parent to refresh in background
+    // 3. Update localStorage fallback immediately
+    try {
+      const raw = localStorage.getItem('tashop_stores_v3');
+      if (raw) {
+        const parsed: Store[] = JSON.parse(raw);
+        const next = parsed.map((s) => (s.id === updated.id ? updated : s));
+        localStorage.setItem('tashop_stores_v3', JSON.stringify(next));
+      }
+    } catch (e) {}
+    // 4. Notify app listeners
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tashop:store_updated', { detail: updated }));
+    }
+    // 5. Tell parent to refresh in background
     onRefreshData();
   };
 
@@ -547,6 +560,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       adminNotes: [newNoteEntry, ...existingNotes],
     };
     await saveStoreEverywhere(updated);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tashop:urgent_admin_note', { detail: { storeId: store.id, note: newNoteEntry } }));
+    }
     setNoteText('');
     setNoteTarget(null);
     triggerToast(`Private note sent to ${store.name}.`);
@@ -2425,7 +2441,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         <span>Business AI</span>
                         <BadgeCheck className="w-3.5 h-3.5 text-amber-500 fill-amber-100" />
                       </span>
-                      <span className="text-[10px] font-mono bg-violet-200 text-violet-900 px-1.5 py-0.2 rounded font-semibold">100 Products</span>
+                      <span className="text-[10px] font-mono bg-violet-200 text-violet-900 px-1.5 py-0.2 rounded font-semibold">200 Products</span>
                     </div>
                     <div>
                       <label className="text-[11px] font-semibold text-slate-600 block mb-1">Monthly Price (₦)</label>
@@ -2433,7 +2449,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         type="number"
                         min="0"
                         step="500"
-                        value={platformSettings.businessPriceMonthly ?? 15000}
+                        value={platformSettings.businessPriceMonthly ?? 12000}
                         onChange={(e) => setPlatformSettings({ ...platformSettings, businessPriceMonthly: Math.max(0, Number(e.target.value)) })}
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-violet-950"
                       />
@@ -2455,7 +2471,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/60 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-xs text-amber-950 flex items-center gap-1">
-                        <span>Enterprise .ng</span>
+                        <span>Enterprise (.com.ng / .ng & Card)</span>
                         <Globe className="w-3.5 h-3.5 text-amber-600" />
                       </span>
                       <span className="text-[10px] font-mono bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-semibold">Unlimited</span>
@@ -2466,7 +2482,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         type="number"
                         min="0"
                         step="500"
-                        value={platformSettings.enterprisePriceMonthly ?? 35000}
+                        value={platformSettings.enterprisePriceMonthly ?? 21000}
                         onChange={(e) => setPlatformSettings({ ...platformSettings, enterprisePriceMonthly: Math.max(0, Number(e.target.value)) })}
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-amber-950"
                       />
@@ -2477,7 +2493,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         type="number"
                         min="0"
                         step="1000"
-                        value={platformSettings.enterprisePriceYearly ?? 350000}
+                        value={platformSettings.enterprisePriceYearly ?? 210000}
                         onChange={(e) => setPlatformSettings({ ...platformSettings, enterprisePriceYearly: Math.max(0, Number(e.target.value)) })}
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-amber-950"
                       />
@@ -3073,7 +3089,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         <input
                           type="number"
                           min="0"
-                          value={platformSettings.businessPriceMonthly ?? 15000}
+                          value={platformSettings.businessPriceMonthly ?? 12000}
                           onChange={(e) => setPlatformSettings({ ...platformSettings, businessPriceMonthly: Math.max(0, Number(e.target.value)) })}
                           className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-violet-950"
                         />
@@ -3095,7 +3111,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         <input
                           type="number"
                           min="0"
-                          value={platformSettings.enterprisePriceMonthly ?? 35000}
+                          value={platformSettings.enterprisePriceMonthly ?? 21000}
                           onChange={(e) => setPlatformSettings({ ...platformSettings, enterprisePriceMonthly: Math.max(0, Number(e.target.value)) })}
                           className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-amber-950"
                         />
@@ -3106,7 +3122,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         <input
                           type="number"
                           min="0"
-                          value={platformSettings.enterprisePriceYearly ?? 350000}
+                          value={platformSettings.enterprisePriceYearly ?? 210000}
                           onChange={(e) => setPlatformSettings({ ...platformSettings, enterprisePriceYearly: Math.max(0, Number(e.target.value)) })}
                           className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-amber-950"
                         />
@@ -3704,8 +3720,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   { id: 'starter', label: 'Starter', badge: '₦500/mo' },
                   { id: 'basic', label: 'Basic Plan', badge: '₦1,500/mo' },
                   { id: 'pro', label: '⚡ Pro Plan', badge: '₦4,900/mo' },
-                  { id: 'business', label: '🤖 Business Bot', badge: '₦15,000/mo' },
-                  { id: 'enterprise', label: '🌐 Enterprise .ng', badge: '₦35,000/mo' },
+                  { id: 'business', label: '🤖 Business Bot (200 items)', badge: '₦12,000/mo' },
+                  { id: 'enterprise', label: '🌐 Enterprise (.com.ng / .ng & Card)', badge: '₦21,000/mo' },
                 ].map((t) => (
                   <button
                     key={t.id}
