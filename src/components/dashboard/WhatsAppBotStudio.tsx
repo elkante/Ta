@@ -164,6 +164,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       category: p.category || '',
       inStock: typeof p.inStock === 'boolean' ? p.inStock : true,
       description: (p.description || '').slice(0, 200),
+      images: (p.images || []).filter((img) => typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))).slice(0, 1),
     }));
   }, []);
 
@@ -248,6 +249,27 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     }
   }, [store, existingConfig, onRefreshData]);
 
+  // After connecting, push current bot settings (pause/filter) to server so they take effect immediately
+  useEffect(() => {
+    if (baileysStatus !== 'connected' || !serverEndpoint) return;
+    // Small delay so socket finishes connecting before we sync
+    const t = setTimeout(() => {
+      fetch(`${serverEndpoint}/api/whatsapp/sync/${store.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isPaused,
+          pausedUntil,
+          replyTriggerMode,
+          ignoredPhones,
+          storeInfo: { name: store.name, slug: store.slug },
+        }),
+      }).catch(() => {});
+    }, 2000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baileysStatus]);
+
   // SSE: subscribe for instant server push events (QR, connected, reconnecting)
   useEffect(() => {
     if (baileysStatus !== 'waiting_scan') return;
@@ -272,17 +294,21 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
             setServerMessage('New QR ready — scan this one with WhatsApp.');
             setServerStatus('online');
           } else if (data.event === 'reconnecting') {
-            // QR was scanned or Pairing Code was entered on phone — WhatsApp is confirming
-            setQrScannedConfirming(true);
-            setServerMessage(pairingMethod === 'code' ? 'Code entered on phone! 📱 Linking WhatsApp...' : 'QR scanned! Confirming pairing with WhatsApp...');
-            if (confirmingTimeout) clearTimeout(confirmingTimeout);
-            confirmingTimeout = setTimeout(() => {
-              // Timed out — pairing failed
-              setQrScannedConfirming(false);
-              setBaileysQr(null);
-              setServerMessage('Pairing timed out. Please try again.');
-              if (pairingMethod === 'qr') handleStartBaileysPairing();
-            }, 30000);
+            // Only show "confirming" state for QR mode — for pairing code mode, the socket
+            // reconnects when requesting the code (before user enters anything on phone), so
+            // we must NOT trigger the confirming UI until after the code is actually displayed
+            if (pairingMethod === 'qr' && baileysQrRef.current) {
+              setQrScannedConfirming(true);
+              setServerMessage('QR scanned! Confirming pairing with WhatsApp...');
+              if (confirmingTimeout) clearTimeout(confirmingTimeout);
+              confirmingTimeout = setTimeout(() => {
+                setQrScannedConfirming(false);
+                setBaileysQr(null);
+                setServerMessage('Pairing timed out. Please try again.');
+                handleStartBaileysPairing();
+              }, 30000);
+            }
+            // For 'code' mode: socket reconnects naturally — wait for explicit connected event
           } else if (data.event === 'connecting') {
             // Plain reconnect (not scan-related) — keep existing QR visible to avoid flickering
             setQrScannedConfirming(false);
@@ -348,11 +374,13 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
             setQrScannedConfirming(false);
             setServerMessage('');
             setServerStatus('online');
-          } else if ((data.status === 'connecting') && baileysStatus === 'waiting_scan' && (baileysQrRef.current || pairingCodeRef.current)) {
-            // QR was scanned or Pairing Code entered — Baileys is reconnecting to confirm it
+          } else if ((data.status === 'connecting') && baileysStatus === 'waiting_scan' && pairingMethod === 'qr' && baileysQrRef.current) {
+            // QR was scanned — Baileys is reconnecting to confirm it
             setQrScannedConfirming(true);
-            setServerMessage(pairingMethod === 'code' ? 'Code entered on phone! 📱 Linking WhatsApp...' : 'QR scanned! Confirming pairing with WhatsApp...');
+            setServerMessage('QR scanned! Confirming pairing with WhatsApp...');
           }
+          // Note: 'connecting' during 'code' mode is ignored — the socket reconnects when
+          // requesting the pairing code, NOT when user enters it on their phone
         }
       } catch (e) {
         // server asleep or not reachable
@@ -651,6 +679,12 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       ignoredPhones: updated,
     };
     updateStore({ ...store, aiBotConfig: updatedConfig });
+    if (serverEndpoint) {
+      fetch(`${serverEndpoint}/api/whatsapp/sync/${store.id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ignoredPhones: updated }),
+      }).catch(() => {});
+    }
     if (onRefreshData) onRefreshData();
   };
 
@@ -665,6 +699,12 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       ignoredPhones: updated,
     };
     updateStore({ ...store, aiBotConfig: updatedConfig });
+    if (serverEndpoint) {
+      fetch(`${serverEndpoint}/api/whatsapp/sync/${store.id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ignoredPhones: updated }),
+      }).catch(() => {});
+    }
     if (onRefreshData) onRefreshData();
   };
 
@@ -1387,6 +1427,12 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                           setReplyTriggerMode('commerce_only');
                           const updatedConfig: StoreAIBotConfig = { ...(store.aiBotConfig || existingConfig), replyTriggerMode: 'commerce_only' };
                           updateStore({ ...store, aiBotConfig: updatedConfig });
+                          if (serverEndpoint) {
+                            fetch(`${serverEndpoint}/api/whatsapp/sync/${store.id}`, {
+                              method: 'POST', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ replyTriggerMode: 'commerce_only' }),
+                            }).catch(() => {});
+                          }
                           if (onRefreshData) onRefreshData();
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
@@ -1401,6 +1447,12 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                           setReplyTriggerMode('always');
                           const updatedConfig: StoreAIBotConfig = { ...(store.aiBotConfig || existingConfig), replyTriggerMode: 'always' };
                           updateStore({ ...store, aiBotConfig: updatedConfig });
+                          if (serverEndpoint) {
+                            fetch(`${serverEndpoint}/api/whatsapp/sync/${store.id}`, {
+                              method: 'POST', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ replyTriggerMode: 'always' }),
+                            }).catch(() => {});
+                          }
                           if (onRefreshData) onRefreshData();
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${

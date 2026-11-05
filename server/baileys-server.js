@@ -267,8 +267,25 @@ async function sendProductCard(sock, remoteJid, product, storeName, storeBaseUrl
     `👉 *Tap here to view photos & complete order:*\n` +
     `${productLink}`;
 
-  const images = Array.isArray(product.images) ? product.images : [];
-  const rawImg = images[0] || product.image || null;
+  let images = Array.isArray(product.images) ? product.images : [];
+  let rawImg = images[0] || product.image || null;
+
+  // Fallback: If product in memory lacks an image, fetch image URL from Supabase
+  if (!rawImg && product.id) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${product.id}&select=images`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (rows && rows[0]?.images && Array.isArray(rows[0].images) && rows[0].images.length > 0) {
+          rawImg = rows[0].images[0];
+        }
+      }
+    } catch (e) {
+      console.warn(`[Store: ${storeId}] Failed to fetch product images from Supabase:`, e?.message);
+    }
+  }
 
   if (rawImg && typeof rawImg === 'string') {
     // 1. Data URL (Base64 from local device uploads)
@@ -435,6 +452,11 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
     pairingRequested: Boolean(options.isPairingCode),
     catalog: effectiveCatalog,
     storeInfo: effectiveStoreInfo,
+    // Bot behaviour controls — synced from dashboard
+    isPaused: false,
+    pausedUntil: null,
+    replyTriggerMode: 'commerce_only', // 'always' | 'commerce_only'
+    ignoredPhones: [],
   };
   activeSessions.set(storeId, sessionData);
 
@@ -601,6 +623,56 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
       if (!cleanText) continue;
 
       console.log(`[Store: ${storeId}] Incoming from ${remoteJid}: "${cleanText}"`);
+
+      // ── GLOBAL BOT PAUSE CHECK (dashboard "Pause Bot" button) ───────────────
+      if (sessionData.isPaused) {
+        const pausedUntil = sessionData.pausedUntil;
+        const stillPaused = !pausedUntil || new Date(pausedUntil).getTime() > Date.now();
+        if (stillPaused) {
+          console.log(`[Store: ${storeId}] Bot is paused — ignoring message from ${remoteJid}`);
+          continue;
+        } else {
+          // Auto-resume: pause period expired
+          sessionData.isPaused = false;
+          sessionData.pausedUntil = null;
+          console.log(`[Store: ${storeId}] Pause period ended — bot auto-resumed`);
+        }
+      }
+
+      // ── IGNORED PHONES CHECK ─────────────────────────────────────────────────
+      const senderPhone = remoteJid.replace(/@.*/, '');
+      if (Array.isArray(sessionData.ignoredPhones) && sessionData.ignoredPhones.length > 0) {
+        const isIgnored = sessionData.ignoredPhones.some((p) => {
+          const clean = String(p).replace(/\D/g, '');
+          return senderPhone.endsWith(clean) || clean.endsWith(senderPhone);
+        });
+        if (isIgnored) {
+          console.log(`[Store: ${storeId}] Ignored phone ${senderPhone} — skipping reply`);
+          continue;
+        }
+      }
+
+      // ── COMMERCE-ONLY MODE: ignore casual chit-chat ──────────────────────────
+      const replyMode = sessionData.replyTriggerMode || 'commerce_only';
+      if (replyMode === 'commerce_only') {
+        // Allow: UID searches, commerce keywords, greetings that start the shopping flow
+        const isCommerceMessage = (
+          // Item UID codes
+          /#?(TA-[A-Z0-9-]+)/i.test(cleanText) ||
+          // Shopping / product intent
+          /\b(how much|price|buy|order|stock|available|deliver|delivery|payment|pay|transfer|account|catalog|products?|item|show|want|looking|need|search|find|get me|wetin|abeg|how far|gift|budget|discount|last price|how to order|pickup|location|shipping|waybill|instock|in stock|sold out)\b/i.test(cleanText) ||
+          // Explicit greetings / menu triggers (open the catalog flow — allowed in both modes)
+          /^(hi|hello|hey|yo|good morning|good afternoon|good evening|menu|catalog|start|help|products|prices?)\b/i.test(cleanText) ||
+          // Nigerian pidgin
+          /\b(wetin una get|wetin dey|how far|una get)\b/i.test(cleanText) ||
+          // Human escalation always allowed
+          /\b(human|agent|seller|owner|customer care|speak|talk to|real person|representative)\b/i.test(cleanText)
+        );
+        if (!isCommerceMessage) {
+          console.log(`[Store: ${storeId}] commerce_only mode — ignoring non-commerce message from ${remoteJid}: "${cleanText.slice(0, 60)}"`);
+          continue;
+        }
+      }
 
       // Match Item UID pattern (e.g. #TA-BR540 or TA-AMK-102)
       const uidMatch = cleanText.match(/#?(TA-[A-Z0-9-]+)/i);
@@ -1021,7 +1093,7 @@ app.get('/api/whatsapp/status/:storeId', async (req, res) => {
  */
 app.post('/api/whatsapp/sync/:storeId', async (req, res) => {
   const { storeId } = req.params;
-  const { catalog = [], storeInfo = {} } = req.body;
+  const { catalog = [], storeInfo = {}, isPaused, pausedUntil, replyTriggerMode, ignoredPhones } = req.body;
 
   let session = activeSessions.get(storeId);
   if (session) {
@@ -1029,6 +1101,11 @@ app.post('/api/whatsapp/sync/:storeId', async (req, res) => {
     if (storeInfo && Object.keys(storeInfo).length > 0) {
       session.storeInfo = { ...(session.storeInfo || {}), ...storeInfo };
     }
+    // Sync bot behaviour controls
+    if (typeof isPaused === 'boolean') session.isPaused = isPaused;
+    if (pausedUntil !== undefined) session.pausedUntil = pausedUntil;
+    if (replyTriggerMode) session.replyTriggerMode = replyTriggerMode;
+    if (Array.isArray(ignoredPhones)) session.ignoredPhones = ignoredPhones;
   }
 
   const registry = loadRegistry();
