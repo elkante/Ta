@@ -381,15 +381,21 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
 
   const storeSessionDir = path.join(SESSIONS_DIR, storeId);
   if (forceRefresh) {
+    const existing = activeSessions.get(storeId);
+    if (existing?.sock) {
+      try {
+        existing.sock.ev.removeAllListeners('connection.update');
+        existing.sock.ev.removeAllListeners('creds.update');
+        existing.sock.end?.();
+      } catch (e) {}
+    }
     try {
-      // ONLY wipe if not already registered (i.e. truly unauthenticated)
-      const credsPath = path.join(storeSessionDir, 'creds.json');
-      const hasValidCreds = fs.existsSync(credsPath) && fs.readFileSync(credsPath, 'utf8').includes('"registered":true');
-      if (!hasValidCreds) {
-        fs.rmSync(storeSessionDir, { recursive: true, force: true });
-        console.log(`[Store: ${storeId}] Force refresh: wiped unauthenticated auth state directory for fresh pairing.`);
-      }
+      fs.rmSync(storeSessionDir, { recursive: true, force: true });
+      console.log(`[Store: ${storeId}] Force refresh: wiped session directory for fresh pairing.`);
     } catch (e) {}
+    const registry = loadRegistry();
+    delete registry[storeId];
+    saveRegistry(registry);
   }
   if (!fs.existsSync(storeSessionDir)) {
     fs.mkdirSync(storeSessionDir, { recursive: true });
@@ -525,7 +531,25 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
       const credsPath = path.join(storeSessionDir, 'creds.json');
       const hasRegisteredCreds = fs.existsSync(credsPath) && fs.readFileSync(credsPath, 'utf8').includes('"registered":true');
 
-      console.log(`[Store: ${storeId}] WhatsApp connection closed (code: ${statusCode}, registered: ${hasRegisteredCreds}). Maintaining permanent session...`);
+      console.log(`[Store: ${storeId}] WhatsApp connection closed (code: ${statusCode}, registered: ${hasRegisteredCreds}).`);
+
+      if (isLoggedOut || statusCode === 401 || statusCode === 403) {
+        console.log(`[Store: ${storeId}] WhatsApp session was unlinked/logged out on phone. Cleaning session state.`);
+        try {
+          fs.rmSync(storeSessionDir, { recursive: true, force: true });
+        } catch (e) {}
+        const registry = loadRegistry();
+        delete registry[storeId];
+        saveRegistry(registry);
+        sessionData.status = 'disconnected';
+        sessionData.phone = null;
+        pushSSEEvent(storeId, {
+          event: 'disconnected',
+          status: 'disconnected',
+          message: 'WhatsApp device unlinked or logged out. Please re-scan QR or re-link.',
+        });
+        return;
+      }
 
       sessionData.status = 'connecting';
       pushSSEEvent(storeId, {
@@ -535,9 +559,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
         message: isRestart ? 'Code / QR accepted! Linking WhatsApp on your phone...' : 'Maintaining permanent WhatsApp connection...',
       });
 
-      // NEVER wipe credentials automatically on socket error!
-      // Only unlinking via POST /api/whatsapp/disconnect wipes credentials.
-      const reconnectDelay = isRestart ? 800 : (isLoggedOut ? 5000 : 2500);
+      const reconnectDelay = isRestart ? 800 : 2500;
       setTimeout(async () => {
         try {
           console.log(`[Store: ${storeId}] Auto-restoring permanent socket...`);
@@ -961,11 +983,14 @@ app.get('/api/whatsapp/status/:storeId', async (req, res) => {
   if (!session) {
     const credsPath = path.join(SESSIONS_DIR, storeId, 'creds.json');
     if (fs.existsSync(credsPath)) {
-      const registry = loadRegistry();
-      const meta = registry[storeId] || {};
-      console.log(`[Store: ${storeId}] Stored session detected on disk. Auto-restoring socket...`);
       try {
-        session = await initStoreSession(storeId, meta.catalog || [], meta.storeInfo || {});
+        const credsContent = fs.readFileSync(credsPath, 'utf8');
+        if (credsContent.includes('"registered":true')) {
+          const registry = loadRegistry();
+          const meta = registry[storeId] || {};
+          console.log(`[Store: ${storeId}] Stored session detected on disk. Auto-restoring socket...`);
+          session = await initStoreSession(storeId, meta.catalog || [], meta.storeInfo || {});
+        }
       } catch (err) {
         console.error(`[Store: ${storeId}] Auto-restore error:`, err?.message);
       }
@@ -981,11 +1006,12 @@ app.get('/api/whatsapp/status/:storeId', async (req, res) => {
     });
   }
 
+  const isLive = session.status === 'connected' && Boolean(session.sock?.user?.id);
   res.json({
-    status: session.status,
-    connected: session.status === 'connected',
-    qrDataUrl: session.qrDataUrl,
-    phone: session.phone,
+    status: isLive ? 'connected' : session.status,
+    connected: isLive,
+    qrDataUrl: isLive ? null : session.qrDataUrl,
+    phone: isLive ? session.phone : null,
     qrGeneratedAt: session.qrGeneratedAt || null,
   });
 });
@@ -1027,12 +1053,14 @@ app.post('/api/whatsapp/connect/:storeId', async (req, res) => {
   try {
     const session = await initStoreSession(storeId, catalog, storeInfo, { forceRefresh });
 
-    // If waiting for QR code to be generated, wait up to 3.5s so client gets QR immediately
-    if (session.status !== 'connected' && !session.qrDataUrl) {
+    const isTrulyConnected = session.status === 'connected' && Boolean(session.sock?.user?.id);
+
+    // If waiting for QR code to be generated, wait up to 4s so client gets QR immediately
+    if (!isTrulyConnected && !session.qrDataUrl) {
       await new Promise((resolve) => {
         const startTime = Date.now();
         const interval = setInterval(() => {
-          if (session.qrDataUrl || session.status === 'connected' || Date.now() - startTime > 3500) {
+          if (session.qrDataUrl || (session.status === 'connected' && session.sock?.user?.id) || Date.now() - startTime > 4000) {
             clearInterval(interval);
             resolve();
           }
@@ -1040,12 +1068,13 @@ app.post('/api/whatsapp/connect/:storeId', async (req, res) => {
       });
     }
 
+    const isLive = session.status === 'connected' && Boolean(session.sock?.user?.id);
     res.json({
       success: true,
-      status: session.status,
-      connected: session.status === 'connected',
-      qrDataUrl: session.qrDataUrl,
-      phone: session.phone,
+      status: isLive ? 'connected' : (session.qrDataUrl ? 'waiting_scan' : session.status),
+      connected: isLive,
+      qrDataUrl: isLive ? null : session.qrDataUrl,
+      phone: isLive ? session.phone : null,
       qrGeneratedAt: session.qrGeneratedAt || Date.now(),
     });
   } catch (error) {
@@ -1066,7 +1095,9 @@ app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
   }
 
   let cleanPhone = String(phoneNumber).replace(/\D/g, '');
-  if (cleanPhone.startsWith('0')) {
+  if (cleanPhone.startsWith('2340') && cleanPhone.length === 14) {
+    cleanPhone = '234' + cleanPhone.slice(4);
+  } else if (cleanPhone.startsWith('0') && (cleanPhone.length === 11 || cleanPhone.length === 10)) {
     cleanPhone = '234' + cleanPhone.slice(1);
   } else if (!cleanPhone.startsWith('234') && cleanPhone.length === 10) {
     cleanPhone = '234' + cleanPhone;
@@ -1077,14 +1108,6 @@ app.post('/api/whatsapp/pairing-code/:storeId', async (req, res) => {
 
   try {
     let session = activeSessions.get(storeId);
-    if (session && session.status === 'connected') {
-      return res.json({
-        success: true,
-        connected: true,
-        phone: session.phone,
-        message: 'Already connected!',
-      });
-    }
 
     // Clean any previous session credentials so registered: true doesn't block pairing code generation
     const storeSessionDir = path.join(SESSIONS_DIR, storeId);

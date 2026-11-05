@@ -118,15 +118,22 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   const [serverEndpoint, setServerEndpoint] = useState<string>(
     (import.meta as any).env?.VITE_BAILEYS_SERVER_URL || PRIMARY_RENDER_ENDPOINT
   );
+  const normalizeNigerianPhone = (raw: string): string => {
+    let clean = String(raw || '').replace(/\D/g, '');
+    if (clean.startsWith('2340') && clean.length === 14) {
+      clean = '234' + clean.slice(4);
+    } else if (clean.startsWith('0') && (clean.length === 11 || clean.length === 10)) {
+      clean = '234' + clean.slice(1);
+    } else if (!clean.startsWith('234') && clean.length === 10) {
+      clean = '234' + clean;
+    }
+    return clean;
+  };
+
   const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'waking' | 'offline'>('checking');
   const [pairingMethod, setPairingMethod] = useState<'qr' | 'code'>('qr');
   const [pairingPhone, setPairingPhone] = useState<string>(() => {
-    const raw = (store.whatsappNumber || '').replace(/\D/g, '');
-    if (!raw) return '';
-    if (raw.startsWith('234')) return raw;
-    if (raw.startsWith('0')) return '234' + raw.slice(1);
-    const country = (store.whatsappCountryCode || '234').replace(/\D/g, '');
-    return `${country}${raw}`;
+    return normalizeNigerianPhone(`${store.whatsappCountryCode || '+234'}${store.whatsappNumber || ''}`);
   });
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [pairingCodeLoading, setPairingCodeLoading] = useState(false);
@@ -137,6 +144,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   const pairingRetryCountRef = useRef(0);
   const baileysQrRef = useRef<string | null>(null);
   const pairingCodeRef = useRef<string | null>(null);
+  const isRequestingCodeRef = useRef(false);
 
   useEffect(() => {
     baileysQrRef.current = baileysQr;
@@ -301,11 +309,14 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     let interval: any = null;
 
     const checkStatus = async () => {
+      // Don't poll while user is waiting for a pairing code generation response
+      if (isRequestingCodeRef.current) return;
+
       try {
         const res = await fetch(`${serverEndpoint}/api/whatsapp/status/${store.id}`);
         if (!res.ok) return;
         const data = await res.json();
-        if (data.connected || data.status === 'connected') {
+        if (data.connected && data.phone) {
           handleConnectedEvent(data.phone || '');
           if (!hasSyncedMetadataRef.current) {
             hasSyncedMetadataRef.current = true;
@@ -325,35 +336,40 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
               }),
             }).catch(() => {});
           }
-        } else if (data.qrDataUrl && baileysStatus === 'waiting_scan' && pairingMethod === 'qr') {
-          setBaileysQr((prev) => (prev === data.qrDataUrl ? prev : data.qrDataUrl));
-          setQrScannedConfirming(false);
-          setServerMessage('');
-          setServerStatus('online');
-        } else if ((data.status === 'connecting') && baileysStatus === 'waiting_scan' && (baileysQrRef.current || pairingCodeRef.current)) {
-          // QR was scanned or Pairing Code entered — Baileys is reconnecting to confirm it
-          setQrScannedConfirming(true);
-          setServerMessage(pairingMethod === 'code' ? 'Code entered on phone! 📱 Linking WhatsApp...' : 'QR scanned! Confirming pairing with WhatsApp...');
-        } else if (data.status === 'connecting' && baileysStatus === 'connected') {
-          // Server is auto-reconnecting socket in background — keep session alive
-          setServerStatus('online');
+        } else {
+          // If server reports disconnected, do not falsely pretend to be connected!
+          if (baileysStatus === 'connected' && !data.connected && data.status !== 'connecting') {
+            setBaileysStatus('disconnected');
+            setConnectedPhone(null);
+            try { localStorage.removeItem(`ta_wa_conn_${store.id}`); } catch (e) {}
+          }
+          if (data.qrDataUrl && baileysStatus === 'waiting_scan' && pairingMethod === 'qr') {
+            setBaileysQr((prev) => (prev === data.qrDataUrl ? prev : data.qrDataUrl));
+            setQrScannedConfirming(false);
+            setServerMessage('');
+            setServerStatus('online');
+          } else if ((data.status === 'connecting') && baileysStatus === 'waiting_scan' && (baileysQrRef.current || pairingCodeRef.current)) {
+            // QR was scanned or Pairing Code entered — Baileys is reconnecting to confirm it
+            setQrScannedConfirming(true);
+            setServerMessage(pairingMethod === 'code' ? 'Code entered on phone! 📱 Linking WhatsApp...' : 'QR scanned! Confirming pairing with WhatsApp...');
+          }
         }
       } catch (e) {
         // server asleep or not reachable
       }
     };
 
-    // Always check once on mount to catch already-connected sessions
+    // Always check once on mount to verify actual live session
     checkStatus();
 
     if (baileysStatus === 'waiting_scan') {
-      interval = setInterval(checkStatus, 1200); // fast poll: every 1.2s
+      interval = setInterval(checkStatus, 1500); // poll every 1.5s
     }
 
     return () => { if (interval) clearInterval(interval); };
   }, [baileysStatus, serverEndpoint, store.id, handleConnectedEvent, pairingMethod, sanitizeCatalogForBot]);
 
-  const handleStartBaileysPairing = async (forceRefresh = false) => {
+  const handleStartBaileysPairing = async (forceRefresh = true) => {
     if (store.tier === 'free' || store.tier === 'starter') {
       onUpgrade?.('business');
       return;
@@ -361,18 +377,17 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
     setIsPairingLoading(true);
     setPairingError(null);
     setBaileysStatus('waiting_scan');
-    if (forceRefresh) {
-      setBaileysQr(null);
-    }
+    setBaileysQr(null);
+    setPairingCode(null);
     setQrScannedConfirming(false);
-    setServerMessage('Connecting to WhatsApp gateway...');
+    setServerMessage('Generating live WhatsApp pairing QR code...');
 
     try {
       const res = await fetch(`${serverEndpoint}/api/whatsapp/connect/${store.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          forceRefresh,
+          forceRefresh: true, // Always start fresh pairing handshake
           storeInfo: {
             name: store.name,
             slug: store.slug,
@@ -387,28 +402,8 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       const data = await res.json();
       pairingRetryCountRef.current = 0;
       setServerStatus('online');
-      if (data.connected) {
-        setBaileysStatus('connected');
-        setBaileysQr(null);
-        setPairingCode(null);
-        const phone = data.phone || `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || ''}`;
-        setConnectedPhone(phone);
-        try {
-          localStorage.setItem(`ta_wa_conn_${store.id}`, '1');
-        } catch (e) {}
-        const updatedConfig: StoreAIBotConfig = {
-          ...(store.aiBotConfig || existingConfig),
-          whatsappConnected: true,
-          whatsappPhone: phone,
-          lastConnectedAt: new Date().toISOString(),
-        };
-        updateStore({
-          ...store,
-          aiBotConfig: updatedConfig,
-          whatsappBotConnected: true,
-          whatsappBotPhone: phone,
-        });
-        if (onRefreshData) onRefreshData();
+      if (data.connected && data.phone) {
+        handleConnectedEvent(data.phone);
       } else if (data.qrDataUrl) {
         setBaileysQr(data.qrDataUrl);
         setServerMessage('Scan this QR code with WhatsApp on your phone!');
@@ -430,7 +425,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
         setServerMessage('WhatsApp bot server is warming up on Render... retrying automatically');
         setTimeout(() => {
           if (baileysStatus === 'waiting_scan' && !baileysQrRef.current) {
-            handleStartBaileysPairing();
+            handleStartBaileysPairing(true);
           }
         }, 5000);
       } else {
@@ -446,23 +441,20 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
   };
 
   const handleRequestPairingCode = async () => {
-    let clean = pairingPhone.replace(/\D/g, '');
-    if (clean.startsWith('0')) {
-      clean = '234' + clean.slice(1);
-    } else if (!clean.startsWith('234') && clean.length === 10) {
-      clean = '234' + clean;
-    }
+    const clean = normalizeNigerianPhone(pairingPhone);
 
-    if (!clean || clean.length < 9) {
-      setPairingError('Please enter a valid WhatsApp phone number with country code (e.g. 2348012345678).');
+    if (!clean || clean.length < 8) {
+      setPairingError('Please enter a valid WhatsApp phone number (e.g. 08012345678 or 2348012345678).');
       return;
     }
     setPairingPhone(clean);
     setPairingCodeLoading(true);
     setPairingError(null);
     setPairingCode(null);
+    setBaileysQr(null);
     setBaileysStatus('waiting_scan');
     setServerMessage(`Requesting 8-digit WhatsApp pairing code for +${clean}...`);
+    isRequestingCodeRef.current = true;
 
     try {
       const res = await fetch(`${serverEndpoint}/api/whatsapp/pairing-code/${store.id}`, {
@@ -485,21 +477,22 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
       if (data.pairingCode) {
         setPairingCode(data.pairingCode);
         setServerMessage('Enter this code in WhatsApp -> Linked Devices -> Link with phone number');
-      } else if (data.connected) {
-        handleConnectedEvent(data.phone || `${store.whatsappCountryCode || '+234'} ${store.whatsappNumber || ''}`);
+      } else if (data.connected && data.phone) {
+        handleConnectedEvent(data.phone);
       } else if (data.error) {
         setPairingError(data.error);
       } else if (!res.ok) {
         if (res.status === 413) {
           setPairingError('Product catalog payload too large. Please retry now that the catalog is optimized.');
         } else {
-          setPairingError(`Server responded with ${res.status}: ${res.statusText || 'Unable to generate code'}. Please try scanning the QR code.`);
+          setPairingError(`Server responded with ${res.status}: ${data.error || res.statusText || 'Unable to generate code'}. Please try scanning the QR code.`);
         }
       }
     } catch (e: any) {
       setPairingError('Failed to generate pairing code. Please ensure the WhatsApp bot server is running or try scanning the QR code.');
     } finally {
       setPairingCodeLoading(false);
+      isRequestingCodeRef.current = false;
     }
   };
 
@@ -1047,7 +1040,7 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                   <button
                     onClick={() => {
                       setPairingMethod('qr');
-                      handleStartBaileysPairing();
+                      handleStartBaileysPairing(true);
                     }}
                     disabled={isPairingLoading}
                     className="px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 shrink-0 cursor-pointer active:scale-95 disabled:opacity-50"
@@ -1350,6 +1343,19 @@ export const WhatsAppBotStudio: React.FC<WhatsAppBotStudioProps> = ({
                         </select>
                       </div>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPairingMethod('qr');
+                        handleStartBaileysPairing(true);
+                      }}
+                      className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition cursor-pointer flex items-center gap-1"
+                      title="Scan a new QR or connect a different phone"
+                    >
+                      <RefreshCw className="w-3 h-3 text-slate-500" />
+                      <span>Re-link / New QR</span>
+                    </button>
 
                     <button
                       type="button"
