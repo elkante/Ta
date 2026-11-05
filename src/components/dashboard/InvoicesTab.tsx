@@ -911,14 +911,17 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
 
       {/* Printable Document Modal / PDF Preview */}
       {viewingDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in overflow-y-auto">
           <div className="fixed inset-0" onClick={() => setViewingDoc(null)} />
-          <div className="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 sm:p-8 border border-slate-200 z-10 space-y-6 max-h-[92vh] overflow-y-auto">
+          <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-2xl w-full p-4 sm:p-8 border border-slate-200 z-10 space-y-5 max-h-[95vh] sm:max-h-[92vh] overflow-y-auto my-0 sm:my-auto">
+            {/* Mobile drag pill */}
+            <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-1 sm:hidden shrink-0 print:hidden" />
+
             {/* Modal Controls Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 print:hidden">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 print:hidden gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <span
-                  className={`text-xs font-black uppercase px-2.5 py-1 rounded-lg ${
+                  className={`text-xs font-black uppercase px-2.5 py-1 rounded-lg shrink-0 ${
                     viewingDoc.type === 'receipt'
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-indigo-100 text-indigo-800'
@@ -926,21 +929,23 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
                 >
                   {viewingDoc.type} Preview
                 </span>
-                <span className="text-xs text-slate-500 font-mono">#{viewingDoc.docNumber}</span>
+                <span className="text-xs text-slate-500 font-mono truncate">#{viewingDoc.docNumber}</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={handleDownloadPdf}
-                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-3 sm:px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                   title="Download as PDF"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Download PDF</span>
+                  <span className="hidden xs:inline sm:inline">Download PDF</span>
+                  <span className="xs:hidden sm:hidden">PDF</span>
                 </button>
                 <button
                   onClick={() => setViewingDoc(null)}
-                  className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  aria-label="Close"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -951,26 +956,26 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
             <div className="space-y-6 text-slate-900 font-sans print:p-0">
               {/* Store & Doc Header */}
               <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-200 pb-5">
-                <div className="flex items-start gap-3.5">
+                <div className="flex items-start gap-3.5 min-w-0">
                   {store.logoUrl ? (
                     <img
                       src={store.logoUrl}
                       alt={store.name}
-                      className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shadow-2xs shrink-0"
+                      className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-slate-200 shadow-2xs shrink-0"
                     />
                   ) : (
                     <div
-                      className="w-16 h-16 rounded-2xl text-white font-black text-xl flex items-center justify-center shadow-2xs shrink-0"
+                      className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl text-white font-black text-xl flex items-center justify-center shadow-2xs shrink-0"
                       style={{ backgroundColor: store.accentColor || '#0f172a' }}
                     >
                       {store.name.slice(0, 2).toUpperCase()}
                     </div>
                   )}
-                  <div>
-                    <h2 className="text-2xl font-black tracking-tight text-slate-950">
+                  <div className="min-w-0">
+                    <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950 truncate">
                       {store.name}
                     </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">{store.tagline || 'Social Commerce Store'}</p>
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">{store.tagline || 'Social Commerce Store'}</p>
                     <p className="text-xs text-slate-600 mt-1">{store.location || 'Nigeria'}</p>
                     <p className="text-xs text-slate-600 font-mono">
                       {store.whatsappCountryCode} {store.whatsappNumber}
@@ -978,14 +983,14 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <h1 className="text-xl font-black uppercase tracking-wider text-slate-900">
+                <div className="text-left sm:text-right w-full sm:w-auto">
+                  <h1 className="text-lg sm:text-xl font-black uppercase tracking-wider text-slate-900">
                     {viewingDoc.type === 'receipt' ? 'Official Receipt' : 'Commercial Invoice'}
                   </h1>
-                  <span className="text-sm font-mono font-bold text-slate-700 block mt-1">
+                  <span className="text-sm font-mono font-bold text-slate-700 block mt-0.5">
                     #{viewingDoc.docNumber}
                   </span>
-                  <div className="mt-2 text-xs text-slate-500 space-y-0.5">
+                  <div className="mt-1.5 text-xs text-slate-500 space-y-0.5">
                     <p>Issue Date: <strong className="text-slate-800">{viewingDoc.issueDate}</strong></p>
                     {viewingDoc.dueDate && (
                       <p>Due Date: <strong className="text-slate-800">{viewingDoc.dueDate}</strong></p>
@@ -1106,16 +1111,18 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
 
       {/* Create Document Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in overflow-y-auto">
           <div className="fixed inset-0" onClick={() => setIsCreateModalOpen(false)} />
-          <div className="relative bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 border border-slate-100 z-10 space-y-4 max-h-[92vh] overflow-y-auto">
+          <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-xl w-full p-4 sm:p-6 border border-slate-100 z-10 space-y-4 max-h-[95vh] sm:max-h-[92vh] overflow-y-auto my-0 sm:my-auto">
+            {/* Mobile drag handle */}
+            <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-1 sm:hidden shrink-0" />
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-extrabold text-slate-900 text-base">
                 Create New {docType === 'invoice' ? 'Invoice' : 'Receipt'}
               </h3>
               <button
                 onClick={() => setIsCreateModalOpen(false)}
-                className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>

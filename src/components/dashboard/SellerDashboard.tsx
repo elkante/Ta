@@ -63,6 +63,8 @@ import {
   Tag,
   LayoutDashboard,
   Home,
+  RefreshCw,
+  Send,
   ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -258,6 +260,72 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [pmCostPrice, setPmCostPrice] = useState<string>('');
   const [pmSellingPrice, setPmSellingPrice] = useState<string>('');
   const [pmTargetMargin, setPmTargetMargin] = useState<string>('30');
+
+  // Customer Chats (Live WhatsApp + Storefront Inquiries)
+  const [chatsSubTab, setChatsSubTab] = useState<'whatsapp' | 'clicks'>('whatsapp');
+  const [liveChats, setLiveChats] = useState<Array<{
+    remoteJid: string;
+    phone: string;
+    lastUpdated: number;
+    lastMessage: string;
+    lastProductUid?: string;
+    messages: Array<{
+      sender: 'customer' | 'bot' | 'seller';
+      text: string;
+      time: number;
+      productUid?: string;
+    }>;
+  }>>([]);
+  const [isLoadingLiveChats, setIsLoadingLiveChats] = useState<boolean>(false);
+  const [selectedChatThread, setSelectedChatThread] = useState<{
+    remoteJid: string;
+    phone: string;
+    lastUpdated: number;
+    lastMessage: string;
+    lastProductUid?: string;
+    messages: Array<{
+      sender: 'customer' | 'bot' | 'seller';
+      text: string;
+      time: number;
+      productUid?: string;
+    }>;
+  } | null>(null);
+
+  const fetchLiveChats = useCallback(async () => {
+    if (!store?.id) return;
+    setIsLoadingLiveChats(true);
+    try {
+      const isLocalHost =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const base =
+        (import.meta as any).env?.VITE_BAILEYS_SERVER_URL ||
+        (isLocalHost ? 'http://localhost:3001' : 'https://ta-whatsapp-bot.onrender.com');
+
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(`${base}/api/whatsapp/chats/${store.id}`, { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.chats)) {
+          setLiveChats(data.chats);
+        }
+      }
+    } catch (e) {
+      // Baileys server waking or offline
+    } finally {
+      setIsLoadingLiveChats(false);
+    }
+  }, [store?.id]);
+
+  useEffect(() => {
+    if (activeTab === 'inquiries') {
+      fetchLiveChats();
+      const interval = setInterval(fetchLiveChats, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, fetchLiveChats]);
 
   // Status & Story Studio Modal state
   const [isStatusStudioOpen, setIsStatusStudioOpen] = useState(false);
@@ -787,7 +855,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     { id: 'analytics', label: 'Analytics',        icon: BarChart3 },
     { id: 'uid-bot',   label: 'Auto-Reply Bot',     icon: Bot,           badge: 'Auto' },
     { id: 'marketing', label: 'Share & Market',      icon: QrCode },
-    { id: 'inquiries', label: 'Customer Chats',         icon: MessageCircle, badge: inquiries.length > 0 ? `${inquiries.length}` : undefined },
+    { id: 'inquiries', label: 'Customer Chats',         icon: MessageCircle, badge: (liveChats.length + inquiries.length) > 0 ? `${liveChats.length + inquiries.length}` : undefined },
     { id: 'notes',     label: 'My Notes',            icon: StickyNote },
     { id: 'expenses',  label: 'Expenses',         icon: Wallet },
     { id: 'calculator',label: 'Calculator',       icon: Calculator },
@@ -1539,7 +1607,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   {[
                     { icon: ShoppingBag, label: 'ORDERS', value: storeOrders.filter((o) => { const d = new Date(o.createdAt); return d.getMonth() === now2.getMonth() && d.getFullYear() === now2.getFullYear(); }).length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
                     { icon: Package,     label: 'PRODUCTS', value: products.filter((p) => p.inStock).length, color: 'text-blue-600', bg: 'bg-blue-50' },
-                    { icon: MessageCircle, label: 'WA LEADS', value: inquiries.length, color: 'text-violet-600', bg: 'bg-violet-50' },
+                    { icon: MessageCircle, label: 'WA LEADS', value: liveChats.length + inquiries.length, color: 'text-violet-600', bg: 'bg-violet-50' },
                   ].map(({ icon: Icon, label, value, color, bg }) => (
                     <div key={label} className={`${bg} rounded-xl p-3 flex flex-col items-center gap-1`}>
                       <Icon className={`w-5 h-5 ${color}`} />
@@ -2465,100 +2533,261 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           </div>
         )}
 
-        {/* TAB 2: INQUIRIES & ORDERS LOG */}
+        {/* TAB 2: INQUIRIES & LIVE CUSTOMER CHATS */}
         {activeTab === 'inquiries' && (
           <div className="space-y-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Customer WhatsApp Click Log</h3>
-                  <p className="text-xs text-slate-500">
-                    Every time a customer clicks "Order on WhatsApp", their requested item, variant, and delivery area appear here instantly.
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                      <MessageCircle className="w-4 h-4" />
+                    </div>
+                    <h3 className="font-extrabold text-slate-900 text-base">Customer WhatsApp Chats & Leads</h3>
+                  </div>
+                  <p className="text-xs text-slate-500 max-w-2xl">
+                    View incoming buyer WhatsApp chats to your connected store bot, as well as storefront click-through inquiries.
                   </p>
                 </div>
-                <span className="text-xs font-mono bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg font-semibold">
-                  {inquiries.length} Inquiries Logged
-                </span>
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  <button
+                    onClick={fetchLiveChats}
+                    disabled={isLoadingLiveChats}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                    title="Refresh chats"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLiveChats ? 'animate-spin text-emerald-600' : 'text-slate-500'}`} />
+                    <span>{isLoadingLiveChats ? 'Refreshing...' : 'Refresh'}</span>
+                  </button>
+                  <span className="text-xs font-mono bg-emerald-50 text-emerald-800 px-2.5 py-1.5 rounded-xl font-bold border border-emerald-100">
+                    {liveChats.length + inquiries.length} Total Leads
+                  </span>
+                </div>
+              </div>
+
+              {/* Sub-tab Pill Switcher */}
+              <div className="flex items-center gap-2 border-t border-slate-100 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setChatsSubTab('whatsapp')}
+                  className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-2 cursor-pointer ${
+                    chatsSubTab === 'whatsapp'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Live WhatsApp Conversations</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    chatsSubTab === 'whatsapp' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {liveChats.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChatsSubTab('clicks')}
+                  className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-2 cursor-pointer ${
+                    chatsSubTab === 'clicks'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>Storefront Clicks</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    chatsSubTab === 'clicks' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {inquiries.length}
+                  </span>
+                </button>
               </div>
             </div>
 
-            <div className="space-y-3">
-              {inquiries.length === 0 ? (
-                <div className="bg-white rounded-2xl p-12 text-center text-slate-400 border border-slate-200">
-                  No inquiries recorded yet. When buyers click "Order on WhatsApp", they will appear here.
-                </div>
-              ) : (
-                inquiries.map((inq) => (
-                  <div
-                    key={inq.id}
-                    className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                  >
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 text-sm">{inq.productName}</span>
-                        {inq.variantName && (
-                          <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                            {inq.variantName}
-                          </span>
-                        )}
-                        <span className="font-mono text-xs font-bold text-slate-900">
-                          {formatPrice(inq.price, store.currencySymbol)}
-                        </span>
-                      </div>
-
-                      {inq.buyerLocation && (
-                        <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                          <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span>Delivery to: <strong>{inq.buyerLocation}</strong></span>
-                        </div>
-                      )}
-
-                      {inq.buyerNote && (
-                        <p className="text-xs text-slate-500 italic">
-                          "{inq.buyerNote}"
-                        </p>
-                      )}
-
-                      <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                        <Clock className="w-3 h-3" />
-                        <span>{new Date(inq.timestamp).toLocaleString()}</span>
-                      </div>
+            {/* LIVE WHATSAPP CONVERSATIONS SUB-TAB */}
+            {chatsSubTab === 'whatsapp' && (
+              <div className="space-y-3">
+                {isLoadingLiveChats && liveChats.length === 0 ? (
+                  <div className="bg-white rounded-2xl p-10 text-center text-slate-400 border border-slate-200/80 space-y-2">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto text-emerald-600" />
+                    <p className="text-xs font-medium">Checking live WhatsApp conversations...</p>
+                  </div>
+                ) : liveChats.length === 0 ? (
+                  <div className="bg-white rounded-2xl p-8 sm:p-12 text-center border border-slate-200/80 space-y-4">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-2xs">
+                      <MessageCircle className="w-7 h-7" />
                     </div>
-
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      <select
-                        value={inq.status}
-                        onChange={(e) => handleUpdateInquiryStatus(inq.id, e.target.value as any)}
-                        className={`text-xs font-semibold px-2.5 py-1.5 rounded-xl border transition cursor-pointer ${
-                          inq.status === 'completed'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : inq.status === 'contacted'
-                            ? 'bg-blue-50 text-blue-800 border-blue-200'
-                            : inq.status === 'cancelled'
-                            ? 'bg-rose-50 text-rose-800 border-rose-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
-                        }`}
+                    <div className="max-w-md mx-auto space-y-1.5">
+                      <h4 className="font-bold text-slate-900 text-sm">No WhatsApp chats recorded yet</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        When buyers message your connected WhatsApp number asking about products, sending #UID codes, or chatting with the bot, their conversations and requested items will automatically appear here.
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 pt-2">
+                      <button
+                        onClick={() => setActiveTab('uid-bot')}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer"
                       >
-                        <option value="inquired">🟡 New Inquiry</option>
-                        <option value="contacted">🔵 In Discussion</option>
-                        <option value="completed">🟢 Paid & Delivered</option>
-                        <option value="cancelled">⚪ Cancelled</option>
-                      </select>
-
-                      <a
-                        href={inq.whatsappUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold transition flex items-center gap-1"
-                        title="Open WhatsApp chat with message pre-filled"
+                        <Bot className="w-4 h-4" />
+                        <span>Check WhatsApp Bot Status</span>
+                      </button>
+                      <button
+                        onClick={fetchLiveChats}
+                        className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition cursor-pointer"
                       >
-                        <MessageCircle className="w-4 h-4" />
-                      </a>
+                        Refresh Now
+                      </button>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                ) : (
+                  <div className="space-y-3">
+                    {liveChats.map((chat) => {
+                      const matchedProduct = chat.lastProductUid
+                        ? products.find((p) => (p.uid || p.id).toUpperCase() === chat.lastProductUid!.toUpperCase())
+                        : null;
+                      const cleanPhone = chat.phone || chat.remoteJid.replace('@s.whatsapp.net', '');
+                      const formattedPhone = cleanPhone.startsWith('234') && cleanPhone.length === 13
+                        ? `+234 ${cleanPhone.slice(3, 6)} ${cleanPhone.slice(6, 9)} ${cleanPhone.slice(9)}`
+                        : `+${cleanPhone}`;
+
+                      return (
+                        <div
+                          key={chat.remoteJid}
+                          className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-emerald-300 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                        >
+                          <div className="space-y-2 flex-1 min-w-0">
+                            <div className="flex items-center flex-wrap gap-2">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                              <span className="font-extrabold text-slate-900 text-sm font-mono tracking-tight">
+                                {formattedPhone}
+                              </span>
+                              <span className="text-[11px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full font-medium">
+                                {chat.messages?.length || 1} msg{(chat.messages?.length || 1) > 1 ? 's' : ''}
+                              </span>
+                              {chat.lastProductUid && (
+                                <span className="text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80 px-2 py-0.5 rounded-md flex items-center gap-1 truncate max-w-[200px]">
+                                  <span>#{chat.lastProductUid}</span>
+                                  {matchedProduct && <span className="font-normal text-amber-700 truncate">· {matchedProduct.name}</span>}
+                                </span>
+                              )}
+                              <span className="text-[11px] text-slate-400 flex items-center gap-1 ml-auto sm:ml-0">
+                                <Clock className="w-3 h-3" />
+                                {new Date(chat.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-600 line-clamp-2 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                              <span className="font-semibold text-slate-700">Latest: </span>
+                              "{chat.lastMessage}"
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                            <button
+                              onClick={() => setSelectedChatThread(chat)}
+                              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+                              <span>View Thread</span>
+                            </button>
+                            <a
+                              href={`https://wa.me/${cleanPhone}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3.5 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              <span>Chat on WhatsApp</span>
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STOREFRONT CLICKS SUB-TAB */}
+            {chatsSubTab === 'clicks' && (
+              <div className="space-y-3">
+                {inquiries.length === 0 ? (
+                  <div className="bg-white rounded-2xl p-12 text-center text-slate-400 border border-slate-200">
+                    No inquiries recorded yet. When buyers click "Order on WhatsApp", they will appear here.
+                  </div>
+                ) : (
+                  inquiries.map((inq) => (
+                    <div
+                      key={inq.id}
+                      className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 text-sm">{inq.productName}</span>
+                          {inq.variantName && (
+                            <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                              {inq.variantName}
+                            </span>
+                          )}
+                          <span className="font-mono text-xs font-bold text-slate-900">
+                            {formatPrice(inq.price, store.currencySymbol)}
+                          </span>
+                        </div>
+
+                        {inq.buyerLocation && (
+                          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                            <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span>Delivery to: <strong>{inq.buyerLocation}</strong></span>
+                          </div>
+                        )}
+
+                        {inq.buyerNote && (
+                          <p className="text-xs text-slate-500 italic">
+                            "{inq.buyerNote}"
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                          <Clock className="w-3 h-3" />
+                          <span>{new Date(inq.timestamp).toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <select
+                          value={inq.status}
+                          onChange={(e) => handleUpdateInquiryStatus(inq.id, e.target.value as any)}
+                          className={`text-xs font-semibold px-2.5 py-1.5 rounded-xl border transition cursor-pointer ${
+                            inq.status === 'completed'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : inq.status === 'contacted'
+                              ? 'bg-blue-50 text-blue-800 border-blue-200'
+                              : inq.status === 'cancelled'
+                              ? 'bg-rose-50 text-rose-800 border-rose-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}
+                        >
+                          <option value="inquired">🟡 New Inquiry</option>
+                          <option value="contacted">🔵 In Discussion</option>
+                          <option value="completed">🟢 Paid & Delivered</option>
+                          <option value="cancelled">⚪ Cancelled</option>
+                        </select>
+
+                        <a
+                          href={inq.whatsappUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold transition flex items-center gap-1"
+                          title="Open WhatsApp chat with message pre-filled"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </a>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -4856,6 +5085,102 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         productToEdit={productToEdit}
         onSave={handleSaveProduct}
       />
+
+      {/* WhatsApp Chat Thread Drawer / Modal */}
+      {selectedChatThread && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0" onClick={() => setSelectedChatThread(null)} />
+          <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-xl w-full border border-slate-100 z-10 flex flex-col max-h-[92vh] my-0 sm:my-auto overflow-hidden">
+            {/* Mobile drag bar */}
+            <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+
+            {/* Modal Header */}
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-slate-900 text-sm font-mono">
+                    +{selectedChatThread.phone || selectedChatThread.remoteJid.replace('@s.whatsapp.net', '')}
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    {selectedChatThread.messages?.length || 0} message{(selectedChatThread.messages?.length || 0) !== 1 ? 's' : ''} in conversation
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://wa.me/${selectedChatThread.phone || selectedChatThread.remoteJid.replace('@s.whatsapp.net', '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">WhatsApp</span>
+                </a>
+                <button
+                  onClick={() => setSelectedChatThread(null)}
+                  className="p-1.5 rounded-xl hover:bg-slate-200 text-slate-400 hover:text-slate-700 cursor-pointer transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Messages Scroll Area */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1 bg-slate-50/40">
+              {(selectedChatThread.messages || []).map((msg, idx) => {
+                const isCustomer = msg.sender === 'customer';
+                return (
+                  <div
+                    key={idx}
+                    className={`flex flex-col ${isCustomer ? 'items-start' : 'items-end'}`}
+                  >
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs shadow-2xs space-y-1 ${
+                        isCustomer
+                          ? 'bg-white text-slate-800 border border-slate-200/80 rounded-tl-xs'
+                          : 'bg-emerald-600 text-white rounded-tr-xs'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold opacity-75">
+                        <span>{isCustomer ? 'Customer' : '🤖 Auto-Reply Bot'}</span>
+                        {msg.productUid && (
+                          <span className={`px-1.5 py-0.2 rounded font-mono ${isCustomer ? 'bg-amber-100 text-amber-900' : 'bg-white/20 text-white'}`}>
+                            #{msg.productUid}
+                          </span>
+                        )}
+                      </div>
+                      <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                      <div className="text-[9px] opacity-60 text-right">
+                        {new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 bg-white border-t border-slate-100 flex items-center justify-between gap-3">
+              <span className="text-[11px] text-slate-500">
+                To reply directly to this customer, open the conversation in WhatsApp.
+              </span>
+              <a
+                href={`https://wa.me/${selectedChatThread.phone || selectedChatThread.remoteJid.replace('@s.whatsapp.net', '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shrink-0"
+              >
+                <MessageCircle className="w-4 h-4 text-emerald-400" />
+                <span>Open Chat</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Product Limit Reached Modal */}
       <ProductLimitModal

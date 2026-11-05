@@ -83,6 +83,71 @@ function saveRegistry(registry) {
   }
 }
 
+// ─── CUSTOMER CHATS LOGGING (Per-Store WhatsApp Inquiry Log) ────────────────
+function recordStoreChat(storeId, remoteJid, messageText, sender = 'customer', extra = {}) {
+  try {
+    if (!storeId || !remoteJid || !messageText) return;
+    const storeSessionDir = path.join(SESSIONS_DIR, storeId);
+    if (!fs.existsSync(storeSessionDir)) {
+      fs.mkdirSync(storeSessionDir, { recursive: true });
+    }
+    const chatsFile = path.join(storeSessionDir, 'chats.json');
+    let chats = [];
+    if (fs.existsSync(chatsFile)) {
+      try {
+        chats = JSON.parse(fs.readFileSync(chatsFile, 'utf8'));
+      } catch (e) {
+        chats = [];
+      }
+    }
+    const cleanPhone = remoteJid.replace('@s.whatsapp.net', '').replace(/:\d+/, '');
+
+    let convo = chats.find((c) => c.customerPhone === cleanPhone);
+    const nowIso = new Date().toISOString();
+    if (!convo) {
+      convo = {
+        id: `chat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        customerPhone: cleanPhone,
+        remoteJid,
+        firstSeenAt: nowIso,
+        lastMessageAt: nowIso,
+        lastMessage: typeof messageText === 'string' ? messageText.slice(0, 160) : '',
+        lastSender: sender,
+        messageCount: 0,
+        messages: [],
+      };
+      chats.unshift(convo);
+    } else {
+      convo.lastMessageAt = nowIso;
+      convo.lastMessage = typeof messageText === 'string' ? messageText.slice(0, 160) : '';
+      convo.lastSender = sender;
+      chats = [convo, ...chats.filter((c) => c.customerPhone !== cleanPhone)];
+    }
+
+    convo.messageCount = (convo.messageCount || 0) + 1;
+    if (extra.productUid) convo.lastProductUid = extra.productUid;
+    if (extra.productName) convo.lastProductName = extra.productName;
+
+    convo.messages.push({
+      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+      sender,
+      text: typeof messageText === 'string' ? messageText.slice(0, 600) : '',
+      timestamp: nowIso,
+    });
+
+    if (convo.messages.length > 25) {
+      convo.messages = convo.messages.slice(-25);
+    }
+    if (chats.length > 100) {
+      chats = chats.slice(0, 100);
+    }
+
+    fs.writeFileSync(chatsFile, JSON.stringify(chats, null, 2), 'utf8');
+  } catch (err) {
+    console.warn(`[Store: ${storeId}] Failed saving chat history:`, err?.message);
+  }
+}
+
 // ─── SUPABASE INTEGRATION (Auto-resolve store name, slug & catalog) ────────
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://hbestsjsqvfilhbeymbf.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_Wit92S4u1YwX7SwBCbnKHQ_Gf_-dQ07';
@@ -236,7 +301,7 @@ function detectRecipient(text) {
 /**
  * Safely send message and register in local message store for retry decryption requests
  */
-async function safeSendMessage(sock, jid, content, options) {
+async function safeSendMessage(sock, jid, content, options, storeId = null) {
   const sent = await sock.sendMessage(jid, content, options);
   if (sent?.key?.id) {
     messageStore.set(sent.key.id, sent);
@@ -244,6 +309,9 @@ async function safeSendMessage(sock, jid, content, options) {
       const oldestKey = messageStore.keys().next().value;
       messageStore.delete(oldestKey);
     }
+  }
+  if (storeId && (content?.text || content?.caption)) {
+    recordStoreChat(storeId, jid, content.text || content.caption, 'bot');
   }
   return sent;
 }
@@ -297,7 +365,7 @@ async function sendProductCard(sock, remoteJid, product, storeName, storeBaseUrl
           await safeSendMessage(sock, remoteJid, {
             image: buffer,
             caption: reply,
-          });
+          }, undefined, storeId);
           return true;
         }
       } catch (err) {
@@ -321,7 +389,7 @@ async function sendProductCard(sock, remoteJid, product, storeName, storeBaseUrl
           await safeSendMessage(sock, remoteJid, {
             image: buffer,
             caption: reply,
-          });
+          }, undefined, storeId);
           return true;
         }
       } catch (fetchErr) {
@@ -330,7 +398,7 @@ async function sendProductCard(sock, remoteJid, product, storeName, storeBaseUrl
           await safeSendMessage(sock, remoteJid, {
             image: { url },
             caption: reply,
-          });
+          }, undefined, storeId);
           return true;
         } catch (baileysErr) {
           console.warn(`[Store: ${storeId}] Direct image URL failed:`, baileysErr?.message);
@@ -340,7 +408,7 @@ async function sendProductCard(sock, remoteJid, product, storeName, storeBaseUrl
   }
 
   // Fallback to text message if no image or image sending failed
-  await safeSendMessage(sock, remoteJid, { text: reply });
+  await safeSendMessage(sock, remoteJid, { text: reply }, undefined, storeId);
   return false;
 }
 
@@ -678,6 +746,11 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
       const uidMatch = cleanText.match(/#?(TA-[A-Z0-9-]+)/i);
       const queryUid = uidMatch ? uidMatch[1].toUpperCase() : null;
 
+      // Record incoming customer WhatsApp chat
+      recordStoreChat(storeId, remoteJid, cleanText, 'customer', {
+        productUid: queryUid,
+      });
+
       let currentCatalog = sessionData.catalog || [];
       let info = sessionData.storeInfo || {};
 
@@ -748,7 +821,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
           `I have paused my automated replies for the next 45 minutes so the store owner / merchant can reply to you directly! 💬\n\n` +
           `Feel free to send your inquiry, phone number, or specific order details here.\n\n` +
           `_Want to resume browsing with me at any time? Just type *"menu"* or send any *#Item Code*._`;
-        await safeSendMessage(sock, remoteJid, { text: reply });
+        await safeSendMessage(sock, remoteJid, { text: reply }, undefined, storeId);
         continue;
       }
 
@@ -813,7 +886,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
 
             // Send photo card of the #1 match first
             await sendProductCard(sock, remoteJid, top[0], storeName, storeBaseUrl, storeId);
-            await safeSendMessage(sock, remoteJid, { text: reply });
+            await safeSendMessage(sock, remoteJid, { text: reply }, undefined, storeId);
             continue;
           }
         }
@@ -827,7 +900,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
           `3️⃣ *Any specific style or category?*\n\n` +
           `💡 _Or simply reply with e.g. "gift for my girlfriend under 25k" and I'll find our best items immediately!_`;
 
-        await safeSendMessage(sock, remoteJid, { text: questionReply });
+        await safeSendMessage(sock, remoteJid, { text: questionReply }, undefined, storeId);
         continue;
       }
       // ─────────────────────────────────────────────────────────────────────────
@@ -843,7 +916,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
           `3️⃣ *Make Payment:* Complete payment via Bank Transfer (all banks, OPay, PalmPay) or online card, and receive your receipt!\n\n` +
           `🚚 Fast dispatch straight to your location!\n\n` +
           `👉 *Browse Catalog Now:* ${storeBaseUrl}`;
-        await safeSendMessage(sock, remoteJid, { text: reply });
+        await safeSendMessage(sock, remoteJid, { text: reply }, undefined, storeId);
         continue;
       }
 
@@ -860,7 +933,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
           `${storeBaseUrl}\n` +
           `2. Complete checkout to get immediate payment instructions & instant WhatsApp confirmation.\n` +
           `3. After payment, your order moves directly to dispatch! 🚚💨`;
-        await safeSendMessage(sock, remoteJid, { text: reply });
+        await safeSendMessage(sock, remoteJid, { text: reply }, undefined, storeId);
         continue;
       }
 
@@ -873,7 +946,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
           `📦 *Looking for bulk / wholesale pricing or special packages?*\n` +
           `Type *"human"* or reply with the items & quantity you need, and the merchant will review your custom deal directly!\n\n` +
           `👉 *See current promo prices:* ${storeBaseUrl}`;
-        await safeSendMessage(sock, remoteJid, { text: reply });
+        await safeSendMessage(sock, remoteJid, { text: reply }, undefined, storeId);
         continue;
       }
 
@@ -890,7 +963,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
           `Check some of our hot items:\n${listText || 'No items listed yet'}\n\n` +
           `👉 *Check everything we get here:* ${storeBaseUrl}\n` +
           `Reply with any *#Item Code* to see full pictures and price!`;
-        await safeSendMessage(sock, remoteJid, { text: reply });
+        await safeSendMessage(sock, remoteJid, { text: reply }, undefined, storeId);
         continue;
       }
 
@@ -905,7 +978,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
           `👋 Hi! Thanks for reaching out to *${storeName}*.\n\n` +
           `${deliveryText}${locationText}${hoursText}\n\n` +
           `👉 *Shop our full catalog:* ${storeBaseUrl}`;
-        await safeSendMessage(sock, remoteJid, { text: reply });
+        await safeSendMessage(sock, remoteJid, { text: reply }, undefined, storeId);
         continue;
       }
 
@@ -920,7 +993,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
             `💰 *Price List — ${storeName}*\n\n` +
             `${listText}\n\n` +
             `Reply with any *#Item Code* for full details & photos, or view all items online:\n${storeBaseUrl}`;
-          await safeSendMessage(sock, remoteJid, { text: reply });
+          await safeSendMessage(sock, remoteJid, { text: reply }, undefined, storeId);
           continue;
         }
       }
@@ -947,7 +1020,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
           `• "Payment info" — bank transfer & card options\n` +
           `• "Human" — chat directly with the store owner`;
 
-        await safeSendMessage(sock, remoteJid, { text: reply });
+        await safeSendMessage(sock, remoteJid, { text: reply }, undefined, storeId);
         continue;
       }
 
@@ -971,7 +1044,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
             `🔍 *We also found these matching items at ${storeName}:*\n\n` +
             `${listText}\n\n` +
             `Reply with any *#Item Code* for full details & photos, or browse all:\n${storeBaseUrl}`;
-          await safeSendMessage(sock, remoteJid, { text: reply });
+          await safeSendMessage(sock, remoteJid, { text: reply }, undefined, storeId);
         }
         continue;
       }
@@ -995,7 +1068,7 @@ async function initStoreSession(storeId, storeCatalog = [], storeInfo = {}, opti
         `• Type *"Delivery info"* for shipping rates & location\n` +
         `• Type *"human"* to speak with the store owner`;
 
-      await safeSendMessage(sock, remoteJid, { text: fallbackReply });
+      await safeSendMessage(sock, remoteJid, { text: fallbackReply }, undefined, storeId);
     }
   });
 
@@ -1042,6 +1115,24 @@ app.get('/', (req, res) => {
  */
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', activeSessions: activeSessions.size });
+});
+
+/**
+ * Retrieve logged WhatsApp customer chats for a store
+ */
+app.get('/api/whatsapp/chats/:storeId', (req, res) => {
+  const { storeId } = req.params;
+  const storeSessionDir = path.join(SESSIONS_DIR, storeId);
+  const chatsFile = path.join(storeSessionDir, 'chats.json');
+  if (fs.existsSync(chatsFile)) {
+    try {
+      const chats = JSON.parse(fs.readFileSync(chatsFile, 'utf8'));
+      return res.json({ success: true, chats: Array.isArray(chats) ? chats : [] });
+    } catch (e) {
+      console.warn(`[Store: ${storeId}] Failed parsing chats.json:`, e?.message);
+    }
+  }
+  res.json({ success: true, chats: [] });
 });
 
 /**

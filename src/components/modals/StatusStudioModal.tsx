@@ -368,28 +368,31 @@ ${productUrl}`;
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
       <div className="fixed inset-0" onClick={onClose} onTouchEnd={onClose} />
 
-      <div className="relative bg-white rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden border border-slate-200 z-10 flex flex-col md:flex-row max-h-[92vh]">
+      <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-4xl w-full border border-slate-200 z-10 flex flex-col md:flex-row max-h-[95vh] sm:max-h-[90vh] overflow-y-auto md:overflow-hidden my-0 sm:my-auto">
+        {/* Mobile top drag indicator */}
+        <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2.5 mb-1 md:hidden shrink-0" />
+
         {/* Modal close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-slate-900/90 text-white shadow-lg border border-white/20 active:scale-95 transition flex items-center justify-center cursor-pointer hover:bg-slate-800"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 p-2 sm:p-2.5 rounded-full bg-slate-900/90 text-white shadow-lg border border-white/20 active:scale-95 transition flex items-center justify-center cursor-pointer hover:bg-slate-800"
           aria-label="Close"
         >
           <X className="w-4 h-4" />
         </button>
 
         {/* Left: 9:16 Story / Status Preview Canvas */}
-        <div className="flex-1 bg-slate-900 p-6 flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="flex-1 bg-slate-900 p-4 sm:p-6 flex flex-col items-center justify-center relative overflow-hidden shrink-0">
           {/* Subtle Ambient Glow */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
           </div>
 
           <div
-            className="w-full max-w-[280px] aspect-[9/16] rounded-3xl shadow-2xl overflow-hidden border-2 border-slate-700/80 flex flex-col justify-between p-4 relative text-white"
+            className="w-full max-w-[200px] sm:max-w-[280px] aspect-[9/16] rounded-3xl shadow-2xl overflow-hidden border-2 border-slate-700/80 flex flex-col justify-between p-3.5 sm:p-4 relative text-white"
             style={{
               background:
                 theme === 'luxury-dark'
@@ -516,7 +519,7 @@ ${productUrl}`;
         </div>
 
         {/* Right: Controls & Actions */}
-        <div className="w-full md:w-96 p-6 flex flex-col justify-between bg-white overflow-y-auto space-y-5">
+        <div className="w-full md:w-96 p-4 sm:p-6 flex flex-col justify-between bg-white overflow-visible md:overflow-y-auto space-y-4 sm:space-y-5">
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
