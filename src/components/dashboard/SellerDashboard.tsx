@@ -5293,64 +5293,79 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       </div>{/* /main flex-1 */}
 
       {/* ── MOBILE NOTCHED BOTTOM NAV ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 h-16 flex items-end"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex w-full items-center h-16 relative">
-          {/* Left 2 tabs */}
-          {['orders', 'products'].map((tabId) => {
-            const tab = allTabs.find(t => t.id === tabId)!;
-            const Icon = tab.icon;
-            const active = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className="flex-1 flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer relative"
-              >
-                <div className="relative">
-                  <Icon className={`w-5 h-5 ${active ? 'text-amber-600' : 'text-slate-400'}`} />
-                  {tab.badge && tab.id === 'orders' && pendingOrdersCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
-                      {pendingOrdersCount}
-                    </span>
-                  )}
-                </div>
-                <span className={`text-[10px] font-semibold ${active ? 'text-amber-600' : 'text-slate-400'}`}>{tab.label}</span>
-              </button>
-            );
-          })}
+      {allTabs.length > 0 && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 h-16 flex items-end"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className="flex w-full items-center h-16 relative">
+            {/* Left up to 2 tabs */}
+            {bottomTabs.slice(0, 2).map((tabId) => {
+              const tab = allTabs.find(t => t.id === tabId);
+              if (!tab) return null;
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
+              const isStaff = Boolean(activeStaffMember);
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className="flex-1 flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer relative"
+                >
+                  <div className="relative">
+                    <Icon className={`w-5 h-5 ${active ? (isStaff ? 'text-red-600' : 'text-emerald-600') : 'text-slate-400'}`} />
+                    {tab.badge && tab.id === 'orders' && pendingOrdersCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                        {pendingOrdersCount}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-[10px] font-semibold truncate max-w-[70px] ${active ? (isStaff ? 'text-red-600 font-bold' : 'text-emerald-600 font-bold') : 'text-slate-400'}`}>
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
 
-          {/* CENTER NOTCH FAB */}
-          <div className="flex-1 flex justify-center items-end pb-1 relative">
-            <button
-              onClick={() => {
-                setActiveTab('products');
-                handleOpenAddProduct();
-              }}
-              className="absolute -top-6 w-14 h-14 bg-amber-500 hover:bg-amber-600 active:scale-95 rounded-full shadow-xl flex items-center justify-center transition cursor-pointer border-4 border-white"
-            >
-              <Plus className="w-7 h-7 text-white" strokeWidth={3} />
-            </button>
+            {/* CENTER NOTCH FAB (Only if user has permission to manage products) */}
+            {allTabs.some(t => t.id === 'products') && (
+              <div className="flex-1 flex justify-center items-end pb-1 relative">
+                <button
+                  onClick={() => {
+                    setActiveTab('products');
+                    handleOpenAddProduct();
+                  }}
+                  className={`absolute -top-6 w-14 h-14 ${
+                    activeStaffMember ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'
+                  } active:scale-95 rounded-full shadow-xl flex items-center justify-center transition cursor-pointer border-4 border-white`}
+                  title="Add Product"
+                >
+                  <Plus className="w-7 h-7 text-white" strokeWidth={3} />
+                </button>
+              </div>
+            )}
+
+            {/* Right up to 2 tabs */}
+            {bottomTabs.slice(2, 4).map((tabId) => {
+              const tab = allTabs.find(t => t.id === tabId);
+              if (!tab) return null;
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
+              const isStaff = Boolean(activeStaffMember);
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className="flex-1 flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer"
+                >
+                  <Icon className={`w-5 h-5 ${active ? (isStaff ? 'text-red-600' : 'text-emerald-600') : 'text-slate-400'}`} />
+                  <span className={`text-[10px] font-semibold truncate max-w-[70px] ${active ? (isStaff ? 'text-red-600 font-bold' : 'text-emerald-600 font-bold') : 'text-slate-400'}`}>
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-
-          {/* Right 2 tabs */}
-          {['marketing', 'settings'].map((tabId) => {
-            const tab = allTabs.find(t => t.id === tabId)!;
-            const Icon = tab.icon;
-            const active = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className="flex-1 flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer"
-              >
-                <Icon className={`w-5 h-5 ${active ? 'text-amber-600' : 'text-slate-400'}`} />
-                <span className={`text-[10px] font-semibold ${active ? 'text-amber-600' : 'text-slate-400'}`}>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+        </nav>
+      )}
 
       {/* Product Add/Edit Modal */}
       <AddEditProductModal
