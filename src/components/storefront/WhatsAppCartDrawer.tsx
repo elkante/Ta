@@ -33,6 +33,7 @@ import {
   createFullOrderWhatsAppMessage,
   formatPrice,
   generateWhatsAppLink,
+  openWhatsAppUrl,
 } from '../../utils/whatsapp';
 import {
   createStoreOrder,
@@ -456,8 +457,10 @@ export const WhatsAppCartDrawer: React.FC<WhatsAppCartDrawerProps> = ({
             <div className="space-y-2.5">
               <a
                 href={placedOrder.whatsappUrl}
-                target="_blank"
-                rel="noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  openWhatsAppUrl(placedOrder.whatsappUrl);
+                }}
                 className="w-full py-4 px-5 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2 transition active:scale-[0.99] cursor-pointer"
               >
                 <MessageCircle className="w-4 h-4 fill-white" />

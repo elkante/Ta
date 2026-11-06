@@ -48,6 +48,7 @@ import {
   createProductInquiryMessage,
   formatPrice,
   generateWhatsAppLink,
+  openWhatsApp,
 } from '../../utils/whatsapp';
 import { recordWhatsAppInquiry } from '../../utils/storage';
 import { parseSocialLink } from '../../utils/social';
@@ -346,6 +347,15 @@ export const Storefront: React.FC<StorefrontProps> = ({
     setCartItems([]);
   };
 
+  const handleOpenStoreWhatsApp = (customMsg?: string) => {
+    const defaultMsg = `👋 Hello ${store.name}! I am browsing your catalog at ${window.location.origin}?store=${store.slug} and would like to ask a question.`;
+    openWhatsApp(
+      store.whatsappCountryCode,
+      store.whatsappNumber,
+      customMsg || defaultMsg
+    );
+  };
+
   // Direct 1-Click Product Inquiry
   const handleOpenProductWhatsApp = (
     product: Product,
@@ -599,8 +609,14 @@ export const Storefront: React.FC<StorefrontProps> = ({
                     store.whatsappNumber,
                     `👋 Hello ${store.name}! I am browsing your catalog at ${window.location.origin}?store=${store.slug} and would like to ask a question.`
                   )}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openWhatsApp(
+                      store.whatsappCountryCode,
+                      store.whatsappNumber,
+                      `👋 Hello ${store.name}! I am browsing your catalog at ${window.location.origin}?store=${store.slug} and would like to ask a question.`
+                    );
+                  }}
                   className="flex-1 sm:flex-initial py-2.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg transition active:scale-[0.98] cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4" />
@@ -971,7 +987,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                       {custom.heroCtaText || 'Explore Collection'}
                     </button>
                     <a href={generateWhatsAppLink(store.whatsappCountryCode, store.whatsappNumber, `Hello ${store.name}!`)}
-                      target="_blank" rel="noreferrer"
+                      onClick={(e) => { e.preventDefault(); handleOpenStoreWhatsApp(`Hello ${store.name}!`); }}
                       className="px-5 py-3 flex items-center gap-2 text-white/60 text-xs font-bold uppercase tracking-widest hover:text-white transition cursor-pointer">
                       <MessageCircle className="w-3.5 h-3.5" /><span>WhatsApp</span>
                     </a>
@@ -1021,7 +1037,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                         {custom.heroCtaText || 'SHOP DROP'}
                       </button>
                       <a href={generateWhatsAppLink(store.whatsappCountryCode, store.whatsappNumber, `Hello ${store.name}!`)}
-                        target="_blank" rel="noreferrer"
+                        onClick={(e) => { e.preventDefault(); handleOpenStoreWhatsApp(`Hello ${store.name}!`); }}
                         className="px-6 py-3 border border-white/30 text-white/70 text-xs font-bold uppercase tracking-widest hover:border-white hover:text-white transition flex items-center gap-2 cursor-pointer">
                         <MessageCircle className="w-3.5 h-3.5" />WhatsApp
                       </a>
@@ -1076,7 +1092,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                     {custom.heroCtaText || 'Shop Beauty'}
                   </button>
                   <a href={generateWhatsAppLink(store.whatsappCountryCode, store.whatsappNumber, `Hello ${store.name}!`)}
-                    target="_blank" rel="noreferrer"
+                    onClick={(e) => { e.preventDefault(); handleOpenStoreWhatsApp(`Hello ${store.name}!`); }}
                     className="px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer">
                     <MessageCircle className="w-3.5 h-3.5 fill-[#25D366] text-[#25D366]" /><span>WhatsApp</span>
                   </a>
@@ -1128,7 +1144,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                       {custom.heroCtaText || 'Browse All'}
                     </button>
                     <a href={generateWhatsAppLink(store.whatsappCountryCode, store.whatsappNumber, `Hello ${store.name}!`)}
-                      target="_blank" rel="noreferrer"
+                      onClick={(e) => { e.preventDefault(); handleOpenStoreWhatsApp(`Hello ${store.name}!`); }}
                       className="p-2 rounded-xl bg-indigo-950/80 border border-indigo-800 text-emerald-400 hover:bg-indigo-900 transition cursor-pointer">
                       <MessageCircle className="w-4 h-4" />
                     </a>
@@ -1184,7 +1200,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                       {custom.heroCtaText || 'View Collection'}
                     </button>
                     <a href={generateWhatsAppLink(store.whatsappCountryCode, store.whatsappNumber, `Hello ${store.name}!`)}
-                      target="_blank" rel="noreferrer"
+                      onClick={(e) => { e.preventDefault(); handleOpenStoreWhatsApp(`Hello ${store.name}!`); }}
                       className="px-6 py-3 border border-[#f59e0b]/20 text-[#f59e0b]/70 text-xs font-bold uppercase tracking-widest hover:border-[#f59e0b]/50 hover:text-[#f59e0b] transition flex items-center gap-2 rounded-sm cursor-pointer">
                       <MessageCircle className="w-3.5 h-3.5" />Private Enquiry
                     </a>
@@ -1233,7 +1249,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                         {custom.heroCtaText || 'Shop Now'}
                       </button>
                       <a href={generateWhatsAppLink(store.whatsappCountryCode, store.whatsappNumber, `Hello ${store.name}!`)}
-                        target="_blank" rel="noreferrer"
+                        onClick={(e) => { e.preventDefault(); handleOpenStoreWhatsApp(`Hello ${store.name}!`); }}
                         className="px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-2 cursor-pointer">
                         <MessageCircle className="w-3.5 h-3.5 fill-[#25D366] text-[#25D366]" />WhatsApp Us
                       </a>
@@ -1283,7 +1299,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                         {custom.heroCtaText || 'Explore'}
                       </button>
                       <a href={generateWhatsAppLink(store.whatsappCountryCode, store.whatsappNumber, `Hello ${store.name}!`)}
-                        target="_blank" rel="noreferrer"
+                        onClick={(e) => { e.preventDefault(); handleOpenStoreWhatsApp(`Hello ${store.name}!`); }}
                         className="px-6 py-3 border border-stone-300 text-stone-600 font-medium text-xs uppercase tracking-widest hover:border-stone-500 hover:text-stone-900 transition flex items-center gap-2 cursor-pointer">
                         <MessageCircle className="w-3.5 h-3.5" />Enquire
                       </a>
@@ -1348,7 +1364,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                     {custom.heroCtaText || 'Browse Products →'}
                   </button>
                   <a href={generateWhatsAppLink(store.whatsappCountryCode, store.whatsappNumber, `Hello ${store.name}!`)}
-                    target="_blank" rel="noreferrer"
+                    onClick={(e) => { e.preventDefault(); handleOpenStoreWhatsApp(`Hello ${store.name}!`); }}
                     className="px-4 py-3 rounded-xl bg-[#25D366] text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer hover:bg-[#20ba59] transition shrink-0">
                     <MessageCircle className="w-4 h-4 fill-white" /><span className="hidden sm:inline">WhatsApp</span>
                   </a>
@@ -1394,7 +1410,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                     {custom.heroCtaText || 'Shop Now'}
                   </button>
                   <a href={generateWhatsAppLink(store.whatsappCountryCode, store.whatsappNumber, `👋 Hello ${store.name}! I am browsing your catalog at ${window.location.origin}?store=${store.slug} and would like to ask a question.`)}
-                    target="_blank" rel="noreferrer"
+                    onClick={(e) => { e.preventDefault(); handleOpenStoreWhatsApp(); }}
                     className="px-5 py-3 rounded-full bg-white/20 hover:bg-white/30 text-white font-bold text-xs uppercase tracking-wider transition cursor-pointer flex items-center gap-2 backdrop-blur-xs">
                     <MessageCircle className="w-4 h-4 text-[#25D366] fill-[#25D366]" />
                     <span>Chat on WhatsApp</span>
@@ -1867,12 +1883,18 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 Clear Filters
               </button>
               <a
-                href={`https://wa.me/${store.whatsappCountryCode.replace('+', '')}${store.whatsappNumber}?text=${encodeURIComponent(
+                href={generateWhatsAppLink(
+                  store.whatsappCountryCode,
+                  store.whatsappNumber,
                   `Hi ${store.name}! I was searching for "${searchQuery || selectedCategory}" but didn't find it. Do you have it?`
-                )}`}
-                target="_blank"
-                rel="noreferrer"
-                className="px-4 py-2 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition"
+                )}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleOpenStoreWhatsApp(
+                    `Hi ${store.name}! I was searching for "${searchQuery || selectedCategory}" but didn't find it. Do you have it?`
+                  );
+                }}
+                className="px-4 py-2 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition cursor-pointer"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
                 Ask the Seller on WhatsApp
@@ -2134,9 +2156,11 @@ export const Storefront: React.FC<StorefrontProps> = ({
                       store.whatsappNumber,
                       `👋 Hello ${store.name}! I would like to make an inquiry.`
                     )}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-3 rounded-2xl bg-[#25D366] text-white hover:shadow-md hover:scale-105 transition"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleOpenStoreWhatsApp(`👋 Hello ${store.name}! I would like to make an inquiry.`);
+                    }}
+                    className="p-3 rounded-2xl bg-[#25D366] text-white hover:shadow-md hover:scale-105 transition cursor-pointer"
                     title="Chat on WhatsApp"
                   >
                     <MessageCircle className="w-5 h-5" />

@@ -14,7 +14,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Product, Store } from '../../types';
-import { formatPrice, generateWhatsAppLink } from '../../utils/whatsapp';
+import { formatPrice, generateWhatsAppLink, openWhatsApp, openWhatsAppUrl } from '../../utils/whatsapp';
 
 interface StoreAIBotBubbleProps {
   store: Store;
@@ -455,9 +455,15 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
                           store.whatsappNumber,
                           `Hello ${store.name}, I was browsing your store and would like to speak directly with the merchant.`
                         )}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-xs transition"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          openWhatsApp(
+                            store.whatsappCountryCode,
+                            store.whatsappNumber,
+                            `Hello ${store.name}, I was browsing your store and would like to speak directly with the merchant.`
+                          );
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-xs transition cursor-pointer"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
                         <span>Chat with Merchant on WhatsApp</span>
@@ -500,9 +506,11 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
                             <div className="flex items-center gap-1 shrink-0">
                               <a
                                 href={whatsappLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg shadow-2xs transition flex items-center gap-1"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  openWhatsAppUrl(whatsappLink);
+                                }}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg shadow-2xs transition flex items-center gap-1 cursor-pointer"
                               >
                                 <MessageCircle className="w-3 h-3" />
                                 <span>Order</span>

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Store, StoreOrder, StoreCustomer } from '../../types';
 import { getStoreCustomers, saveStoreCustomers } from '../../utils/storage';
+import { generateWhatsAppLink, openWhatsApp } from '../../utils/whatsapp';
 
 interface CustomersTabProps {
   store: Store;
@@ -445,11 +446,11 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ store, orders }) => 
                       <Phone className="w-3.5 h-3.5" />
                     </a>
                     <a
-                      href={`https://wa.me/${waPhone}?text=${encodeURIComponent(
-                        `Hello ${customer.name}, thank you for shopping at ${store.name}! How may we assist you today?`
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={generateWhatsAppLink('', waPhone, `Hello ${customer.name}, thank you for shopping at ${store.name}! How may we assist you today?`)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        openWhatsApp('', waPhone, `Hello ${customer.name}, thank you for shopping at ${store.name}! How may we assist you today?`);
+                      }}
                       className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
                       title="Message on WhatsApp"
                     >

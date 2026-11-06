@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Store, StoreInvoice, StoreInvoiceItem, Product, StoreOrder, OrderItemPayload } from '../../types';
 import { getStoreInvoices, saveStoreInvoices } from '../../utils/storage';
+import { generateWhatsAppLink, openWhatsApp } from '../../utils/whatsapp';
 
 interface InvoicesTabProps {
   store: Store;
@@ -879,15 +880,16 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
                       </button>
                     )}
                     <a
-                      href={`https://wa.me/${waPhone}?text=${encodeURIComponent(
-                        `Hello ${doc.customerName}! Here are the details for your ${doc.type.toUpperCase()} (#${doc.docNumber}) from ${store.name}:\n\n` +
+                      href={generateWhatsAppLink('', waPhone, `Hello ${doc.customerName}! Here are the details for your ${doc.type.toUpperCase()} (#${doc.docNumber}) from ${store.name}:\n\nTotal: ${store.currencySymbol}${doc.total.toLocaleString()}\nStatus: ${isPaid ? 'PAID IN FULL ✓' : 'PAYMENT PENDING'}\n${doc.bankName ? `Bank: ${doc.bankName}\nAccount: ${doc.accountNumber}\nName: ${doc.accountName}\n\n` : ''}Thank you for your business!`)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const msg = `Hello ${doc.customerName}! Here are the details for your ${doc.type.toUpperCase()} (#${doc.docNumber}) from ${store.name}:\n\n` +
                           `Total: ${store.currencySymbol}${doc.total.toLocaleString()}\n` +
                           `Status: ${isPaid ? 'PAID IN FULL ✓' : 'PAYMENT PENDING'}\n` +
                           (doc.bankName ? `Bank: ${doc.bankName}\nAccount: ${doc.accountNumber}\nName: ${doc.accountName}\n\n` : '') +
-                          `Thank you for your business!`
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                          `Thank you for your business!`;
+                        openWhatsApp('', waPhone, msg);
+                      }}
                       className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer"
                       title="Share via WhatsApp"
                     >

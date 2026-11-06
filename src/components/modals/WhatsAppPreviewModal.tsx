@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Check, Copy, ExternalLink, MessageCircle, Send, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Store } from '../../types';
-import { generateWhatsAppLink } from '../../utils/whatsapp';
+import { generateWhatsAppLink, openWhatsApp } from '../../utils/whatsapp';
 
 interface WhatsAppPreviewModalProps {
   isOpen: boolean;
@@ -39,7 +39,7 @@ export const WhatsAppPreviewModal: React.FC<WhatsAppPreviewModalProps> = ({
       colors: ['#22c55e', '#15803d', '#10b981'],
     });
     if (onConfirmSend) onConfirmSend();
-    window.open(waLink, '_blank', 'noopener,noreferrer');
+    openWhatsApp(store.whatsappCountryCode, store.whatsappNumber, messageText);
   };
 
   return (
