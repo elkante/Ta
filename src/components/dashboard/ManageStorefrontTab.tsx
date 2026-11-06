@@ -862,7 +862,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
       {/* Top Card: Public URL & Published Switch (Styled like Orderly) */}
       <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 min-w-0">
-          <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
+          <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
             <Globe className="w-5 h-5" />
           </div>
           <div className="min-w-0">
@@ -870,7 +870,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Public URL</span>
               <button
                 onClick={handleCopyLink}
-                className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition cursor-pointer flex items-center gap-1"
+                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 transition cursor-pointer flex items-center gap-1"
               >
                 <Copy className="w-3 h-3" />
                 <span>{copiedUrl ? 'Copied!' : 'Copy'}</span>
@@ -880,7 +880,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
               href={fullStoreUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-sm sm:text-base font-bold text-blue-600 hover:text-blue-700 transition flex items-center gap-1.5 truncate mt-0.5 group"
+              className="text-sm sm:text-base font-bold text-emerald-600 hover:text-emerald-700 transition flex items-center gap-1.5 truncate mt-0.5 group"
             >
               <span className="truncate">{storeDisplayUrl}</span>
               <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-70 group-hover:opacity-100" />
@@ -901,7 +901,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
             type="button"
             onClick={handleTogglePublished}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-              isPublished ? 'bg-blue-600' : 'bg-slate-300'
+              isPublished ? 'bg-emerald-600' : 'bg-slate-300'
             }`}
           >
             <span
@@ -919,7 +919,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
           <span className="text-xs font-black uppercase tracking-wider text-slate-700">Sections</span>
           <button
             onClick={onOpenStorefront}
-            className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer transition"
+            className="text-xs font-bold text-emerald-600 hover:text-emerald-800 flex items-center gap-1 cursor-pointer transition"
           >
             <Eye className="w-3.5 h-3.5" />
             <span>Preview live store</span>
@@ -931,15 +931,15 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
           <button
             type="button"
             onClick={() => setActiveModal('hero')}
-            className="p-4 rounded-3xl bg-white border border-slate-200/80 hover:border-blue-400 hover:shadow-md transition text-left cursor-pointer flex items-start gap-3.5 group"
+            className="p-4 rounded-3xl bg-white border border-slate-200/80 hover:border-emerald-400 hover:shadow-md transition text-left cursor-pointer flex items-start gap-3.5 group"
           >
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <ImageIcon className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
               <h4 className="font-bold text-slate-900 text-sm flex items-center justify-between">
                 <span>Hero &amp; Banner</span>
-                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 transition" />
+                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 transition" />
               </h4>
               <p className="text-xs text-slate-500 mt-1 leading-snug">
                 The first thing visitors see — title, subtitle, CTA button, and cover background.
@@ -1095,11 +1095,11 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
         <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-50/70 to-white">
           <div>
             <div className="flex items-center gap-2.5">
-              <span className="w-8 h-8 rounded-xl bg-blue-100/70 text-blue-700 flex items-center justify-center">
+              <span className="w-8 h-8 rounded-xl bg-emerald-100/70 text-emerald-700 flex items-center justify-center">
                 <Sliders className="w-4 h-4" />
               </span>
               <h3 className="text-lg font-black text-slate-900 tracking-tight">Advanced Setup</h3>
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                 Storefront Suite
               </span>
             </div>
@@ -1113,7 +1113,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
               type="button"
               onClick={handleSaveCustomization}
               disabled={isSaving}
-              className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-sm transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-sm transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               {isSaving ? (
                 <>
@@ -1329,9 +1329,9 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                             <div className="flex items-center gap-2">
                               <label
                                 htmlFor={`banner-file-${idx}`}
-                                className="flex-1 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 hover:border-blue-400 rounded-xl text-xs font-bold text-slate-700 transition cursor-pointer flex items-center justify-center gap-2 shadow-2xs group"
+                                className="flex-1 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 hover:border-emerald-400 rounded-xl text-xs font-bold text-slate-700 transition cursor-pointer flex items-center justify-center gap-2 shadow-2xs group"
                               >
-                                <Upload className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-600 transition" />
+                                <Upload className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-600 transition" />
                                 <span>{slot.imageUrl ? 'Change Photo from Device' : 'Upload Image from Device'}</span>
                               </label>
                               <input
@@ -1490,7 +1490,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                     type="button"
                     onClick={handleSaveCustomization}
                     disabled={isSaving}
-                    className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                    className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
                   >
                     {isSaving ? 'Saving...' : 'Save Promo Banners'}
                   </button>
@@ -1576,7 +1576,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                     type="button"
                     onClick={handleSaveCustomization}
                     disabled={isSaving}
-                    className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                    className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
                   >
                     {isSaving ? 'Saving...' : 'Save Reviews Setup'}
                   </button>
@@ -1701,7 +1701,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                     type="button"
                     onClick={handleSaveCustomization}
                     disabled={isSaving}
-                    className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                    className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
                   >
                     {isSaving ? 'Saving...' : 'Save Featured Products'}
                   </button>
@@ -1810,7 +1810,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                     type="button"
                     onClick={handleSaveCustomization}
                     disabled={isSaving}
-                    className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                    className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
                   >
                     {isSaving ? 'Saving...' : 'Save Categories'}
                   </button>
@@ -1897,7 +1897,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                     type="button"
                     onClick={handleSaveCustomization}
                     disabled={isSaving}
-                    className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                    className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
                   >
                     {isSaving ? 'Saving...' : 'Save Promises'}
                   </button>
@@ -2005,7 +2005,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                 type="button"
                 onClick={handleSaveCustomization}
                 disabled={isSaving}
-                className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -2107,7 +2107,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                 type="button"
                 onClick={handleSaveCustomization}
                 disabled={isSaving}
-                className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -2276,7 +2276,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                             onClick={() => setBannerUrl(preset.url)}
                             className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer ${
                               isSelected
-                                ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-500'
+                                ? 'border-emerald-600 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500'
                                 : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
                             }`}
                           >
@@ -2323,7 +2323,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                         key={c}
                         onClick={() => setAccentColor(c)}
                         className={`w-6 h-6 rounded-full border border-white shadow-xs cursor-pointer transition-transform ${
-                          accentColor.toLowerCase() === c.toLowerCase() ? 'scale-125 ring-2 ring-blue-600' : 'hover:scale-110'
+                          accentColor.toLowerCase() === c.toLowerCase() ? 'scale-125 ring-2 ring-emerald-600' : 'hover:scale-110'
                         }`}
                         style={{ backgroundColor: c }}
                         title={c}
@@ -2346,7 +2346,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                 type="button"
                 onClick={handleSaveCustomization}
                 disabled={isSaving}
-                className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -2415,8 +2415,8 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                       )}
                       {/* Selected overlay */}
                       {isSelected && (
-                        <div className="absolute inset-0 bg-blue-600/10 flex items-center justify-center">
-                          <div className="bg-blue-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full">
+                        <div className="absolute inset-0 bg-emerald-600/10 flex items-center justify-center">
+                          <div className="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full">
                             ✓ Active
                           </div>
                         </div>
@@ -2451,7 +2451,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                 type="button"
                 onClick={handleSaveCustomization}
                 disabled={isSaving}
-                className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
               >
                 {isSaving ? 'Saving...' : 'Save Theme Choice'}
               </button>
@@ -2497,7 +2497,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                   onClick={() => setFontFamily(f.id)}
                   className={`p-4 rounded-2xl border cursor-pointer transition ${
                     fontFamily === f.id
-                      ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/20'
+                      ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-600/20'
                       : 'border-slate-200 hover:bg-slate-50'
                   }`}
                 >
@@ -2519,7 +2519,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                 type="button"
                 onClick={handleSaveCustomization}
                 disabled={isSaving}
-                className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -2631,7 +2631,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                 type="button"
                 onClick={handleSaveCustomization}
                 disabled={isSaving}
-                className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -2701,7 +2701,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                 type="button"
                 onClick={handleSaveCustomization}
                 disabled={isSaving}
-                className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -2774,7 +2774,7 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
                 type="button"
                 onClick={handleSaveCustomization}
                 disabled={isSaving}
-                className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow cursor-pointer"
+                className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>

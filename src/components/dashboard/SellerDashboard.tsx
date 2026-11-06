@@ -891,8 +891,53 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     img.src = url;
   };
 
+  // ─── Active Staff Session Detection & Revocation Check ──────────────────
+  const [isStaffRevoked, setIsStaffRevoked] = useState(false);
+
+  const activeStaffMember: StoreStaffMember | null = useMemo(() => {
+    try {
+      const raw =
+        sessionStorage.getItem(`ta_staff_session_${store.id}`) ||
+        localStorage.getItem(`ta_staff_session_${store.id}`);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      // Validate that this staff member still exists on the live store and is active
+      const live = (store.staff || []).find((s) => s.id === parsed.id);
+      if (!live || !live.isActive) {
+        // Staff was deleted or suspended! Invalidate session immediately.
+        sessionStorage.removeItem(`ta_staff_session_${store.id}`);
+        localStorage.removeItem(`ta_staff_session_${store.id}`);
+        setIsStaffRevoked(true);
+        return null;
+      }
+      return live;
+    } catch (e) {
+      return null;
+    }
+  }, [store.id, store.staff]);
+
+  // If staff account was deleted or revoked, terminate session immediately
+  useEffect(() => {
+    if (isStaffRevoked) {
+      alert('Your staff account has been deleted or deactivated by the store owner.');
+      localStorage.removeItem('tashop_seller_session');
+      window.location.reload();
+    }
+  }, [isStaffRevoked]);
+
+  // If store was deleted by administration, terminate session immediately
+  useEffect(() => {
+    if (store.status === 'deleted') {
+      alert('This store has been deleted by administration.');
+      localStorage.removeItem('tashop_seller_session');
+      sessionStorage.removeItem(`ta_staff_session_${store.id}`);
+      localStorage.removeItem(`ta_staff_session_${store.id}`);
+      window.location.reload();
+    }
+  }, [store.status, store.id]);
+
   // ─── Nav definition (shared by sidebar + mobile bottom bar) ───────────────
-  const allTabs: { id: TabId; label: string; icon: React.ElementType; badge?: string }[] = [
+  const rawAllTabs: { id: TabId; label: string; icon: React.ElementType; badge?: string }[] = [
     { id: 'home',      label: 'Dashboard',        icon: Home },
     { id: 'storefront',label: 'Manage Storefront',icon: Globe },
     { id: 'products',  label: 'Products',         icon: Package,       badge: `${products.length}` },
@@ -913,7 +958,38 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     { id: 'staff',     label: 'Staff & Team',      icon: Users,         badge: (store.staff?.length || 0) > 0 ? `${store.staff!.length}` : undefined },
   ];
 
-  const navCategories = NAV_CATEGORIES;
+  // Filter tabs for staff accounts based on their allowedTabs permissions.
+  // Store Settings ('settings'), Billing ('billing'), and Staff ('staff') are strictly Owner-only.
+  const allTabs = useMemo(() => {
+    if (!activeStaffMember) return rawAllTabs;
+    return rawAllTabs.filter((tab) => {
+      if (tab.id === 'settings' || tab.id === 'billing' || tab.id === 'staff') {
+        return false;
+      }
+      return activeStaffMember.allowedTabs.includes(tab.id);
+    });
+  }, [rawAllTabs, activeStaffMember]);
+
+  const navCategories = useMemo(() => {
+    if (!activeStaffMember) return NAV_CATEGORIES;
+    const allowedIds = new Set(allTabs.map((t) => t.id));
+    return NAV_CATEGORIES
+      .map((cat) => ({
+        ...cat,
+        tabs: cat.tabs.filter((t) => allowedIds.has(t)),
+      }))
+      .filter((cat) => cat.tabs.length > 0);
+  }, [allTabs, activeStaffMember]);
+
+  // Ensure activeTab is always one of the permitted tabs for this staff member
+  useEffect(() => {
+    if (activeStaffMember && allTabs.length > 0) {
+      const isAllowed = allTabs.some((t) => t.id === activeTab);
+      if (!isAllowed) {
+        setActiveTab(allTabs[0].id);
+      }
+    }
+  }, [activeStaffMember, allTabs, activeTab]);
 
   const toggleCategory = (catId: string) => {
     setCollapsedCategories((prev) => {
@@ -927,7 +1003,15 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   };
 
   // Bottom 5 for mobile notched nav (FAB is center — index 2 slot)
-  const bottomTabs: TabId[] = ['orders', 'products', 'marketing', 'settings'];
+  const bottomTabs: TabId[] = useMemo(() => {
+    const defaultBottom: TabId[] = ['orders', 'products', 'marketing', 'settings'];
+    if (!activeStaffMember) return defaultBottom;
+    const allowed = defaultBottom.filter((t) => allTabs.some((at) => at.id === t));
+    if (allowed.length === 0 && allTabs.length > 0) {
+      return allTabs.slice(0, 4).map((t) => t.id);
+    }
+    return allowed;
+  }, [activeStaffMember, allTabs]);
 
   // Notes Helpers
   const handleSaveNote = (e: React.FormEvent) => {
@@ -1309,6 +1393,28 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
           {/* Header quick actions */}
           <div className="flex items-center gap-2">
+            {activeStaffMember && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-bold shadow-2xs">
+                <Users className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                <span className="truncate max-w-[90px] sm:max-w-[140px]">{activeStaffMember.name}</span>
+                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.2 rounded-md bg-purple-200/80 text-purple-900 font-sans hidden sm:inline">
+                  {activeStaffMember.roleTitle || 'Staff'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sessionStorage.removeItem(`ta_staff_session_${store.id}`);
+                    localStorage.removeItem(`ta_staff_session_${store.id}`);
+                    localStorage.removeItem('tashop_seller_session');
+                    window.location.reload();
+                  }}
+                  className="ml-1 text-[11px] text-purple-700 hover:text-purple-950 font-semibold underline cursor-pointer"
+                  title="Log out of staff session"
+                >
+                  Exit
+                </button>
+              </div>
+            )}
             <button
               onClick={() => { setStatusStudioProduct(products[0] || null); setIsStatusStudioOpen(true); }}
               className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
@@ -5372,10 +5478,10 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 <span>I Have Read &amp; Understand</span>
               </button>
               <a
-                href={generateWhatsAppLink('+234', '8039874521', `Hi Tá.shop Admin, I received an urgent notice for my store "${store.name}".`)}
+                href={generateWhatsAppLink('+234', '8114247388', `Hi Tá.shop Admin, I received an urgent notice for my store "${store.name}".`)}
                 onClick={(e) => {
                   e.preventDefault();
-                  openWhatsApp('+234', '8039874521', `Hi Tá.shop Admin, I received an urgent notice for my store "${store.name}".`);
+                  openWhatsApp('+234', '8114247388', `Hi Tá.shop Admin, I received an urgent notice for my store "${store.name}".`);
                 }}
                 className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer text-center"
               >

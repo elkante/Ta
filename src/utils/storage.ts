@@ -335,6 +335,14 @@ export async function authenticateSellerAsync(
     };
   }
 
+  // Reject login if store has been deleted or deactivated
+  if (matched.status === 'deleted') {
+    return {
+      success: false,
+      error: 'This store has been deleted or deactivated by administration.',
+    };
+  }
+
   if (!password || !password.trim()) {
     return { success: false, error: 'Please enter your account password.' };
   }
@@ -395,6 +403,14 @@ export async function authenticateStaffAsync(
     return { success: false, error: 'Store not found. Please verify the store handle or slug.' };
   }
 
+  // Reject staff login if store has been deleted or deactivated
+  if (matched.status === 'deleted') {
+    return {
+      success: false,
+      error: 'This store has been deleted or deactivated by administration.',
+    };
+  }
+
   const staffList = matched.staff || [];
   const member = staffList.find(
     (s) => s.emailOrPhone.toLowerCase() === cleanStaffId || s.emailOrPhone.replace(/\D/g, '') === cleanStaffId.replace(/\D/g, '')
@@ -453,7 +469,7 @@ export const DEFAULT_PLATFORM_BRAND = 'Taaa.shop';
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   platformName: 'Taaa.shop',
   rootDomain: 'taaa.com.ng',
-  supportWhatsApp: '+2348039874521',
+  supportWhatsApp: '+2348114247388',
   defaultCurrency: 'NGN',
   geminiApiKey: '',
   groqApiKey: '',
@@ -711,6 +727,8 @@ export function deleteStoreAndData(storeId: string): void {
   } catch (e) {}
 
   // Clean up any misc per-store keys
+  try { sessionStorage.removeItem(`ta_staff_session_${storeId}`); } catch (e) {}
+  try { localStorage.removeItem(`ta_staff_session_${storeId}`); } catch (e) {}
   try { localStorage.removeItem(`ta_wa_conn_${storeId}`); } catch (e) {}
   try { localStorage.removeItem(`ta_custom_categories_${storeId}`); } catch (e) {}
   try { localStorage.removeItem(`ta_store_notes_${storeId}`); } catch (e) {}

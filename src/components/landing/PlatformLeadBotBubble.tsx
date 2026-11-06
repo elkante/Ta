@@ -191,7 +191,7 @@ export const PlatformLeadBotBubble: React.FC<PlatformLeadBotBubbleProps> = ({
 
   // Generates a pre-filled direct WhatsApp link to SuperAdmin
   const buildWhatsAppLink = (code: string, customText?: string) => {
-    const rawNumber = platformSettings.supportWhatsApp || '+2348039874521';
+    const rawNumber = platformSettings.supportWhatsApp || '+2348114247388';
     const cleanPhone = rawNumber.replace(/[^0-9]/g, '');
 
     const transcript = messages
