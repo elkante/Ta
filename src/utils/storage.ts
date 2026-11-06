@@ -408,7 +408,9 @@ export async function authenticateStaffAsync(
     return { success: false, error: 'This staff account has been suspended by the store owner.' };
   }
 
-  if (member.pinOrPassword !== cleanPin) {
+  // Use PBKDF2 constant-time verify (supports both hashed and legacy plaintext PINs)
+  const pinValid = await verifyPassword(cleanPin, member.pinOrPassword);
+  if (!pinValid) {
     return { success: false, error: 'Incorrect staff PIN or password.' };
   }
 

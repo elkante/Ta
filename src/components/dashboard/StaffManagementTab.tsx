@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { Store, StoreStaffMember, TabId } from '../../types';
 import { getStaffLimitByTier } from '../../utils/planLimits';
+import { hashPassword } from '../../utils/crypto';
 
 interface StaffManagementTabProps {
   store: Store;
@@ -172,6 +173,9 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({
 
     setIsSaving(true);
     try {
+      // Hash the PIN/password before storing — never store plaintext
+      const hashedPin = await hashPassword(cleanPin);
+
       let updatedStaff: StoreStaffMember[];
       if (editingStaffId) {
         updatedStaff = staffList.map((s) =>
@@ -180,7 +184,8 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({
                 ...s,
                 name: cleanName,
                 emailOrPhone: cleanId,
-                pinOrPassword: cleanPin,
+                // Only re-hash if the PIN field was actually changed (not the masked placeholder)
+                pinOrPassword: cleanPin !== '••••••' ? hashedPin : s.pinOrPassword,
                 roleTitle: roleTitle.trim() || undefined,
                 allowedTabs,
               }
@@ -191,7 +196,7 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({
           id: `staff_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           name: cleanName,
           emailOrPhone: cleanId,
-          pinOrPassword: cleanPin,
+          pinOrPassword: hashedPin,
           roleTitle: roleTitle.trim() || undefined,
           allowedTabs,
           isActive: true,
