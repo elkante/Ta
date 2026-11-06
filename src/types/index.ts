@@ -217,6 +217,18 @@ export interface StoreDeliveryLocation {
   isActive: boolean;
 }
 
+export interface StoreStaffMember {
+  id: string;
+  name: string;
+  emailOrPhone: string;
+  pinOrPassword: string;
+  roleTitle?: string;
+  allowedTabs: string[];
+  isActive: boolean;
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
 export type StoreTier = 'free' | 'starter' | 'basic' | 'pro' | 'business' | 'enterprise';
 
 export interface Store {
@@ -266,6 +278,7 @@ export interface Store {
   deliveryLocations?: StoreDeliveryLocation[];
   invoices?: StoreInvoice[];
   customers?: StoreCustomer[];
+  staff?: StoreStaffMember[];
   planExpiresAt?: string;
   planActivationSource?: 'paystack' | 'superadmin';
   lastPaymentRef?: string;

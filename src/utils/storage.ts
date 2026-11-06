@@ -14,6 +14,7 @@ import {
   StoreCustomer,
   StoreInvoice,
   StoreDeliveryLocation,
+  StoreStaffMember,
   PlatformLead,
 } from '../types';
 import {
@@ -368,6 +369,74 @@ export async function authenticateSellerAsync(
 
   setSellerSession(session);
   return { success: true, session, store: matched };
+}
+
+export async function authenticateStaffAsync(
+  storeIdentifier: string,
+  staffEmailOrPhone: string,
+  pinOrPassword: string
+): Promise<{ success: boolean; session?: SellerSession; staff?: StoreStaffMember; error?: string; store?: Store }> {
+  const cleanStore = storeIdentifier.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\..*$/, '');
+  const cleanStaffId = staffEmailOrPhone.toLowerCase().trim();
+  const cleanPin = pinOrPassword.trim();
+
+  let matched: Store | null = null;
+  try {
+    matched = await dbFetchStoreBySlug(cleanStore);
+    if (!matched) {
+      const all = await dbFetchStores();
+      matched = all.find((s) => s.slug === cleanStore || s.name.toLowerCase() === cleanStore.toLowerCase()) || null;
+    }
+  } catch (e) {
+    console.warn('Live database staff auth query error:', e);
+  }
+
+  if (!matched) {
+    return { success: false, error: 'Store not found. Please verify the store handle or slug.' };
+  }
+
+  const staffList = matched.staff || [];
+  const member = staffList.find(
+    (s) => s.emailOrPhone.toLowerCase() === cleanStaffId || s.emailOrPhone.replace(/\D/g, '') === cleanStaffId.replace(/\D/g, '')
+  );
+
+  if (!member) {
+    return { success: false, error: 'No staff account found with this phone number or email in this store.' };
+  }
+
+  if (!member.isActive) {
+    return { success: false, error: 'This staff account has been suspended by the store owner.' };
+  }
+
+  if (member.pinOrPassword !== cleanPin) {
+    return { success: false, error: 'Incorrect staff PIN or password.' };
+  }
+
+  // Record login timestamp
+  try {
+    const updatedStaff = staffList.map((s) =>
+      s.id === member.id ? { ...s, lastLoginAt: new Date().toISOString() } : s
+    );
+    const updatedStore = { ...matched, staff: updatedStaff };
+    dbSaveStore(updatedStore).catch(() => {});
+  } catch (e) {}
+
+  const session: SellerSession = {
+    email: member.emailOrPhone,
+    storeId: matched.id,
+    storeSlug: matched.slug,
+    storeName: matched.name,
+    ownerName: `${member.name} (${member.roleTitle || 'Staff'})`,
+    isLoggedIn: true,
+  };
+
+  setSellerSession(session);
+  try {
+    sessionStorage.setItem(`ta_staff_session_${matched.id}`, JSON.stringify(member));
+    localStorage.setItem(`ta_staff_session_${matched.id}`, JSON.stringify(member));
+  } catch (e) {}
+
+  return { success: true, session, staff: member, store: matched };
 }
 
 // ─── Super Admin ──────────────────────────────────────────────────────────────

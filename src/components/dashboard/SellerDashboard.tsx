@@ -68,11 +68,11 @@ import {
   ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense, StoreCoupon, StoreTier } from '../../types';
+import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense, StoreCoupon, StoreTier, StoreStaffMember } from '../../types';
 import { AddEditProductModal } from './AddEditProductModal';
 import { ProductLimitModal } from '../modals/ProductLimitModal';
 import { VerifiedBadge } from '../common/VerifiedBadge';
-import { getProductLimitByTier, getPlanNameByTier, getActivePlanConfigs, getPlanAmount } from '../../utils/planLimits';
+import { getProductLimitByTier, getStaffLimitByTier, getPlanNameByTier, getActivePlanConfigs, getPlanAmount } from '../../utils/planLimits';
 import { getStorePlanStatus } from '../../utils/planStatus';
 import { PaystackModal } from '../modals/PaystackModal';
 import { SocialShareModal } from '../modals/SocialShareModal';
@@ -85,6 +85,7 @@ import { CouponsTab } from './CouponsTab';
 import { CustomersTab } from './CustomersTab';
 import { LocationsTab } from './LocationsTab';
 import { InvoicesTab } from './InvoicesTab';
+import { StaffManagementTab } from './StaffManagementTab';
 import { formatPrice, generateWhatsAppLink } from '../../utils/whatsapp';
 import { sanitizeSocialInput } from '../../utils/social';
 import { generateQRCodeSVG } from '../../utils/qrCode';
@@ -130,7 +131,8 @@ type TabId =
   | 'analytics'
   | 'notes'
   | 'expenses'
-  | 'calculator';
+  | 'calculator'
+  | 'staff';
 
 interface NavCategory {
   id: string;
@@ -168,7 +170,7 @@ const NAV_CATEGORIES: NavCategory[] = [
     id: 'settings',
     label: 'Store & Settings',
     icon: Settings,
-    tabs: ['settings', 'billing'],
+    tabs: ['settings', 'billing', 'staff'],
   },
 ];
 
@@ -908,6 +910,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     { id: 'calculator',label: 'Calculator',       icon: Calculator },
     { id: 'settings',  label: 'Store Settings',   icon: Settings },
     { id: 'billing',   label: 'Subscription',     icon: CreditCard },
+    { id: 'staff',     label: 'Staff & Team',      icon: Users,         badge: (store.staff?.length || 0) > 0 ? `${store.staff!.length}` : undefined },
   ];
 
   const navCategories = NAV_CATEGORIES;
@@ -3894,6 +3897,23 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               </div>
             </div>
           </div>
+        )}
+
+        {/* TAB: STAFF MANAGEMENT */}
+        {activeTab === 'staff' && (
+          <StaffManagementTab
+            store={store}
+            onUpdateStore={async (updated) => {
+              onSelectStore(updated);
+              try { await dbSaveStore(updated); } catch (e) {}
+              window.dispatchEvent(new CustomEvent('tashop:store_updated'));
+              onRefreshData();
+            }}
+            onOpenUpgrade={(targetPlan) => {
+              setPaystackInitialPlan(targetPlan as StoreTier);
+              setIsPaystackOpen(true);
+            }}
+          />
         )}
 
         {/* TAB: STORE ANALYTICS */}

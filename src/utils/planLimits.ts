@@ -71,11 +71,12 @@ export const PLAN_CONFIGS: Record<StoreTier, PlanConfig> = {
     name: 'Tá.shop Pro',
     priceMonthly: 4900,
     priceYearly: 39000,
-    productLimit: 70,
+    productLimit: 200,
     badge: 'Popular',
-    description: 'For growing brands wanting high catalog volume and customer reviews.',
+    description: 'For growing brands wanting high catalog volume, staff management and customer reviews.',
     features: [
-      'Up to 70 products (more than 2x Basic)',
+      'Up to 200 products (large catalog volume)',
+      '1 Staff / Worker account with custom tab permissions',
       'Verified Merchant Blue Tick badge',
       'AI product descriptions (5 daily credits)',
       'AI viral marketing studio (15 daily credits)',
@@ -92,11 +93,12 @@ export const PLAN_CONFIGS: Record<StoreTier, PlanConfig> = {
     name: 'Business Store Bot',
     priceMonthly: 12000,
     priceYearly: 120000,
-    productLimit: 200,
+    productLimit: 800,
     badge: '🤖 AI WhatsApp Bot',
-    description: 'Automated WhatsApp commerce with verified trust and up to 200 products.',
+    description: 'Automated WhatsApp commerce with up to 800 products and 3 staff accounts.',
     features: [
-      'Up to 200 products in catalog',
+      'Up to 800 products in catalog',
+      '3 Staff / Worker accounts with custom tab permissions',
       'Official Golden Tick Badge (Exclusive to Business AI)',
       'AI product descriptions (15 daily credits)',
       'AI viral marketing studio (30 daily credits)',
@@ -115,9 +117,10 @@ export const PLAN_CONFIGS: Record<StoreTier, PlanConfig> = {
     priceYearly: 210000,
     productLimit: Infinity,
     badge: '🌐 .com.ng / .ng + Digital Card',
-    description: 'Autonomous WhatsApp commerce, official .com.ng or .ng domain, customized digital card for store & 1 year plan.',
+    description: 'Autonomous WhatsApp commerce, official .com.ng or .ng domain, customized digital card for store, 6 staff & 1 year plan.',
     features: [
       'UNLIMITED products (the only plan with no cap)',
+      '6 Staff / Worker accounts with custom tab permissions',
       'Official .com.ng or .ng custom domain included',
       'Customized Digital Card for their store (1 year plan)',
       'Automated SSL & custom domain routing',
@@ -205,6 +208,20 @@ export function getProductLimitByTier(tier?: string): number {
     return PLAN_CONFIGS[tier as StoreTier].productLimit;
   }
   return 4;
+}
+
+/**
+ * Returns the maximum number of staff/worker accounts allowed for a given store tier:
+ * Free/Starter/Basic: 0
+ * Pro: 1
+ * Business: 3
+ * Enterprise: 6
+ */
+export function getStaffLimitByTier(tier?: string): number {
+  if (tier === 'enterprise') return 6;
+  if (tier === 'business') return 3;
+  if (tier === 'pro') return 1;
+  return 0;
 }
 
 /**

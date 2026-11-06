@@ -34,6 +34,7 @@ export function mapStoreFromDB(row: any): Store {
     _invoices,
     _customers,
     _admin_notes,
+    _staff,
     ...cleanBotCfg
   } = botCfg;
   return {
@@ -68,6 +69,7 @@ export function mapStoreFromDB(row: any): Store {
     deliveryLocations: Array.isArray(_delivery_locations) ? _delivery_locations : undefined,
     invoices: Array.isArray(_invoices) ? _invoices : undefined,
     customers: Array.isArray(_customers) ? _customers : undefined,
+    staff: Array.isArray(_staff) ? _staff : undefined,
     planExpiresAt: row.plan_expires_at || undefined,
     adminNotes: (Array.isArray(row.admin_notes) && row.admin_notes.length > 0) ? row.admin_notes : (Array.isArray(_admin_notes) ? _admin_notes : undefined),
     aiBotConfig: Object.keys(cleanBotCfg).length > 0 ? cleanBotCfg : undefined,
@@ -99,6 +101,7 @@ export function mapStoreToDB(store: Store): any {
   if (store.invoices) botCfg._invoices = store.invoices;
   if (store.customers) botCfg._customers = store.customers;
   if (store.adminNotes) botCfg._admin_notes = store.adminNotes;
+  if (store.staff) botCfg._staff = store.staff;
 
   return {
     id: store.id,
