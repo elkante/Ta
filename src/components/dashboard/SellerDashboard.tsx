@@ -1886,19 +1886,20 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2 sm:gap-2.5">
                   {[
-                    { icon: Package,      label: 'Products',   action: () => setActiveTab('products') },
-                    { icon: ShoppingBag,  label: 'Orders',     action: () => setActiveTab('orders') },
-                    { icon: Users,        label: 'Customers',  action: () => setActiveTab('customers') },
-                    { icon: Truck,        label: 'Delivery',   action: () => setActiveTab('locations') },
-                    { icon: FileText,     label: 'Invoices',   action: () => setActiveTab('invoices') },
-                    { icon: Globe,        label: 'Storefront', action: () => setActiveTab('storefront') },
-                    { icon: Tag,          label: 'Coupons',    action: () => setActiveTab('coupons') },
-                    { icon: BarChart3,    label: 'Reports',    action: () => setActiveTab('analytics') },
-                    { icon: MessageCircle,label: 'Chats',      action: () => setActiveTab('inquiries') },
-                    { icon: QrCode,       label: 'Share',      action: () => setIsShareModalOpen(true) },
-                    { icon: Bot,          label: 'AI Bot',     action: () => setActiveTab('uid-bot') },
-                    { icon: Settings,     label: 'Settings',   action: () => setActiveTab('settings') },
-                  ].map(({ icon: Icon, label, action }) => (
+                    { tabId: 'products',   icon: Package,       label: 'Products',   action: () => setActiveTab('products') },
+                    { tabId: 'orders',     icon: ShoppingBag,   label: 'Orders',     action: () => setActiveTab('orders') },
+                    { tabId: 'customers',  icon: Users,         label: 'Customers',  action: () => setActiveTab('customers') },
+                    { tabId: 'locations',  icon: Truck,         label: 'Delivery',   action: () => setActiveTab('locations') },
+                    { tabId: 'invoices',   icon: FileText,      label: 'Invoices',   action: () => setActiveTab('invoices') },
+                    { tabId: 'storefront', icon: Globe,         label: 'Storefront', action: () => setActiveTab('storefront') },
+                    { tabId: 'coupons',    icon: Tag,           label: 'Coupons',    action: () => setActiveTab('coupons') },
+                    { tabId: 'analytics',  icon: BarChart3,     label: 'Reports',    action: () => setActiveTab('analytics') },
+                    { tabId: 'inquiries',  icon: MessageCircle, label: 'Chats',      action: () => setActiveTab('inquiries') },
+                    { tabId: 'marketing',  icon: QrCode,        label: 'Share',      action: () => setIsShareModalOpen(true) },
+                    { tabId: 'uid-bot',    icon: Bot,           label: 'AI Bot',     action: () => setActiveTab('uid-bot') },
+                    { tabId: 'settings',   icon: Settings,      label: 'Settings',   action: () => setActiveTab('settings') },
+                  ].filter(({ tabId }) => allTabs.some((t) => t.id === tabId))
+                   .map(({ icon: Icon, label, action }) => (
                     <button
                       key={label}
                       onClick={action}
