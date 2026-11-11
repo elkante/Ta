@@ -911,6 +911,7 @@ export default function App() {
             <SellerDashboard
               store={currentStore}
               products={storeProducts}
+              isLoadingProducts={isLoadingProducts}
               inquiries={storeInquiries}
               onOpenStorefront={handleOpenStorefront}
               onRefreshData={handleRefreshData}

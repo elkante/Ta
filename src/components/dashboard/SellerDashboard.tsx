@@ -178,6 +178,7 @@ interface SellerDashboardProps {
   store: Store;
   products: Product[];
   inquiries: WhatsAppInquiryLog[];
+  isLoadingProducts?: boolean;
   onOpenStorefront: () => void;
   onRefreshData: () => void;
   onSelectStore: (store: Store) => void;
@@ -188,6 +189,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   store,
   products,
   inquiries,
+  isLoadingProducts = false,
   onOpenStorefront,
   onRefreshData,
   onSelectStore,
@@ -470,6 +472,15 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     setStoreNotes(getStoreNotes(store.id));
     setStoreExpenses(getStoreExpenses(store.id));
   }, [store.id]);
+
+  // Auto-retry: if products arrive empty after a short delay, trigger a refresh once
+  useEffect(() => {
+    if (products.length > 0 || isLoadingProducts) return;
+    const timer = setTimeout(() => {
+      if (products.length === 0) onRefreshData();
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [store.id]); // only on store change, not on every products update
 
   const filteredOrders = storeOrders.filter((o) => {
     // Status filtering
@@ -2625,8 +2636,25 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                   <tbody className="divide-y divide-slate-100">
                     {filteredProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-12 text-center text-slate-400">
-                          No products found matching your search.
+                        <td colSpan={5} className="py-12 text-center">
+                          {isLoadingProducts ? (
+                            <div className="flex flex-col items-center gap-3 text-slate-400">
+                              <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                              <span className="text-xs">Loading your products…</span>
+                            </div>
+                          ) : products.length === 0 && !productSearch ? (
+                            <div className="flex flex-col items-center gap-3">
+                              <span className="text-slate-400 text-xs">No products loaded yet.</span>
+                              <button
+                                onClick={onRefreshData}
+                                className="text-xs font-semibold text-emerald-600 hover:text-emerald-800 underline cursor-pointer"
+                              >
+                                Tap to refresh
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-xs">No products found matching your search.</span>
+                          )}
                         </td>
                       </tr>
                     ) : (
