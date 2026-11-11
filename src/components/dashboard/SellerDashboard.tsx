@@ -65,10 +65,11 @@ import {
   Home,
   RefreshCw,
   Send,
+  LifeBuoy,
   ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense, StoreCoupon, StoreTier, StoreStaffMember } from '../../types';
+import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense, StoreCoupon, StoreTier, StoreStaffMember, StoreSupportTicket } from '../../types';
 import { AddEditProductModal } from './AddEditProductModal';
 import { ProductLimitModal } from '../modals/ProductLimitModal';
 import { VerifiedBadge } from '../common/VerifiedBadge';
@@ -132,7 +133,8 @@ type TabId =
   | 'notes'
   | 'expenses'
   | 'calculator'
-  | 'staff';
+  | 'staff'
+  | 'support';
 
 interface NavCategory {
   id: string;
@@ -172,6 +174,12 @@ const NAV_CATEGORIES: NavCategory[] = [
     icon: Settings,
     tabs: ['settings', 'billing', 'staff'],
   },
+  {
+    id: 'support',
+    label: 'Help & Support',
+    icon: LifeBuoy,
+    tabs: ['support'],
+  },
 ];
 
 interface SellerDashboardProps {
@@ -199,11 +207,11 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     try {
       const url = new URL(window.location.href);
       const urlTab = url.searchParams.get('tab') as any;
-      if (urlTab && ['home', 'storefront', 'orders', 'products', 'coupons', 'uid-bot', 'marketing', 'inquiries', 'settings', 'billing', 'analytics', 'notes', 'expenses', 'calculator'].includes(urlTab)) {
+      if (urlTab && ['home', 'storefront', 'orders', 'products', 'coupons', 'uid-bot', 'marketing', 'inquiries', 'settings', 'billing', 'analytics', 'notes', 'expenses', 'calculator', 'staff', 'support', 'customers', 'locations', 'invoices'].includes(urlTab)) {
         return urlTab;
       }
       const saved = sessionStorage.getItem(`ta_seller_tab_${store.id}`) || sessionStorage.getItem('ta_seller_tab');
-      if (saved && ['home', 'storefront', 'orders', 'products', 'coupons', 'uid-bot', 'marketing', 'inquiries', 'settings', 'billing', 'analytics', 'notes', 'expenses', 'calculator'].includes(saved)) {
+      if (saved && ['home', 'storefront', 'orders', 'products', 'coupons', 'uid-bot', 'marketing', 'inquiries', 'settings', 'billing', 'analytics', 'notes', 'expenses', 'calculator', 'staff', 'support', 'customers', 'locations', 'invoices'].includes(saved)) {
         return saved as any;
       }
     } catch (e) {}
@@ -264,6 +272,95 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [pmCostPrice, setPmCostPrice] = useState<string>('');
   const [pmSellingPrice, setPmSellingPrice] = useState<string>('');
   const [pmTargetMargin, setPmTargetMargin] = useState<string>('30');
+
+  // Support & Help Desk States
+  const [supportWhatsapp, setSupportWhatsapp] = useState(
+    () => (store.whatsappCountryCode || '+234') + (store.whatsappNumber ? store.whatsappNumber.replace(/\D/g, '') : '')
+  );
+  const [supportEmail, setSupportEmail] = useState(() => store.ownerEmail || '');
+  const [supportCategory, setSupportCategory] = useState('Technical Glitch / Bug');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [supportImageUrl, setSupportImageUrl] = useState('');
+  const [isUploadingSupportImage, setIsUploadingSupportImage] = useState(false);
+  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
+  const [supportTicketSuccess, setSupportTicketSuccess] = useState(false);
+  const [supportPreviewModalImage, setSupportPreviewModalImage] = useState<string | null>(null);
+  const supportImageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSupportImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file (PNG, JPG, WebP)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be under 5MB');
+      return;
+    }
+    setIsUploadingSupportImage(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSupportImageUrl(reader.result as string);
+      setIsUploadingSupportImage(false);
+    };
+    reader.onerror = () => {
+      alert('Failed to read image file');
+      setIsUploadingSupportImage(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmitSupportTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supportWhatsapp.trim()) {
+      alert('WhatsApp number is required so Super Admin can contact you.');
+      return;
+    }
+    if (!supportEmail.trim()) {
+      alert('Email address is required.');
+      return;
+    }
+    if (!supportMessage.trim()) {
+      alert('Please enter a message explaining what you need help with or are reporting.');
+      return;
+    }
+
+    setIsSubmittingTicket(true);
+    const newTicket: StoreSupportTicket = {
+      id: `ticket_${Date.now()}`,
+      storeId: store.id,
+      storeName: store.name,
+      whatsapp: supportWhatsapp.trim(),
+      email: supportEmail.trim(),
+      category: supportCategory,
+      message: supportMessage.trim(),
+      imageUrl: supportImageUrl || undefined,
+      status: 'open',
+      createdAt: new Date().toISOString(),
+    };
+
+    const existingTickets = store.supportTickets || [];
+    const updatedStore: Store = {
+      ...store,
+      supportTickets: [newTicket, ...existingTickets],
+    };
+
+    try {
+      await dbSaveStore(updatedStore);
+      onSelectStore(updatedStore);
+      window.dispatchEvent(new CustomEvent('tashop:store_updated', { detail: updatedStore }));
+      onRefreshData();
+      setSupportMessage('');
+      setSupportImageUrl('');
+      setSupportTicketSuccess(true);
+      setTimeout(() => setSupportTicketSuccess(false), 6000);
+    } catch (err) {
+      alert('Failed to submit ticket. Please check your internet connection.');
+    } finally {
+      setIsSubmittingTicket(false);
+    }
+  };
 
   // Customer Chats (Live WhatsApp + Storefront Inquiries)
   const [chatsSubTab, setChatsSubTab] = useState<'whatsapp' | 'clicks'>('whatsapp');
@@ -972,6 +1069,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     { id: 'settings',  label: 'Store Settings',   icon: Settings },
     { id: 'billing',   label: 'Subscription',     icon: CreditCard },
     { id: 'staff',     label: 'Staff & Team',      icon: Users,         badge: (store.staff?.length || 0) > 0 ? `${store.staff!.length}` : undefined },
+    { id: 'support',   label: 'Help & Support',    icon: LifeBuoy,      badge: (store.supportTickets?.filter(t => t.status === 'open').length || 0) > 0 ? `${store.supportTickets!.filter(t => t.status === 'open').length}` : undefined },
   ];
 
   // Filter tabs for staff accounts based on their allowedTabs permissions.
@@ -1908,6 +2006,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     { tabId: 'inquiries',  icon: MessageCircle, label: 'Chats',      action: () => setActiveTab('inquiries') },
                     { tabId: 'marketing',  icon: QrCode,        label: 'Share',      action: () => setIsShareModalOpen(true) },
                     { tabId: 'uid-bot',    icon: Bot,           label: 'AI Bot',     action: () => setActiveTab('uid-bot') },
+                    { tabId: 'support',    icon: LifeBuoy,      label: 'Support',    action: () => setActiveTab('support') },
                     { tabId: 'settings',   icon: Settings,      label: 'Settings',   action: () => setActiveTab('settings') },
                   ].filter(({ tabId }) => allTabs.some((t) => t.id === tabId))
                    .map(({ icon: Icon, label, action }) => (
@@ -5306,6 +5405,301 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             </div>
           );
         })()}
+
+        {/* ── TAB: HELP & SUPPORT DESK ── */}
+        {activeTab === 'support' && (
+          <div className="space-y-6">
+            {/* Top Header Card */}
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-3xl p-5 sm:p-6 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-amber-400 shrink-0">
+                  <LifeBuoy className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-lg">Seller Support Desk</h3>
+                  <p className="text-xs text-slate-300 mt-0.5 max-w-xl">
+                    Report an issue, request assistance, or send screenshots directly to Super Admin. Our management team reviews all submissions and gets back to you promptly.
+                  </p>
+                </div>
+              </div>
+
+              {/* Urgent Emergency WhatsApp Button */}
+              <a
+                href="https://wa.me/2348114247388?text=Hello%20Super%20Admin%2C%20I%20need%20urgent%20support%20for%20my%20store%20on%20Taaa.shop"
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-2 transition shadow-md shrink-0 cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Urgent WhatsApp Admin</span>
+              </a>
+            </div>
+
+            {/* Success notification banner */}
+            {supportTicketSuccess && (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-semibold flex items-center gap-2.5 shadow-2xs animate-in fade-in slide-in-from-top-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div>
+                  <span className="font-bold block">Support Request Submitted Successfully!</span>
+                  <span className="font-normal text-emerald-700">
+                    Super Admin has received your report and will review your attached information. You will be reached via WhatsApp or email.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left Column: Submit Ticket Form (7 cols) */}
+              <div className="lg:col-span-7 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
+                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                      <Send className="w-4 h-4 text-emerald-600" />
+                      <span>Submit a Report or Request Help</span>
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Fill in your contact details and message so admin can follow up.
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSubmitSupportTicket} className="space-y-4">
+                  {/* Contact Row: WhatsApp + Email */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">
+                        WhatsApp Number *
+                      </label>
+                      <div className="relative">
+                        <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="tel"
+                          required
+                          value={supportWhatsapp}
+                          onChange={(e) => setSupportWhatsapp(e.target.value)}
+                          placeholder="e.g. +2348031234567"
+                          className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 font-mono"
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-400 mt-0.5 block">Admin will chat you here</span>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">
+                        Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={supportEmail}
+                        onChange={(e) => setSupportEmail(e.target.value)}
+                        placeholder="owner@yourstore.com"
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-0.5 block">For email updates</span>
+                    </div>
+                  </div>
+
+                  {/* Topic / Category */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Issue Category / Topic
+                    </label>
+                    <select
+                      value={supportCategory}
+                      onChange={(e) => setSupportCategory(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    >
+                      <option value="Technical Glitch / Bug">🐛 Technical Glitch / Bug</option>
+                      <option value="Order / Payment Issue">💳 Order / Payment Issue</option>
+                      <option value="Products / Catalog Issue">📦 Products / Catalog Issue</option>
+                      <option value="Storefront & Custom Domain">🌐 Storefront & Custom Domain</option>
+                      <option value="Account & KYC Verification">🛡️ Account & KYC Verification</option>
+                      <option value="Feature Suggestion">💡 Feature Suggestion</option>
+                      <option value="General Question / Other">💬 General Question / Other</option>
+                    </select>
+                  </div>
+
+                  {/* Message (REQUIRED) */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Detailed Message *
+                    </label>
+                    <textarea
+                      required
+                      rows={5}
+                      value={supportMessage}
+                      onChange={(e) => setSupportMessage(e.target.value)}
+                      placeholder="Please describe what happened, what you are experiencing, or what help you need. Include any relevant details (item codes, buyer names, etc.)..."
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 resize-none font-sans leading-relaxed"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">Message is required so admin can understand the situation</span>
+                  </div>
+
+                  {/* Optional File / Image Upload */}
+                  <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">Attach Screenshot / Image (Optional)</span>
+                        <span className="text-[11px] text-slate-500">Upload screenshot of error, receipt, or photo (under 5MB)</span>
+                      </div>
+                      <input
+                        ref={supportImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleSupportImageUpload}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => supportImageInputRef.current?.click()}
+                        disabled={isUploadingSupportImage}
+                        className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 shadow-2xs shrink-0"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-slate-500" />
+                        <span>{isUploadingSupportImage ? 'Uploading...' : supportImageUrl ? 'Change Image' : 'Select Image'}</span>
+                      </button>
+                    </div>
+
+                    {/* Image Preview Thumbnail */}
+                    {supportImageUrl && (
+                      <div className="relative inline-block mt-2">
+                        <img
+                          src={supportImageUrl}
+                          alt="Support preview"
+                          onClick={() => setSupportPreviewModalImage(supportImageUrl)}
+                          className="w-32 h-24 object-cover rounded-xl border border-slate-200 bg-white cursor-pointer shadow-xs hover:opacity-90 transition"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSupportImageUrl('')}
+                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-md hover:bg-rose-700 transition cursor-pointer"
+                          title="Remove image"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmittingTicket}
+                      className="w-full py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-2"
+                    >
+                      <Send className="w-4 h-4 text-emerald-400" />
+                      <span>{isSubmittingTicket ? 'Submitting Report...' : 'Submit Report to Super Admin'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Right Column: Ticket History & Previous Admin Responses (5 cols) */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
+                  <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        <LifeBuoy className="w-4 h-4 text-indigo-600" />
+                        <span>Your Submitted Reports</span>
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Track status and view admin responses.
+                      </p>
+                    </div>
+                    <span className="text-xs font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
+                      {(store.supportTickets || []).length} total
+                    </span>
+                  </div>
+
+                  {/* List of Tickets */}
+                  <div className="space-y-3.5 max-h-[600px] overflow-y-auto pr-1">
+                    {(!store.supportTickets || store.supportTickets.length === 0) ? (
+                      <div className="text-center py-10 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        <LifeBuoy className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <span className="text-xs font-bold text-slate-700 block">No Reports Submitted</span>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          When you report an issue, your tickets and admin replies will show up here.
+                        </p>
+                      </div>
+                    ) : (
+                      store.supportTickets.map((t) => {
+                        const isResolved = t.status === 'resolved';
+
+                        return (
+                          <div
+                            key={t.id}
+                            className={`p-4 rounded-2xl border transition space-y-2.5 ${
+                              isResolved ? 'bg-slate-50/70 border-slate-200' : 'bg-amber-50/20 border-amber-200 ring-1 ring-amber-100'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                                {t.category || 'General Support'}
+                              </span>
+                              <span
+                                className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                  isResolved
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                }`}
+                              >
+                                {isResolved ? '✓ Resolved' : '● In Review'}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-800 font-sans whitespace-pre-wrap leading-relaxed">
+                              {t.message}
+                            </p>
+
+                            {/* Attached Image Thumbnail */}
+                            {t.imageUrl && (
+                              <div className="pt-1">
+                                <img
+                                  src={t.imageUrl}
+                                  alt="Attached"
+                                  onClick={() => setSupportPreviewModalImage(t.imageUrl || null)}
+                                  className="w-24 h-16 object-cover rounded-lg border border-slate-200 bg-white cursor-pointer hover:opacity-85 shadow-2xs"
+                                />
+                              </div>
+                            )}
+
+                            {/* Super Admin Response Box */}
+                            {t.adminReply && (
+                              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-1 text-xs">
+                                <div className="flex items-center justify-between text-[10px] font-bold text-emerald-900">
+                                  <span className="flex items-center gap-1">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Super Admin Response:</span>
+                                  </span>
+                                  {t.repliedAt && (
+                                    <span className="text-emerald-700 font-normal">
+                                      {new Date(t.repliedAt).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-emerald-950 font-mono text-[11px] whitespace-pre-wrap">
+                                  {t.adminReply}
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-100 flex items-center justify-between">
+                              <span>Submitted {new Date(t.createdAt).toLocaleDateString()}</span>
+                              <span className="font-mono">#{t.id.slice(-6).toUpperCase()}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         </div>{/* /content area */}
       </div>{/* /main flex-1 */}
 
@@ -5666,6 +6060,29 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           order={selectedOrderForWaybill}
           store={store}
         />
+      )}
+
+      {/* ── SUPPORT IMAGE ENLARGE LIGHTBOX MODAL ── */}
+      {supportPreviewModalImage && (
+        <div
+          className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={() => setSupportPreviewModalImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+            <button
+              onClick={() => setSupportPreviewModalImage(null)}
+              className="absolute -top-10 right-0 p-1.5 rounded-full bg-white/20 hover:bg-white/40 text-white transition cursor-pointer"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={supportPreviewModalImage}
+              alt="Enlarged screenshot"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

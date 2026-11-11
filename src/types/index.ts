@@ -283,6 +283,7 @@ export interface Store {
   planActivationSource?: 'paystack' | 'superadmin';
   lastPaymentRef?: string;
   adminNotes?: string[];
+  supportTickets?: StoreSupportTicket[];
   aiBotConfig?: StoreAIBotConfig;
   whatsappBotConnected?: boolean;
   whatsappBotPhone?: string;
@@ -423,6 +424,21 @@ export interface StoreExpense {
   category: 'Shipping' | 'Supplies' | 'Marketing' | 'Rent' | 'Utilities' | 'Other';
   date: string;
   createdAt: string;
+}
+
+export interface StoreSupportTicket {
+  id: string;
+  storeId: string;
+  storeName: string;
+  whatsapp: string;
+  email: string;
+  category?: string;
+  message: string;
+  imageUrl?: string;
+  status: 'open' | 'resolved';
+  createdAt: string;
+  adminReply?: string;
+  repliedAt?: string;
 }
 
 export type PlatformLeadIntent = 'talk_to_human' | 'help' | 'tell_me_more' | 'signup' | 'custom';

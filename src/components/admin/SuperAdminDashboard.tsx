@@ -21,6 +21,7 @@ import {
   HelpCircle,
   KeyRound,
   Layers,
+  LifeBuoy,
   LogIn,
   LogOut,
   MapPin,
@@ -66,6 +67,7 @@ import {
   WhatsAppInquiryLog,
   PlatformLead,
   StoreTier,
+  StoreSupportTicket,
 } from '../../types';
 import {
   deleteStoreAndData,
@@ -95,7 +97,7 @@ interface SuperAdminDashboardProps {
   onOpenLanding?: () => void;
 }
 
-type AdminTab = 'stores' | 'products' | 'orders' | 'verifications' | 'plans' | 'notes' | 'leads' | 'settings';
+type AdminTab = 'stores' | 'products' | 'orders' | 'verifications' | 'plans' | 'notes' | 'support' | 'leads' | 'settings';
 
 const ID_TYPE_LABELS: Record<string, string> = {
   cac: 'CAC (Corporate Affairs Commission)',
@@ -193,6 +195,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [selectedLead, setSelectedLead] = useState<PlatformLead | null>(null);
   const [leadSearch, setLeadSearch] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState<'all' | 'new' | 'contacted' | 'resolved'>('all');
+
+  // Support Tickets states
+  const [supportFilter, setSupportFilter] = useState<'all' | 'open' | 'resolved'>('all');
+  const [supportSearch, setSupportSearch] = useState('');
+  const [selectedTicketForReply, setSelectedTicketForReply] = useState<(StoreSupportTicket & { store: Store }) | null>(null);
+  const [ticketReplyText, setTicketReplyText] = useState('');
+  const [replyAndResolve, setReplyAndResolve] = useState(true);
+  const [sendReplyAsDashboardNote, setSendReplyAsDashboardNote] = useState(true);
+  const [ticketImagePreviewModal, setTicketImagePreviewModal] = useState<string | null>(null);
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
   useEffect(() => {
     const handleLeadChange = () => {
@@ -389,6 +401,38 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     });
   }, [allProducts, productSearch, productStoreFilter, productApprovalFilter]);
 
+  // Support Tickets memos & helpers
+  const allSupportTickets = useMemo(() => {
+    const list: (StoreSupportTicket & { store: Store })[] = [];
+    liveStores.forEach((st) => {
+      if (Array.isArray(st.supportTickets)) {
+        st.supportTickets.forEach((t) => {
+          list.push({ ...t, store: st });
+        });
+      }
+    });
+    return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [liveStores]);
+
+  const openTicketsCount = useMemo(() => {
+    return allSupportTickets.filter((t) => t.status === 'open').length;
+  }, [allSupportTickets]);
+
+  const filteredSupportTickets = useMemo(() => {
+    return allSupportTickets.filter((t) => {
+      const matchStatus = supportFilter === 'all' || t.status === supportFilter;
+      const q = supportSearch.toLowerCase().trim();
+      const matchSearch =
+        !q ||
+        t.storeName.toLowerCase().includes(q) ||
+        t.whatsapp.toLowerCase().includes(q) ||
+        t.email.toLowerCase().includes(q) ||
+        t.message.toLowerCase().includes(q) ||
+        (t.category && t.category.toLowerCase().includes(q));
+      return matchStatus && matchSearch;
+    });
+  }, [allSupportTickets, supportFilter, supportSearch]);
+
   // Toast trigger
   const triggerToast = (msg: string) => {
     setActionSuccessMessage(msg);
@@ -568,6 +612,87 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     triggerToast(`Private note sent to ${store.name}.`);
   };
 
+  const handleDeleteNote = async (store: Store, noteIndex: number) => {
+    const existingNotes = store.adminNotes || [];
+    const updatedNotes = existingNotes.filter((_, idx) => idx !== noteIndex);
+    const updated: Store = {
+      ...store,
+      adminNotes: updatedNotes,
+    };
+    await saveStoreEverywhere(updated);
+    if (noteTarget && noteTarget.id === store.id) {
+      setNoteTarget(updated);
+    }
+    triggerToast(`Note deleted from ${store.name}.`);
+  };
+
+  const handleReplyTicket = async (ticket: StoreSupportTicket & { store: Store }) => {
+    if (!ticketReplyText.trim()) return;
+    setIsSubmittingReply(true);
+    const store = liveStores.find((s) => s.id === ticket.storeId) || ticket.store;
+    const existingTickets = store.supportTickets || [];
+    const replyDate = new Date().toISOString();
+    
+    const updatedTickets = existingTickets.map((t) => {
+      if (t.id === ticket.id) {
+        return {
+          ...t,
+          adminReply: ticketReplyText.trim(),
+          repliedAt: replyDate,
+          status: replyAndResolve ? ('resolved' as const) : t.status,
+        };
+      }
+      return t;
+    });
+
+    let updatedAdminNotes = store.adminNotes || [];
+    if (sendReplyAsDashboardNote) {
+      const noteEntry = `[${new Date().toLocaleDateString()} Admin Support Reply]: Regarding "${ticket.category || 'Support'}": ${ticketReplyText.trim()}`;
+      updatedAdminNotes = [noteEntry, ...updatedAdminNotes];
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tashop:urgent_admin_note', { detail: { storeId: store.id, note: noteEntry } }));
+      }
+    }
+
+    const updatedStore: Store = {
+      ...store,
+      supportTickets: updatedTickets,
+      adminNotes: updatedAdminNotes,
+    };
+
+    await saveStoreEverywhere(updatedStore);
+    setSelectedTicketForReply(null);
+    setTicketReplyText('');
+    setIsSubmittingReply(false);
+    triggerToast(`Reply sent to ${store.name}.`);
+  };
+
+  const handleToggleTicketStatus = async (ticket: StoreSupportTicket & { store: Store }) => {
+    const store = liveStores.find((s) => s.id === ticket.storeId) || ticket.store;
+    const existingTickets = store.supportTickets || [];
+    const nextStatus = ticket.status === 'open' ? 'resolved' : 'open';
+    const updatedTickets = existingTickets.map((t) => t.id === ticket.id ? { ...t, status: nextStatus as const } : t);
+    const updatedStore: Store = {
+      ...store,
+      supportTickets: updatedTickets,
+    };
+    await saveStoreEverywhere(updatedStore);
+    triggerToast(`Ticket marked as ${nextStatus}.`);
+  };
+
+  const handleDeleteTicket = async (ticket: StoreSupportTicket & { store: Store }) => {
+    if (!window.confirm(`Delete this support ticket from ${ticket.storeName}?`)) return;
+    const store = liveStores.find((s) => s.id === ticket.storeId) || ticket.store;
+    const existingTickets = store.supportTickets || [];
+    const updatedTickets = existingTickets.filter((t) => t.id !== ticket.id);
+    const updatedStore: Store = {
+      ...store,
+      supportTickets: updatedTickets,
+    };
+    await saveStoreEverywhere(updatedStore);
+    triggerToast(`Ticket deleted.`);
+  };
+
   const handleApproveId = async (store: Store) => {
     if (!store.idVerification) return;
     const updatedStore: Store = {
@@ -740,6 +865,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     },
     { id: 'plans', label: 'Plan & Subscriptions', icon: CreditCard, badge: 'Timers', badgeColor: 'bg-amber-400 text-slate-950 font-bold' },
     { id: 'notes', label: 'Private Notes', icon: MessageSquare },
+    {
+      id: 'support',
+      label: `Support Tickets (${allSupportTickets.length})`,
+      icon: LifeBuoy,
+      badge: openTicketsCount > 0 ? `${openTicketsCount} Open` : undefined,
+      badgeColor: 'bg-rose-500 text-white font-black animate-pulse',
+    },
     {
       id: 'leads',
       label: `Platform Leads (${platformLeads.length})`,
@@ -2655,8 +2787,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         {notes.length > 0 && (
                           <div className="bg-slate-50 rounded-2xl p-3.5 space-y-2 border border-slate-200/70">
                             {notes.map((nt, idx) => (
-                              <div key={idx} className="text-xs text-slate-800 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs font-mono">
-                                {nt}
+                              <div key={idx} className="flex items-center justify-between gap-3 text-xs text-slate-800 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs font-mono">
+                                <span className="flex-1 break-words">{nt}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteNote(store, idx)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer shrink-0"
+                                  title="Delete this note"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             ))}
                           </div>
@@ -2664,6 +2804,239 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB: SELLER SUPPORT TICKETS & REPORTS ── */}
+          {activeTab === 'support' && (
+            <div className="space-y-4">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                      <LifeBuoy className="w-5 h-5 text-rose-600" />
+                      <span>Seller Support & Issue Reports</span>
+                      {openTicketsCount > 0 && (
+                        <span className="text-[11px] font-black bg-rose-500 text-white px-2 py-0.5 rounded-full animate-pulse">
+                          {openTicketsCount} OPEN
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Review bug reports, inquiries, and help requests submitted by store owners. Reply directly or reach them via WhatsApp / email.
+                    </p>
+                  </div>
+
+                  {/* Filter Pills */}
+                  <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
+                    {(['all', 'open', 'resolved'] as const).map((filterKey) => (
+                      <button
+                        key={filterKey}
+                        onClick={() => setSupportFilter(filterKey)}
+                        className={`px-3 py-1.5 rounded-lg transition cursor-pointer capitalize ${
+                          supportFilter === filterKey
+                            ? 'bg-white text-slate-900 font-bold shadow-2xs'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        {filterKey === 'all' && `All (${allSupportTickets.length})`}
+                        {filterKey === 'open' && `Open (${openTicketsCount})`}
+                        {filterKey === 'resolved' && `Resolved (${allSupportTickets.length - openTicketsCount})`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Search Bar */}
+                <div className="mt-4">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search tickets by store name, message, category, WhatsApp or email..."
+                      value={supportSearch}
+                      onChange={(e) => setSupportSearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Ticket Cards List */}
+                <div className="mt-4 space-y-4">
+                  {filteredSupportTickets.length === 0 ? (
+                    <div className="text-center py-12 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                        <LifeBuoy className="w-6 h-6" />
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-800">No Support Tickets Found</h4>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {supportSearch ? 'No tickets matching your search query.' : 'No seller support reports have been submitted yet.'}
+                      </p>
+                    </div>
+                  ) : (
+                    filteredSupportTickets.map((ticket) => {
+                      const isOpen = ticket.status === 'open';
+                      const cleanPhone = ticket.whatsapp.replace(/\D/g, '');
+                      const waChatUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${ticket.storeName}, this is Super Admin regarding your support request (${ticket.category || 'Help & Support'}):`)}`;
+
+                      return (
+                        <div
+                          key={ticket.id}
+                          className={`p-4 sm:p-5 rounded-2xl border transition shadow-2xs space-y-3.5 ${
+                            isOpen ? 'bg-white border-rose-200/90 ring-1 ring-rose-100' : 'bg-slate-50/70 border-slate-200'
+                          }`}
+                        >
+                          {/* Ticket Header */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={ticket.store.logoUrl || 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=100&auto=format&fit=crop&q=80'}
+                                alt={ticket.storeName}
+                                className="w-10 h-10 rounded-xl object-cover border border-slate-200 bg-white"
+                              />
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-900 text-sm">{ticket.storeName}</span>
+                                  <span className="text-[11px] font-mono text-slate-400">({ticket.store.slug})</span>
+                                  {ticket.category && (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                                      {ticket.category}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-slate-400">
+                                  Submitted {new Date(ticket.createdAt).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 self-start sm:self-auto">
+                              <span
+                                className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                                  isOpen
+                                    ? 'bg-rose-100 text-rose-800 border border-rose-300 animate-pulse'
+                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                }`}
+                              >
+                                {isOpen ? '● Open' : '✓ Resolved'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Contact Info Pills */}
+                          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 text-xs">
+                            <span className="text-[11px] font-semibold text-slate-500">Contact:</span>
+                            <a
+                              href={waChatUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 font-bold transition text-xs"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>WhatsApp: {ticket.whatsapp}</span>
+                              <ExternalLink className="w-3 h-3 text-emerald-500" />
+                            </a>
+                            <a
+                              href={`mailto:${ticket.email}?subject=${encodeURIComponent(`[Taaa.shop Support] Regarding: ${ticket.category || 'Help Request'}`)}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition text-xs font-medium"
+                            >
+                              <span>Email: {ticket.email}</span>
+                            </a>
+                          </div>
+
+                          {/* Ticket Message */}
+                          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed font-sans">
+                            {ticket.message}
+                          </div>
+
+                          {/* Attached Screenshot / Image */}
+                          {ticket.imageUrl && (
+                            <div className="space-y-1.5">
+                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                Attached Screenshot / File:
+                              </span>
+                              <div className="relative inline-block group">
+                                <img
+                                  src={ticket.imageUrl}
+                                  alt="Attached screenshot"
+                                  onClick={() => setTicketImagePreviewModal(ticket.imageUrl || null)}
+                                  className="w-48 h-32 object-cover rounded-xl border border-slate-200 bg-white cursor-pointer hover:opacity-90 transition shadow-2xs"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setTicketImagePreviewModal(ticket.imageUrl || null)}
+                                  className="absolute bottom-2 right-2 px-2 py-1 bg-black/75 hover:bg-black text-white text-[10px] font-bold rounded-lg flex items-center gap-1 transition cursor-pointer"
+                                >
+                                  <ZoomIn className="w-3 h-3" />
+                                  <span>Enlarge</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Admin Response Box (if already replied) */}
+                          {ticket.adminReply && (
+                            <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-1 text-xs">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-emerald-900">
+                                <span className="flex items-center gap-1.5">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Super Admin Reply</span>
+                                </span>
+                                {ticket.repliedAt && (
+                                  <span className="text-emerald-700 font-normal">
+                                    {new Date(ticket.repliedAt).toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-emerald-950 whitespace-pre-wrap font-mono text-[11px]">
+                                {ticket.adminReply}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Actions Bar */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTicketForReply(ticket);
+                                  setTicketReplyText(ticket.adminReply || '');
+                                }}
+                                className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                              >
+                                <Send className="w-3.5 h-3.5 text-amber-400" />
+                                <span>{ticket.adminReply ? 'Update Reply' : 'Reply to Seller'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTicketStatus(ticket)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                                  isOpen
+                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                                }`}
+                              >
+                                {isOpen ? '✓ Mark as Resolved' : 'Reopen Ticket'}
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTicket(ticket)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                              title="Delete ticket"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
@@ -3322,6 +3695,33 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               className="w-full px-4 py-3 text-xs sm:text-sm border border-slate-200 rounded-2xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-600 resize-none"
             />
 
+            {/* Previously Sent Notes to this Store */}
+            {noteTarget.adminNotes && noteTarget.adminNotes.length > 0 && (
+              <div className="space-y-2 border-t border-slate-100 pt-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Previously Sent Notes ({noteTarget.adminNotes.length})
+                  </span>
+                  <span className="text-[10px] text-slate-400">Click trash to remove</span>
+                </div>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                  {noteTarget.adminNotes.map((nt, idx) => (
+                    <div key={idx} className="flex items-start justify-between gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100 text-[11px]">
+                      <span className="text-slate-700 flex-1 break-words font-mono">{nt}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteNote(noteTarget, idx)}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0 cursor-pointer"
+                        title="Delete note"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2.5">
               <button
                 onClick={() => setNoteTarget(null)}
@@ -3923,6 +4323,106 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 <span>{isSavingDomain ? 'Saving to Cloud...' : 'Save & Link Domain'}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TICKET REPLY MODAL ── */}
+      {selectedTicketForReply && (
+        <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6 space-y-4 border border-slate-100 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <LifeBuoy className="w-4 h-4 text-rose-600" />
+                  <span>Reply to Support Ticket</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Store: <strong>{selectedTicketForReply.storeName}</strong> • {selectedTicketForReply.category || 'General'}
+                </p>
+              </div>
+              <button onClick={() => setSelectedTicketForReply(null)} className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Ticket Summary snippet */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Seller's Message:</span>
+              <p className="text-slate-700 line-clamp-3 italic">"{selectedTicketForReply.message}"</p>
+            </div>
+
+            <textarea
+              rows={5}
+              value={ticketReplyText}
+              onChange={(e) => setTicketReplyText(e.target.value)}
+              placeholder={`Write official reply or solution for ${selectedTicketForReply.storeName}...`}
+              className="w-full px-4 py-3 text-xs sm:text-sm border border-slate-200 rounded-2xl bg-white focus:outline-none focus:ring-2 focus:ring-rose-500 resize-none font-sans"
+            />
+
+            <div className="space-y-2 text-xs text-slate-700">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={replyAndResolve}
+                  onChange={(e) => setReplyAndResolve(e.target.checked)}
+                  className="rounded text-rose-600 focus:ring-rose-500 w-4 h-4"
+                />
+                <span className="font-medium">Mark ticket as Resolved upon reply</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={sendReplyAsDashboardNote}
+                  onChange={(e) => setSendReplyAsDashboardNote(e.target.checked)}
+                  className="rounded text-rose-600 focus:ring-rose-500 w-4 h-4"
+                />
+                <span className="font-medium">Also send as urgent pop-up advisory to seller's dashboard</span>
+              </label>
+            </div>
+
+            <div className="flex gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSelectedTicketForReply(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingReply || !ticketReplyText.trim()}
+                onClick={() => handleReplyTicket(selectedTicketForReply)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <Send className="w-3.5 h-3.5 text-amber-400" />
+                <span>{isSubmittingReply ? 'Sending...' : 'Send Reply'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── IMAGE ENLARGE LIGHTBOX MODAL ── */}
+      {ticketImagePreviewModal && (
+        <div
+          className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={() => setTicketImagePreviewModal(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+            <button
+              onClick={() => setTicketImagePreviewModal(null)}
+              className="absolute -top-10 right-0 p-1.5 rounded-full bg-white/20 hover:bg-white/40 text-white transition cursor-pointer"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={ticketImagePreviewModal}
+              alt="Enlarged screenshot"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         </div>
       )}
