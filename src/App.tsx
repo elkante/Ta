@@ -424,10 +424,18 @@ export default function App() {
     return () => window.removeEventListener('tashop:reviews_updated', handler);
   }, [currentStore?.id]);
 
-  // Listen for store_updated event (fired after store settings saves in SellerDashboard)
+  // Listen for store_updated event (fired after store settings saves in SellerDashboard or admin)
   useEffect(() => {
-    const handler = () => {
-      if (currentStore) {
+    const handler = (e: Event) => {
+      const updated = (e as CustomEvent<Store>).detail as Store | undefined;
+      if (updated?.id) {
+        // Patch allStores immediately from the event payload (works even when currentStore is null)
+        setAllStores(prev => prev.map(s => s.id === updated.id ? updated : s));
+        if (currentStore?.id === updated.id) {
+          setCurrentStore(updated);
+        }
+      } else if (currentStore) {
+        // Fallback: re-fetch current store from Supabase
         dbFetchStoreBySlug(currentStore.slug)
           .then(live => {
             if (live) {

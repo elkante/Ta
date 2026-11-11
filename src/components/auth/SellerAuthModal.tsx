@@ -37,6 +37,29 @@ import { hashPassword } from '../../utils/crypto';
 import { dbSaveStore, dbSaveProduct, dbFetchStoreBySlug } from '../../utils/supabase';
 import { sendWelcomeEmail } from '../../utils/email';
 
+const BUSINESS_CATEGORIES = [
+  { value: '', label: '— Select your business type —' },
+  { value: 'Fashion & Clothing', label: '👗 Fashion & Clothing' },
+  { value: 'Shoes & Footwear', label: '👟 Shoes & Footwear' },
+  { value: 'Beauty & Cosmetics', label: '💄 Beauty & Cosmetics' },
+  { value: 'Hair & Wigs', label: '💇 Hair & Wigs' },
+  { value: 'Accessories & Jewelry', label: '💍 Accessories & Jewelry' },
+  { value: 'Electronics & Gadgets', label: '📱 Electronics & Gadgets' },
+  { value: 'Food & Groceries', label: '🛒 Food & Groceries' },
+  { value: 'Home & Kitchen', label: '🏠 Home & Kitchen' },
+  { value: 'Health & Wellness', label: '💊 Health & Wellness' },
+  { value: 'Baby & Kids', label: '🍼 Baby & Kids' },
+  { value: 'Sports & Fitness', label: '🏋️ Sports & Fitness' },
+  { value: 'Books & Stationery', label: '📚 Books & Stationery' },
+  { value: 'Agriculture & Farming', label: '🌾 Agriculture & Farming' },
+  { value: 'Automobiles & Parts', label: '🚗 Automobiles & Parts' },
+  { value: 'Building & Construction', label: '🏗️ Building & Construction' },
+  { value: 'Cleaning & Laundry', label: '🧹 Cleaning & Laundry' },
+  { value: 'Arts & Crafts', label: '🎨 Arts & Crafts' },
+  { value: 'Digital Products', label: '💾 Digital Products' },
+  { value: 'General Store', label: '🛍️ General Store' },
+];
+
 interface SellerAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -73,6 +96,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
   const [signupStoreName, setSignupStoreName] = useState('');
   const [signupOwnerName, setSignupOwnerName] = useState('');
   const [signupSlug, setSignupSlug] = useState(initialSlug);
+  const [signupBusinessCategory, setSignupBusinessCategory] = useState('');
   const [signupCountryCode, setSignupCountryCode] = useState('+234');
   const [signupPhone, setSignupPhone] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
@@ -224,6 +248,12 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
       return;
     }
 
+    if (!signupBusinessCategory) {
+      setError('Please select your business type / category');
+      setIsSigningUp(false);
+      return;
+    }
+
     if (!signupOwnerName.trim()) {
       setError('Please provide the store owner name');
       setIsSigningUp(false);
@@ -303,7 +333,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
         submittedAt: new Date().toISOString(),
       } : undefined,
       tagline: `Welcome to ${signupStoreName.trim()}`,
-      description: `Browse our catalog and order directly on WhatsApp. Search products by Item UID for fast checkout.`,
+      description: `${signupBusinessCategory ? `${signupBusinessCategory} store. ` : ''}Browse our catalog and order directly on WhatsApp. Search products by Item UID for fast checkout.`,
       whatsappCountryCode: signupCountryCode,
       whatsappNumber: signupPhone.replace(/\D/g, ''),
       currency: signupCurrency,
@@ -657,6 +687,24 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Business Type / Category *
+                </label>
+                <select
+                  required
+                  value={signupBusinessCategory}
+                  onChange={(e) => setSignupBusinessCategory(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                >
+                  {BUSINESS_CATEGORIES.map((cat) => (
+                    <option key={cat.value} value={cat.value} disabled={cat.value === ''}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
