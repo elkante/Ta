@@ -56,7 +56,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
 
         {/* Hero */}
         <div className="text-center space-y-4 max-w-2xl mx-auto">
-          <span className="text-xs font-bold uppercase tracking-wider text-amber-600 block">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
             Simple Transparent Pricing
           </span>
           <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
@@ -64,7 +64,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
           </h1>
           <p className="text-sm text-slate-600">
             Pick the catalog capacity and automation tier tailored for your WhatsApp & Instagram storefront.<br />
-            <strong>Zero transaction fees. 0% commission. Your money, all yours.</strong>
+            <strong className="text-emerald-900">Zero transaction fees. 0% commission. Your money, all yours.</strong>
           </p>
 
           {/* Billing Cycle Toggle */}
@@ -75,7 +75,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
                 onClick={() => setBillingCycle('monthly')}
                 className={`px-5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                   billingCycle === 'monthly'
-                    ? 'bg-slate-900 text-white shadow-xs'
+                    ? 'bg-emerald-600 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -86,12 +86,12 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
                 onClick={() => setBillingCycle('yearly')}
                 className={`px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                   billingCycle === 'yearly'
-                    ? 'bg-slate-900 text-white shadow-xs'
+                    ? 'bg-emerald-600 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <span>Annual (Yearly)</span>
-                <span className="bg-amber-400 text-slate-950 text-[10px] px-1.5 py-0.5 rounded-full font-black">
+                <span className="bg-emerald-100 text-emerald-900 text-[10px] px-1.5 py-0.5 rounded-full font-black">
                   SAVE UP TO 20%
                 </span>
               </button>
@@ -138,7 +138,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
                 <span className="text-xs font-normal text-slate-400 block mt-0.5">/ {billingCycle === 'yearly' ? 'year' : 'month'}</span>
               </div>
               <ul className="mt-6 space-y-2.5 text-xs text-slate-700">
-                <li className="flex items-center gap-2 font-semibold text-slate-900"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Up to 10 products with variants</span></li>
+                <li className="flex items-center gap-2 font-semibold text-slate-900"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Up to {planConfigs.starter.productLimit} products with variants</span></li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Custom store web link</span></li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Store banner, logo & address</span></li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Customer inquiry click tracker</span></li>
@@ -147,14 +147,14 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
             </div>
             <button
               onClick={() => onOpenSignup()}
-              className="mt-6 w-full py-2.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-xl transition cursor-pointer"
+              className="mt-6 w-full py-2.5 bg-white border border-slate-300 hover:bg-emerald-50 hover:border-emerald-300 text-slate-900 font-bold text-xs rounded-xl transition cursor-pointer"
             >
               Launch Starter
             </button>
           </div>
 
           {/* 3. Basic */}
-          <div className="p-6 rounded-3xl border border-emerald-300 bg-emerald-50/30 flex flex-col justify-between shadow-2xs relative">
+          <div className="p-6 rounded-3xl border border-emerald-300 bg-emerald-50/40 flex flex-col justify-between shadow-2xs relative">
             <span className="absolute -top-3 right-6 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-2xs">
               Popular Value
             </span>
@@ -171,7 +171,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
                 </span>
               )}
               <ul className="mt-6 space-y-2.5 text-xs text-slate-700">
-                <li className="flex items-center gap-2 font-bold text-emerald-950"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Up to 30 products (3× Starter)</span></li>
+                <li className="flex items-center gap-2 font-bold text-emerald-950"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Up to {planConfigs.basic.productLimit} products</span></li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Up to 5 photos per product</span></li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>AI product descriptions</span></li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Status Studio marketing cards</span></li>
@@ -188,13 +188,13 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
 
           {/* 4. Pro */}
           <div className="p-6 rounded-3xl border-2 border-slate-900 bg-white relative flex flex-col justify-between shadow-lg">
-            <span className="absolute -top-3 right-6 bg-slate-900 text-amber-300 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+            <span className="absolute -top-3 right-6 bg-slate-900 text-emerald-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
               Most Popular
             </span>
             <div>
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
                 <span>Tá.shop Pro</span>
-                <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                <Zap className="w-4 h-4 text-emerald-500 fill-emerald-500" />
               </h3>
               <p className="text-xs text-slate-500 mt-1">For growing brands on WhatsApp & Instagram.</p>
               <div className="mt-4 text-3xl font-black font-mono text-slate-900">
@@ -207,7 +207,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
                 </span>
               )}
               <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
-                <li className="flex items-center gap-2 font-bold text-slate-900"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Up to 70 products</span></li>
+                <li className="flex items-center gap-2 font-bold text-slate-900"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Up to {planConfigs.pro.productLimit} products</span></li>
                 <li className="flex items-center gap-2 font-bold text-blue-900 bg-blue-50 px-2 py-1 rounded-lg">
                   <BadgeCheck className="w-4 h-4 text-blue-600 fill-blue-100 shrink-0" /><span>Verified Blue Tick Badge</span>
                 </li>
@@ -225,89 +225,89 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
           </div>
 
           {/* 5. Business AI */}
-          <div className="p-5 sm:p-6 rounded-3xl border-2 border-violet-500 bg-gradient-to-b from-violet-50/60 to-white relative flex flex-col justify-between shadow-lg">
-            <span className="absolute -top-3 right-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-2xs">
+          <div className="p-5 sm:p-6 rounded-3xl border-2 border-emerald-500 bg-gradient-to-b from-emerald-50/50 to-white relative flex flex-col justify-between shadow-lg">
+            <span className="absolute -top-3 right-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-2xs">
               🤖 AI WhatsApp Bot
             </span>
             <div>
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
                 <span>Business AI</span>
-                <Bot className="w-4 h-4 text-violet-600" />
+                <Bot className="w-4 h-4 text-emerald-600" />
               </h3>
-              <p className="text-xs text-slate-500 mt-1">Autonomous WhatsApp commerce & 100 products.</p>
-              <div className="mt-4 text-2xl sm:text-3xl font-black font-mono text-violet-950">
+              <p className="text-xs text-slate-500 mt-1">Autonomous WhatsApp commerce & {planConfigs.business.productLimit} products.</p>
+              <div className="mt-4 text-2xl sm:text-3xl font-black font-mono text-emerald-950">
                 ₦{billingCycle === 'monthly' ? planConfigs.business.priceMonthly.toLocaleString() : planConfigs.business.priceYearly.toLocaleString()}
                 <span className="text-xs font-normal text-slate-400 block mt-0.5">/ {billingCycle === 'yearly' ? 'year' : 'month'}</span>
               </div>
               {billingCycle === 'yearly' && (
-                <span className="inline-block mt-1 text-[10px] font-bold text-violet-700 bg-violet-100/80 px-2 py-0.5 rounded-md">
+                <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
                   Save ₦{(planConfigs.business.priceMonthly * 12 - planConfigs.business.priceYearly).toLocaleString()}/yr
                 </span>
               )}
               <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
-                <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg">
-                  <Check className="w-4 h-4 text-violet-700 shrink-0" /><span>Up to 200 Products</span>
+                <li className="flex items-center gap-2 font-bold text-emerald-950 bg-emerald-100/70 px-2 py-1 rounded-lg">
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" /><span>Up to {planConfigs.business.productLimit} Products</span>
                 </li>
                 <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-300 px-2 py-1 rounded-lg">
                   <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" /><span>Official Golden Tick Badge</span>
                 </li>
                 <li className="flex items-center gap-2 font-medium"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>100% White-Label (No branding)</span></li>
-                <li className="flex items-center gap-2 font-medium text-violet-900">
-                  <Bot className="w-4 h-4 text-violet-600 shrink-0" /><span>24/7 AI Bot (Photos & prices)</span>
+                <li className="flex items-center gap-2 font-medium text-emerald-900">
+                  <Bot className="w-4 h-4 text-emerald-600 shrink-0" /><span>24/7 AI Bot (Photos & prices)</span>
                 </li>
                 <li className="flex items-center gap-2 font-medium"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>Automated WhatsApp receipts</span></li>
               </ul>
             </div>
             <button
               onClick={() => onOpenSignup()}
-              className="mt-6 w-full py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
+              className="mt-6 w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
             >
               Choose Business
             </button>
           </div>
 
           {/* 6. Enterprise (.com.ng / .ng Domain & Card) */}
-          <div className="p-5 sm:p-6 rounded-3xl border-2 border-amber-500 bg-gradient-to-b from-amber-50/70 via-white to-amber-50/30 relative flex flex-col justify-between shadow-xl">
-            <span className="absolute -top-3 right-4 bg-gradient-to-r from-amber-600 to-yellow-500 text-slate-950 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-md">
+          <div className="p-5 sm:p-6 rounded-3xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-50/70 via-white to-emerald-50/30 relative flex flex-col justify-between shadow-xl">
+            <span className="absolute -top-3 right-4 bg-gradient-to-r from-emerald-700 to-emerald-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-md">
               🌐 Official .com.ng / .ng + Card
             </span>
             <div>
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
                 <span>Enterprise</span>
-                <Globe className="w-4 h-4 text-amber-600" />
+                <Globe className="w-4 h-4 text-emerald-700" />
               </h3>
               <p className="text-xs text-slate-500 mt-1">Unlimited catalog with official domain, customized digital card & 1 year plan.</p>
-              <div className="mt-4 text-2xl sm:text-3xl font-black font-mono text-amber-950">
+              <div className="mt-4 text-2xl sm:text-3xl font-black font-mono text-emerald-950">
                 ₦{billingCycle === 'monthly' ? (planConfigs.enterprise?.priceMonthly ?? 21000).toLocaleString() : (planConfigs.enterprise?.priceYearly ?? 210000).toLocaleString()}
                 <span className="text-xs font-normal text-slate-400 block mt-0.5">/ {billingCycle === 'yearly' ? 'year' : 'month'}</span>
               </div>
               {billingCycle === 'yearly' && (
-                <span className="inline-block mt-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                <span className="inline-block mt-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
                   Save ₦{(((planConfigs.enterprise?.priceMonthly ?? 21000) * 12) - (planConfigs.enterprise?.priceYearly ?? 210000)).toLocaleString()}/yr
                 </span>
               )}
               <ul className="mt-6 space-y-2.5 text-xs text-slate-800">
-                <li className="flex items-center gap-2 font-bold text-amber-950 bg-amber-100/90 px-2 py-1 rounded-lg border border-amber-300">
-                  <Check className="w-4 h-4 text-amber-700 shrink-0" /><span>UNLIMITED Products (No Cap)</span>
+                <li className="flex items-center gap-2 font-bold text-emerald-950 bg-emerald-100/90 px-2 py-1 rounded-lg border border-emerald-300">
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" /><span>{planConfigs.enterprise?.productLimit && planConfigs.enterprise.productLimit < 999999 ? `Up to ${planConfigs.enterprise.productLimit} Products` : 'UNLIMITED Products (No Cap)'}</span>
                 </li>
                 <li className="flex items-center gap-2 font-bold text-slate-900 bg-white border border-slate-300 px-2 py-1 rounded-lg">
-                  <Globe className="w-4 h-4 text-indigo-600 shrink-0" /><span>Official .com.ng or .ng Domain</span>
+                  <Globe className="w-4 h-4 text-emerald-600 shrink-0" /><span>Official .com.ng or .ng Domain</span>
                 </li>
-                <li className="flex items-center gap-2 font-bold text-violet-950 bg-violet-100/70 px-2 py-1 rounded-lg border border-violet-200">
-                  <CreditCard className="w-4 h-4 text-violet-700 shrink-0" /><span>Customized Digital Card (1 Year Plan)</span>
+                <li className="flex items-center gap-2 font-bold text-slate-900 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                  <CreditCard className="w-4 h-4 text-emerald-700 shrink-0" /><span>Customized Digital Card (1 Year Plan)</span>
                 </li>
                 <li className="flex items-center gap-2 font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
                   <BadgeCheck className="w-4 h-4 text-amber-500 fill-amber-100 shrink-0" /><span>Official Golden Tick Badge</span>
                 </li>
-                <li className="flex items-center gap-2 font-medium text-violet-900">
-                  <Bot className="w-4 h-4 text-violet-600 shrink-0" /><span>24/7 AI WhatsApp Bot Engine</span>
+                <li className="flex items-center gap-2 font-medium text-emerald-900">
+                  <Bot className="w-4 h-4 text-emerald-600 shrink-0" /><span>24/7 AI WhatsApp Bot Engine</span>
                 </li>
                 <li className="flex items-center gap-2 font-medium"><Check className="w-4 h-4 text-emerald-600 shrink-0" /><span>100% White-Label & VIP Concierge</span></li>
               </ul>
             </div>
             <button
               onClick={() => onOpenSignup()}
-              className="mt-6 w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs rounded-xl shadow-md transition cursor-pointer"
+              className="mt-6 w-full py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-black text-xs rounded-xl shadow-md transition cursor-pointer"
             >
               Get Enterprise
             </button>
@@ -329,13 +329,23 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
                   <th className="text-center px-4 py-3 font-bold text-slate-700">Starter</th>
                   <th className="text-center px-4 py-3 font-bold text-emerald-700">Basic</th>
                   <th className="text-center px-4 py-3 font-bold text-slate-900">Pro</th>
-                  <th className="text-center px-4 py-3 font-bold text-violet-700">Business AI</th>
-                  <th className="text-center px-4 py-3 font-bold text-amber-800">Enterprise</th>
+                  <th className="text-center px-4 py-3 font-bold text-emerald-700">Business AI</th>
+                  <th className="text-center px-4 py-3 font-bold text-emerald-800">Enterprise</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {[
-                  ['Max products', '4', '10', '30', '70', '200', 'Unlimited'],
+                  [
+                    'Max products',
+                    '4',
+                    String(planConfigs.starter.productLimit),
+                    String(planConfigs.basic.productLimit),
+                    String(planConfigs.pro.productLimit),
+                    String(planConfigs.business.productLimit),
+                    planConfigs.enterprise?.productLimit && planConfigs.enterprise.productLimit < 999999
+                      ? String(planConfigs.enterprise.productLimit)
+                      : 'Unlimited'
+                  ],
                   ['Photos per product', '5', '5', '5', '5', '5', '5'],
                   ['Product video link', '✓', '✓', '✓', '✓', '✓', '✓'],
                   ['WhatsApp checkout', '✓', '✓', '✓', '✓', '✓', '✓'],
@@ -409,7 +419,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onOpenSignup, onBack }
           <p className="text-sm text-slate-500">Join thousands of WhatsApp sellers. Free store live in 30 seconds.</p>
           <button
             onClick={() => onOpenSignup()}
-            className="px-8 py-3.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm rounded-2xl shadow-lg transition cursor-pointer"
+            className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-emerald-600/20 transition cursor-pointer"
           >
             Claim Your Free Store →
           </button>

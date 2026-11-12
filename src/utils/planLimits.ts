@@ -152,26 +152,31 @@ export function getActivePlanConfigs(): Record<StoreTier, PlanConfig> {
       ...PLAN_CONFIGS.starter,
       priceMonthly: settings?.starterPriceMonthly ?? PLAN_CONFIGS.starter.priceMonthly,
       priceYearly: settings?.starterPriceYearly ?? PLAN_CONFIGS.starter.priceYearly,
+      productLimit: settings?.starterProductLimit ?? PLAN_CONFIGS.starter.productLimit,
     },
     basic: {
       ...PLAN_CONFIGS.basic,
       priceMonthly: settings?.basicPriceMonthly ?? PLAN_CONFIGS.basic.priceMonthly,
       priceYearly: settings?.basicPriceYearly ?? PLAN_CONFIGS.basic.priceYearly,
+      productLimit: settings?.basicProductLimit ?? PLAN_CONFIGS.basic.productLimit,
     },
     pro: {
       ...PLAN_CONFIGS.pro,
       priceMonthly: settings?.proPriceMonthly ?? PLAN_CONFIGS.pro.priceMonthly,
       priceYearly: settings?.proPriceYearly ?? PLAN_CONFIGS.pro.priceYearly,
+      productLimit: settings?.proProductLimit ?? 70,
     },
     business: {
       ...PLAN_CONFIGS.business,
       priceMonthly: settings?.businessPriceMonthly ?? PLAN_CONFIGS.business.priceMonthly,
       priceYearly: settings?.businessPriceYearly ?? PLAN_CONFIGS.business.priceYearly,
+      productLimit: settings?.businessProductLimit ?? 200,
     },
     enterprise: {
       ...PLAN_CONFIGS.enterprise,
       priceMonthly: settings?.enterprisePriceMonthly ?? PLAN_CONFIGS.enterprise.priceMonthly,
       priceYearly: settings?.enterprisePriceYearly ?? PLAN_CONFIGS.enterprise.priceYearly,
+      productLimit: (settings?.enterpriseProductLimit && settings.enterpriseProductLimit < 999999) ? settings.enterpriseProductLimit : Infinity,
     },
   };
 }
@@ -205,7 +210,8 @@ export function getPlanAmount(
  */
 export function getProductLimitByTier(tier?: string): number {
   if (tier && tier in PLAN_CONFIGS) {
-    return PLAN_CONFIGS[tier as StoreTier].productLimit;
+    const configs = getActivePlanConfigs();
+    return configs[tier as StoreTier]?.productLimit ?? PLAN_CONFIGS[tier as StoreTier].productLimit;
   }
   return 4;
 }
@@ -218,9 +224,11 @@ export function getProductLimitByTier(tier?: string): number {
  * Enterprise: 6
  */
 export function getStaffLimitByTier(tier?: string): number {
-  if (tier === 'enterprise') return 6;
-  if (tier === 'business') return 3;
-  if (tier === 'pro') return 1;
+  let settings = DEFAULT_PLATFORM_SETTINGS;
+  try { settings = getPlatformSettings(); } catch (e) {}
+  if (tier === 'enterprise') return settings?.enterpriseStaffLimit ?? 6;
+  if (tier === 'business') return settings?.businessStaffLimit ?? 3;
+  if (tier === 'pro') return settings?.proStaffLimit ?? 1;
   return 0;
 }
 

@@ -2457,10 +2457,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     <button
                       type="button"
                       onClick={handleSavePlanPricing}
-                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      <span>Save Plan Pricing</span>
+                      <Check className="w-4 h-4 text-white" />
+                      <span>Save Pricing & Limits</span>
                     </button>
                   </div>
                 </div>
@@ -2468,7 +2468,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 {settingsSavedToast && (
                   <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-center gap-2 animate-in fade-in">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Plan pricing updated! New values are now live in Paystack checkout and storefronts.</span>
+                    <span>Plan pricing & limits updated! Changes are now live in pricing, Paystack checkout, and seller dashboards.</span>
                   </div>
                 )}
 
@@ -2477,7 +2477,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-xs text-slate-900">Starter Plan</span>
-                      <span className="text-[10px] font-mono bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-semibold">10 Products</span>
+                      <span className="text-[10px] font-mono bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-semibold">{platformSettings.starterProductLimit ?? 10} Products</span>
                     </div>
                     <div>
                       <label className="text-[11px] font-semibold text-slate-600 block mb-1">Monthly Price (₦)</label>
@@ -2501,13 +2501,24 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
                       />
                     </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Product Limit</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={platformSettings.starterProductLimit ?? 10}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, starterProductLimit: Math.max(1, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                      />
+                    </div>
                   </div>
 
                   {/* Basic Plan */}
                   <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-xs text-emerald-950">Basic Plan</span>
-                      <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-semibold">30 Products</span>
+                      <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-semibold">{platformSettings.basicProductLimit ?? 30} Products</span>
                     </div>
                     <div>
                       <label className="text-[11px] font-semibold text-slate-600 block mb-1">Monthly Price (₦)</label>
@@ -2531,6 +2542,17 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-emerald-900"
                       />
                     </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Product Limit</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="5"
+                        value={platformSettings.basicProductLimit ?? 30}
+                        onChange={(e) => setPlatformSettings({ ...platformSettings, basicProductLimit: Math.max(1, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-emerald-900"
+                      />
+                    </div>
                   </div>
 
                   {/* Pro Plan */}
@@ -2540,7 +2562,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         <span>Tá.shop Pro</span>
                         <BadgeCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-100" />
                       </span>
-                      <span className="text-[10px] font-mono bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-semibold">70 Products</span>
+                      <span className="text-[10px] font-mono bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-semibold">{platformSettings.proProductLimit ?? 70} Products</span>
                     </div>
                     <div>
                       <label className="text-[11px] font-semibold text-slate-600 block mb-1">Monthly Price (₦)</label>
@@ -2564,6 +2586,30 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-amber-950"
                       />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-1">Product Limit</label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="5"
+                          value={platformSettings.proProductLimit ?? 70}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, proProductLimit: Math.max(1, Number(e.target.value)) })}
+                          className="w-full px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-amber-950"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-1">Staff Limit</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={platformSettings.proStaffLimit ?? 1}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, proStaffLimit: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-amber-950"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Business AI Bot */}
@@ -2573,7 +2619,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         <span>Business AI</span>
                         <BadgeCheck className="w-3.5 h-3.5 text-amber-500 fill-amber-100" />
                       </span>
-                      <span className="text-[10px] font-mono bg-violet-200 text-violet-900 px-1.5 py-0.2 rounded font-semibold">200 Products</span>
+                      <span className="text-[10px] font-mono bg-violet-200 text-violet-900 px-1.5 py-0.2 rounded font-semibold">{platformSettings.businessProductLimit ?? 200} Products</span>
                     </div>
                     <div>
                       <label className="text-[11px] font-semibold text-slate-600 block mb-1">Monthly Price (₦)</label>
@@ -2597,16 +2643,42 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-violet-950"
                       />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-1">Product Limit</label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="10"
+                          value={platformSettings.businessProductLimit ?? 200}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, businessProductLimit: Math.max(1, Number(e.target.value)) })}
+                          className="w-full px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-violet-950"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-1">Staff Limit</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={platformSettings.businessStaffLimit ?? 3}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, businessStaffLimit: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-violet-950"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Enterprise (.ng Domain) */}
                   <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/60 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-xs text-amber-950 flex items-center gap-1">
-                        <span>Enterprise (.com.ng / .ng & Card)</span>
+                        <span>Enterprise (.ng & Card)</span>
                         <Globe className="w-3.5 h-3.5 text-amber-600" />
                       </span>
-                      <span className="text-[10px] font-mono bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-semibold">Unlimited</span>
+                      <span className="text-[10px] font-mono bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-semibold">
+                        {platformSettings.enterpriseProductLimit && platformSettings.enterpriseProductLimit < 999999 ? `${platformSettings.enterpriseProductLimit} Products` : 'Unlimited'}
+                      </span>
                     </div>
                     <div>
                       <label className="text-[11px] font-semibold text-slate-600 block mb-1">Monthly Price (₦)</label>
@@ -2629,6 +2701,30 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                         onChange={(e) => setPlatformSettings({ ...platformSettings, enterprisePriceYearly: Math.max(0, Number(e.target.value)) })}
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-amber-950"
                       />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-1">Product Limit</label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="50"
+                          value={platformSettings.enterpriseProductLimit ?? 999999}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, enterpriseProductLimit: Math.max(1, Number(e.target.value)) })}
+                          className="w-full px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-amber-950"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-1">Staff Limit</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={platformSettings.enterpriseStaffLimit ?? 6}
+                          onChange={(e) => setPlatformSettings({ ...platformSettings, enterpriseStaffLimit: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-amber-950"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

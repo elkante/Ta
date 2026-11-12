@@ -485,6 +485,16 @@ export interface PlatformSettings {
   enterprisePriceYearly: number;
   badgePriceMonthly?: number;
   badgePriceYearly?: number;
+  // Dynamic Product Limits (configurable by Super Admin)
+  starterProductLimit?: number;
+  basicProductLimit?: number;
+  proProductLimit?: number;
+  businessProductLimit?: number;
+  enterpriseProductLimit?: number;
+  // Dynamic Staff Limits (configurable by Super Admin)
+  proStaffLimit?: number;
+  businessStaffLimit?: number;
+  enterpriseStaffLimit?: number;
   globalAnnouncement: string;
   allowRegistrations: boolean;
   maintenanceMode: boolean;
