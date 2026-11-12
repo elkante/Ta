@@ -45,7 +45,7 @@ interface LandingPageProps {
   onOpenLegal?: (tab: 'terms' | 'privacy' | 'cookies') => void;
 }
 
-const ROTATING_WORDS = ['customer', 'inventory', 'sales', 'order', 'waybill', 'WhatsApp'];
+const ROTATING_WORDS = ['sells', 'closes deals', 'takes orders', 'handles DMs', 'works 24/7', 'grows'];
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   stores,
@@ -274,33 +274,53 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </header>
 
-      {/* ─── Hero Section (Emerald Theme with Dynamic Rotating Keyword) ─── */}
-      <section className="relative pt-12 sm:pt-16 pb-12 sm:pb-16 px-4 sm:px-6 overflow-hidden">
-        {/* Soft Ambient Emerald Glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-6xl h-[480px] pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-100/70 via-teal-50/40 to-transparent blur-3xl -z-10" />
+      {/* ─── Hero Section (Full-bleed Image Overlay, Emerald Theme) ─── */}
+      <section className="relative min-h-[88vh] sm:min-h-[82vh] flex flex-col justify-center overflow-hidden">
+        {/* Background Hero Image */}
+        <img
+          src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1600&auto=format&fit=crop&q=80"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover object-center select-none pointer-events-none"
+          loading="eager"
+          aria-hidden="true"
+        />
 
-        <div className="max-w-4xl mx-auto text-center space-y-6">
+        {/* Dark gradient overlay — top-heavy so text is readable */}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/88 via-slate-900/78 to-emerald-950/92 pointer-events-none" />
+
+        {/* Emerald radial glow at center-top */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[380px] pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-500/20 via-teal-700/10 to-transparent blur-3xl" />
+
+        {/* Bottom fade-to-white for seamless transition into next section */}
+        <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+
+        <div className="relative z-10 max-w-4xl mx-auto text-center space-y-6 px-4 sm:px-6 py-16 sm:py-24">
           {/* Top Pill / Badge */}
-          <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 px-4 py-1.5 rounded-full text-xs font-semibold text-emerald-800 shadow-2xs backdrop-blur-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-4 py-1.5 rounded-full text-xs font-semibold text-emerald-300 shadow-2xs backdrop-blur-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>⚡ 2026 Social Commerce Engine for African Merchants</span>
-            <ArrowRight className="w-3 h-3 text-emerald-600" />
+            <ArrowRight className="w-3 h-3 text-emerald-400" />
           </div>
 
-          {/* Headline with Typewriter Rotating Keyword */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-slate-900 leading-[1.15]">
-            Solving your{' '}
-            <span className="text-emerald-600 inline-block underline decoration-emerald-200 decoration-wavy underline-offset-8 font-black">
-              {ROTATING_WORDS[wordIndex]}
-              <span className="text-emerald-500 animate-pulse font-light ml-0.5">|</span>
+          {/* Headline — unique, punchy, WhatsApp-first */}
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white leading-[1.15]">
+            Your customers DM you.{' '}
+            <br className="hidden sm:inline" />
+            Now give them a store{' '}
+            <span className="text-emerald-400 inline-block relative">
+              that{' '}
+              <span className="underline decoration-emerald-500 decoration-wavy underline-offset-8">
+                {ROTATING_WORDS[wordIndex]}
+              </span>
+              <span className="text-emerald-300 animate-pulse font-light ml-0.5">|</span>
             </span>
-            <br className="hidden sm:inline" /> management problems, one solution at a time.
+            <span className="text-white"> for them.</span>
           </h1>
 
           {/* Subtitle */}
-          <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            Simplify your business operations with tools that make storefronts, Item UIDs,
-            WhatsApp orders, invoices & waybill generation easy.
+          <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
+            Launch a full WhatsApp storefront in 30 seconds — take orders, issue invoices,
+            generate waybills & get paid direct. No app. No commission. Just your brand.
           </p>
 
           {/* Live Claim Store Handle Bar */}
@@ -377,18 +397,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               return (
                 <div
                   key={idx}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs text-[11px] font-semibold text-slate-700 hover:border-emerald-300 hover:text-emerald-800 transition"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 backdrop-blur-sm text-[11px] font-semibold text-white hover:bg-white/20 hover:border-emerald-400/60 transition"
                 >
-                  <Icon className="w-3.5 h-3.5 text-emerald-600" />
+                  <Icon className="w-3.5 h-3.5 text-emerald-400" />
                   <span>{pill.label}</span>
                 </div>
               );
             })}
           </div>
         </div>
+      </section>
+
+      {/* ─── Dashboard Mockup Section (below hero fold) ─── */}
+      <section className="relative bg-white px-4 sm:px-6 py-14 sm:py-20 overflow-hidden">
+        {/* Soft background glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-72 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-100/60 via-teal-50/30 to-transparent blur-3xl -z-10" />
 
         {/* ─── Hero Visual: Emerald Dashboard Tablet + Mobile Storefront Mockup ─── */}
-        <div className="pt-10 sm:pt-14 max-w-5xl mx-auto relative">
+        <div className="max-w-5xl mx-auto relative">
           {/* Outer glowing halo */}
           <div className="absolute inset-0 bg-emerald-500/10 rounded-3xl blur-2xl -z-10" />
 
