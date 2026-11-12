@@ -6,6 +6,7 @@ import {
   Bot,
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Clock,
   Download,
@@ -45,7 +46,31 @@ interface LandingPageProps {
   onOpenLegal?: (tab: 'terms' | 'privacy' | 'cookies') => void;
 }
 
-const ROTATING_WORDS = ['sells', 'closes deals', 'takes orders', 'handles DMs', 'works 24/7', 'grows'];
+const ROTATING_WORDS = [
+  'WhatsApp orders',
+  'customer invoices',
+  'courier waybills',
+  'product catalog',
+  'daily sales',
+];
+
+const HERO_SLIDES = [
+  {
+    url: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1600&auto=format&fit=crop&q=80',
+    title: 'Smart WhatsApp Commerce',
+    subtitle: 'From social media chats to confirmed paid orders',
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1600&auto=format&fit=crop&q=80',
+    title: 'Empowering African Merchants',
+    subtitle: 'Automate sales, invoices & inventory with zero hassle',
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&auto=format&fit=crop&q=80',
+    title: 'Modern Retail Storefronts',
+    subtitle: 'Give your business the professional edge it deserves',
+  },
+];
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   stores,
@@ -63,16 +88,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [wordIndex, setWordIndex] = useState(0);
+  const [activeSlide, setActiveSlide] = useState(0);
 
   const rootDomain = getRootDomain();
   const cleanHandle = handleInput.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
 
-  // Dynamic typewriter word rotation (matching Bumpa-style headline with unique Taaa.shop twist)
+  // Dynamic typewriter word rotation
   useEffect(() => {
     const interval = setInterval(() => {
       setWordIndex((prev) => (prev + 1) % ROTATING_WORDS.length);
-    }, 2500);
+    }, 2600);
     return () => clearInterval(interval);
+  }, []);
+
+  // Automatic hero image carousel rotation
+  useEffect(() => {
+    const slideTimer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+    }, 5500);
+    return () => clearInterval(slideTimer);
   }, []);
 
   const handleAvailability = useMemo(() => {
@@ -274,60 +308,69 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </header>
 
-      {/* ─── Hero Section (Full-bleed Image Overlay, Emerald Theme) ─── */}
-      <section className="relative min-h-[88vh] sm:min-h-[82vh] flex flex-col justify-center overflow-hidden">
-        {/* Background Hero Image */}
-        <img
-          src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1600&auto=format&fit=crop&q=80"
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover object-center select-none pointer-events-none"
-          loading="eager"
-          aria-hidden="true"
-        />
+      {/* ─── Hero Section (Full-bleed 3-Image Carousel Overlay, Emerald Theme) ─── */}
+      <section className="relative min-h-[92vh] sm:min-h-[86vh] flex flex-col justify-center overflow-hidden">
+        {/* Carousel Background Images with Smooth Crossfade */}
+        {HERO_SLIDES.map((slide, idx) => (
+          <div
+            key={idx}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out pointer-events-none ${
+              activeSlide === idx ? 'opacity-100 z-0' : 'opacity-0 -z-10'
+            }`}
+          >
+            <img
+              src={slide.url}
+              alt={slide.title}
+              className={`w-full h-full object-cover object-center select-none transform transition-transform duration-[7000ms] ease-out ${
+                activeSlide === idx ? 'scale-105' : 'scale-100'
+              }`}
+              loading={idx === 0 ? 'eager' : 'lazy'}
+              aria-hidden="true"
+            />
+          </div>
+        ))}
 
-        {/* Dark gradient overlay — top-heavy so text is readable */}
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/88 via-slate-900/78 to-emerald-950/92 pointer-events-none" />
+        {/* Dark gradient overlay — deep slate to dark emerald gradient for perfect contrast */}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/92 via-slate-950/82 to-emerald-950/94 pointer-events-none z-1" />
 
-        {/* Emerald radial glow at center-top */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[380px] pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-500/20 via-teal-700/10 to-transparent blur-3xl" />
+        {/* Ambient Emerald Radial Glow */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[850px] h-[400px] pointer-events-none bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-500/25 via-teal-700/10 to-transparent blur-3xl z-1" />
 
-        {/* Bottom fade-to-white for seamless transition into next section */}
-        <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+        {/* Bottom subtle fade into the next section */}
+        <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-white to-transparent pointer-events-none z-1" />
 
         <div className="relative z-10 max-w-4xl mx-auto text-center space-y-6 px-4 sm:px-6 py-16 sm:py-24">
           {/* Top Pill / Badge */}
-          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-4 py-1.5 rounded-full text-xs font-semibold text-emerald-300 shadow-2xs backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-4 py-1.5 rounded-full text-xs font-semibold text-emerald-300 shadow-2xs backdrop-blur-md">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>⚡ 2026 Social Commerce Engine for African Merchants</span>
+            <span>⚡ The WhatsApp Commerce Engine for African Merchants</span>
             <ArrowRight className="w-3 h-3 text-emerald-400" />
           </div>
 
-          {/* Headline — unique, punchy, WhatsApp-first */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white leading-[1.15]">
-            Your customers DM you.{' '}
+          {/* Headline — High-converting, completely coherent */}
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white leading-[1.14]">
+            Stop losing sales in DMs.{' '}
             <br className="hidden sm:inline" />
-            Now give them a store{' '}
-            <span className="text-emerald-400 inline-block relative">
-              that{' '}
-              <span className="underline decoration-emerald-500 decoration-wavy underline-offset-8">
+            Automate your{' '}
+            <span className="text-emerald-400 inline-block relative font-black">
+              <span className="underline decoration-emerald-500/80 decoration-wavy underline-offset-8">
                 {ROTATING_WORDS[wordIndex]}
               </span>
               <span className="text-emerald-300 animate-pulse font-light ml-0.5">|</span>
-            </span>
-            <span className="text-white"> for them.</span>
+            </span>{' '}
+            in seconds.
           </h1>
 
           {/* Subtitle */}
-          <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            Launch a full WhatsApp storefront in 30 seconds — take orders, issue invoices,
-            generate waybills & get paid direct. No app. No commission. Just your brand.
+          <p className="text-sm sm:text-base md:text-lg text-slate-200 max-w-2xl mx-auto leading-relaxed font-normal">
+            Give your buyers a sleek, branded store link. Customers browse with unique Item UIDs, send confirmed WhatsApp orders with zero back-and-forth, and receive instant printable invoices.
           </p>
 
           {/* Live Claim Store Handle Bar */}
-          <div className="max-w-xl mx-auto pt-2">
+          <div className="max-w-xl mx-auto pt-1 space-y-3">
             <form
               onSubmit={handleClaim}
-              className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-2xl shadow-xl shadow-emerald-950/5 border border-slate-200 focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all"
+              className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-2xl shadow-2xl shadow-emerald-950/20 border border-slate-200 focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all"
             >
               <div className="flex-1 flex items-center px-3 min-w-0">
                 <span className="text-xs font-mono font-bold text-slate-400 select-none shrink-0 mr-1">
@@ -341,7 +384,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     setHandleInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
                     setHandleError(null);
                   }}
-                  className="w-full py-2 text-xs sm:text-sm font-mono font-semibold text-slate-900 focus:outline-none bg-transparent min-w-0 placeholder:text-slate-300"
+                  className="w-full py-2.5 text-xs sm:text-sm font-mono font-semibold text-slate-900 focus:outline-none bg-transparent min-w-0 placeholder:text-slate-300"
                 />
                 <span className="text-xs font-mono font-bold text-emerald-700 select-none shrink-0 ml-1">
                   .{rootDomain}
@@ -363,26 +406,105 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
               <button
                 type="submit"
-                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/30 transition-all active:scale-95 shrink-0 cursor-pointer flex items-center justify-center gap-2 group"
+                className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs sm:text-sm font-extrabold rounded-xl shadow-lg shadow-emerald-500/25 transition-all active:scale-95 shrink-0 cursor-pointer flex items-center justify-center gap-2 group"
               >
-                <span>Get Started</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                <Sparkles className="w-4 h-4 text-slate-950 group-hover:rotate-12 transition-transform" />
+                <span>Claim Free Store</span>
+                <ArrowRight className="w-4 h-4 text-slate-950 group-hover:translate-x-1 transition-transform" />
               </button>
             </form>
 
-            {handleError && <p className="text-xs text-rose-600 mt-2 font-medium">{handleError}</p>}
+            {handleError && <p className="text-xs text-rose-400 mt-2 font-medium">{handleError}</p>}
 
-            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2.5 px-2">
-              <span>⚡ Free 4-product tier</span>
-              <span>•</span>
-              <span>📱 100% Mobile friendly</span>
-              <span>•</span>
-              <span>💳 Zero commission fees</span>
+            {/* Quick Action CTAs row */}
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => onOpenSignup(cleanHandle || undefined)}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/40 flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Zap className="w-3.5 h-3.5 text-emerald-200 fill-emerald-200" />
+                <span>Start Free — 30s Setup</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const featuredSec = document.getElementById('featured');
+                  if (featuredSec) {
+                    featuredSec.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                className="px-5 py-2.5 bg-white/10 hover:bg-white/15 border border-white/20 text-white rounded-xl text-xs font-bold transition backdrop-blur-md flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <StoreIcon className="w-3.5 h-3.5 text-emerald-300" />
+                <span>See Live Merchant Stores</span>
+              </button>
+            </div>
+
+            {/* Trust Badges */}
+            <div className="flex items-center justify-center gap-4 sm:gap-6 text-[11px] sm:text-xs text-slate-300 pt-1 font-medium flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Free Forever Tier</span>
+              </span>
+              <span className="text-slate-500 hidden sm:inline">•</span>
+              <span className="flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>0% Commission Fees</span>
+              </span>
+              <span className="text-slate-500 hidden sm:inline">•</span>
+              <span className="flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Direct Bank Transfer</span>
+              </span>
             </div>
           </div>
 
+          {/* ── Carousel Indicators & Slide Switcher ── */}
+          <div className="pt-2 flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setActiveSlide((prev) => (prev === 0 ? HERO_SLIDES.length - 1 : prev - 1))}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white transition active:scale-90 cursor-pointer"
+              aria-label="Previous slide"
+              title="Previous slide"
+            >
+              <ChevronLeft className="w-4 h-4 text-emerald-300" />
+            </button>
+
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/15">
+              {HERO_SLIDES.map((slide, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveSlide(idx)}
+                  className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                    activeSlide === idx
+                      ? 'w-7 bg-emerald-400 shadow-xs shadow-emerald-400/50'
+                      : 'w-2 bg-white/30 hover:bg-white/60'
+                  }`}
+                  aria-label={`Go to slide ${idx + 1}: ${slide.title}`}
+                  title={slide.title}
+                />
+              ))}
+              <span className="text-[10px] font-mono text-emerald-300/90 font-semibold pl-1.5">
+                0{activeSlide + 1} / 0{HERO_SLIDES.length}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveSlide((prev) => (prev + 1) % HERO_SLIDES.length)}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white transition active:scale-90 cursor-pointer"
+              aria-label="Next slide"
+              title="Next slide"
+            >
+              <ChevronRight className="w-4 h-4 text-emerald-300" />
+            </button>
+          </div>
+
           {/* ── Feature Pills Row (Bumpa inspired tags) ── */}
-          <div className="pt-4 flex items-center justify-center gap-2 sm:gap-2.5 flex-wrap max-w-3xl mx-auto">
+          <div className="pt-2 flex items-center justify-center gap-2 sm:gap-2.5 flex-wrap max-w-3xl mx-auto">
             {[
               { icon: ShoppingBag, label: 'Storefront Website' },
               { icon: Hash, label: 'Item UID Catalog' },
