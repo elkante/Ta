@@ -247,15 +247,15 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
       <div className="fixed inset-0" onClick={onClose} />
       <div className="relative bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[92vh] flex flex-col z-10 pb-safe sm:pb-0">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-900 to-slate-800 text-white shrink-0">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-900 text-white shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
-              <StoreIcon className="w-5 h-5 text-amber-300" />
+            <div className="w-10 h-10 rounded-xl bg-emerald-600/30 flex items-center justify-center border border-emerald-400/30 shadow-xs">
+              <StoreIcon className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
               <h3 className="font-bold text-lg leading-tight flex items-center gap-2">
                 <span>Create Storefront</span>
-                <span className="bg-amber-400 text-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-2xs">
                   Live in 30s
                 </span>
               </h3>
@@ -291,8 +291,8 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
                   onClick={() => handleNicheSelect(niche.id)}
                   className={`p-2.5 rounded-xl border text-left text-xs font-medium flex items-center gap-2 transition cursor-pointer ${
                     selectedNiche === niche.id
-                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                      : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
+                      ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
+                      : 'border-slate-200 hover:border-emerald-300 bg-white text-slate-700'
                   }`}
                 >
                   <span className="text-base">{niche.emoji}</span>
@@ -311,7 +311,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
               placeholder="e.g. Bella Scents, Zenith Tech, Apex Stores"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
 
@@ -324,18 +324,18 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
               placeholder="e.g. Chioma Adebayo or Ibrahim Musa"
               value={ownerName}
               onChange={(e) => setOwnerName(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
 
           {/* Auto Store Link Preview Pill (No manual input needed) */}
           {slug ? (
-            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-600">
-              <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50/60 border border-emerald-200 rounded-xl text-xs font-mono text-slate-600">
+              <Globe className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Store Link:</span>
-              <span className="font-bold text-slate-900 truncate">{slug}.{getRootDomain()}</span>
-              <span className="ml-auto text-emerald-600 text-[10px] font-sans font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Auto-assigned
+              <span className="font-bold text-emerald-950 truncate">{slug}.{getRootDomain()}</span>
+              <span className="ml-auto text-emerald-700 text-[10px] font-sans font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Auto-assigned
               </span>
             </div>
           ) : null}
@@ -347,7 +347,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
               <select
                 value={countryCode}
                 onChange={(e) => setCountryCode(e.target.value)}
-                className="w-full px-2.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-2.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="+234">🇳🇬 +234</option>
                 <option value="+1">🇺🇸 +1</option>
@@ -365,7 +365,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
                 placeholder="e.g. 08031234567"
                 value={whatsappNumber}
                 onChange={(e) => setWhatsappNumber(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>
@@ -377,7 +377,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 {CURRENCIES.map((c) => (
                   <option key={c.code} value={c.code}>
@@ -394,7 +394,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
                 placeholder="e.g. 12 Okonkwo St, Surulere, Lagos or Abuja"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>
@@ -406,13 +406,13 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
               <span>Brand Accent Theme</span>
             </label>
             <div className="flex items-center gap-3">
-              {['#b45309', '#047857', '#1d4ed8', '#be185d', '#ea580c', '#0f172a'].map((col) => (
+              {['#047857', '#059669', '#10b981', '#1d4ed8', '#be185d', '#0f172a'].map((col) => (
                 <button
                   type="button"
                   key={col}
                   onClick={() => setAccentColor(col)}
                   className={`w-7 h-7 rounded-full border-2 transition cursor-pointer ${
-                    accentColor === col ? 'ring-2 ring-offset-2 ring-slate-900 scale-110' : 'border-white'
+                    accentColor === col ? 'ring-2 ring-offset-2 ring-emerald-600 scale-110' : 'border-white'
                   }`}
                   style={{ backgroundColor: col }}
                 />
@@ -430,9 +430,9 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-semibold text-sm shadow-md transition active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm shadow-md shadow-emerald-600/30 transition active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-amber-400" />
+              <Sparkles className="w-4 h-4 text-emerald-200" />
               <span>{isSubmitting ? 'Launching Store on Cloud...' : 'Launch Storefront & Open Dashboard'}</span>
             </button>
           </div>

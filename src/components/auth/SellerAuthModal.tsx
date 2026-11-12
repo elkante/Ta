@@ -436,8 +436,8 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
         <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto my-2 sm:hidden shrink-0" />
 
         {/* Customer Notification Banner */}
-        <div className="bg-amber-50 border-b border-amber-200/80 px-5 py-2.5 flex items-center gap-2 text-[11px] text-amber-900 font-medium">
-          <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+        <div className="bg-emerald-50 border-b border-emerald-100 px-5 py-2.5 flex items-center gap-2 text-[11px] text-emerald-900 font-medium">
+          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>
             <strong>Shopper Notice:</strong> Customers do not need an account. You can browse, search by UID, and order freely without logging in!
           </span>
@@ -446,8 +446,8 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
         {/* Modal Header */}
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white">
           <div className="flex items-center gap-3">
-            <div className="min-w-10 h-10 px-2 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-xs tracking-tighter">
-              Taaa
+            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-xs tracking-tight shadow-xs shadow-emerald-600/30">
+              Tá
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-base leading-tight">
@@ -474,8 +474,8 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
               setMode('login');
               setError(null);
             }}
-            className={`flex-1 py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
-              mode === 'login' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+            className={`flex-1 py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 font-bold ${
+              mode === 'login' ? 'bg-emerald-600 text-white shadow-xs shadow-emerald-600/20' : 'text-slate-500 hover:text-emerald-700'
             }`}
           >
             <LogIn className="w-3.5 h-3.5" />
@@ -488,8 +488,8 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
               setMode('signup');
               setError(null);
             }}
-            className={`flex-1 py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
-              mode === 'signup' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+            className={`flex-1 py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 font-bold ${
+              mode === 'signup' ? 'bg-emerald-600 text-white shadow-xs shadow-emerald-600/20' : 'text-slate-500 hover:text-emerald-700'
             }`}
           >
             <UserPlus className="w-3.5 h-3.5" />
@@ -517,7 +517,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     setError(null);
                   }}
                   className={`py-1.5 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                    loginRole === 'owner' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                    loginRole === 'owner' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   <StoreIcon className="w-3.5 h-3.5" />
@@ -530,10 +530,10 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     setError(null);
                   }}
                   className={`py-1.5 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                    loginRole === 'staff' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                    loginRole === 'staff' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  <Users className="w-3.5 h-3.5 text-emerald-600" />
+                  <Users className="w-3.5 h-3.5" />
                   <span>Staff / Worker</span>
                 </button>
               </div>
@@ -553,7 +553,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                         placeholder="Enter store email, phone, or slug"
                         value={loginEmailOrPhone}
                         onChange={(e) => setLoginEmailOrPhone(e.target.value)}
-                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -570,7 +570,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                         placeholder="Enter your password"
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                        className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                       />
                       <button
                         type="button"
@@ -587,7 +587,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                   <button
                     type="submit"
                     disabled={isLoggingIn}
-                    className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm shadow-md transition cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-md shadow-emerald-600/30 transition cursor-pointer flex items-center justify-center gap-2"
                   >
                     <LogIn className="w-4 h-4" />
                     <span>{isLoggingIn ? 'Signing In...' : 'Sign In as Store Owner'}</span>
@@ -684,7 +684,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     placeholder="e.g. Zenith Tech, Bella Scents, Prime Hub"
                     value={signupStoreName}
                     onChange={(e) => handleStoreNameChange(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -697,7 +697,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                   required
                   value={signupBusinessCategory}
                   onChange={(e) => setSignupBusinessCategory(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   {BUSINESS_CATEGORIES.map((cat) => (
                     <option key={cat.value} value={cat.value} disabled={cat.value === ''}>
@@ -719,18 +719,18 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     placeholder="e.g. Chioma Adebayo or Ibrahim Musa"
                     value={signupOwnerName}
                     onChange={(e) => setSignupOwnerName(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
               </div>
 
               {/* Auto-generated Live URL Preview Pill (Slug is automatic - not asked from user) */}
               {signupSlug ? (
-                <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 font-mono">
-                  <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <div className="flex items-center gap-2 px-3.5 py-2 bg-emerald-50/60 border border-emerald-200 rounded-xl text-xs text-slate-600 font-mono">
+                  <Globe className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span>Store Link:</span>
-                  <span className="font-bold text-slate-900 truncate">{signupSlug}.{getRootDomain()}</span>
-                  <span className="ml-auto text-emerald-600 text-[10px] font-sans font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                  <span className="font-bold text-emerald-950 truncate">{signupSlug}.{getRootDomain()}</span>
+                  <span className="ml-auto text-emerald-700 text-[10px] font-sans font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
                     Auto-assigned
                   </span>
                 </div>
@@ -762,7 +762,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                   type="button"
                   onClick={() => signupLogoInputRef.current?.click()}
                   disabled={isUploadingSignupLogo}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-white text-xs font-semibold text-slate-700 bg-white shadow-2xs transition cursor-pointer shrink-0 disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 bg-white shadow-2xs transition cursor-pointer shrink-0 disabled:opacity-50"
                 >
                   <Upload className="w-3.5 h-3.5 inline mr-1 text-slate-500" />
                   {isUploadingSignupLogo ? '...' : signupLogoUrl ? 'Change' : 'Upload'}
@@ -776,7 +776,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                   <select
                     value={signupCountryCode}
                     onChange={(e) => setSignupCountryCode(e.target.value)}
-                    className="w-full px-2 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="w-full px-2 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="+234">🇳🇬 +234</option>
                     <option value="+1">🇺🇸 +1</option>
@@ -795,7 +795,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     placeholder="08031234567"
                     value={signupPhone}
                     onChange={(e) => setSignupPhone(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
               </div>
@@ -809,7 +809,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     placeholder="owner@domain.com"
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
                 <div>
@@ -820,7 +820,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                       placeholder="Create a password"
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
-                      className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                     <button
                       type="button"
@@ -866,7 +866,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                           placeholder="e.g. RC-1849201 or BN-39201"
                           value={signupCacNumber}
                           onChange={(e) => setSignupCacNumber(e.target.value)}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
                       </div>
                       <div>
@@ -878,7 +878,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                           placeholder="As registered with CAC"
                           value={signupCacBusinessName}
                           onChange={(e) => setSignupCacBusinessName(e.target.value)}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
                       </div>
                     </div>
@@ -887,7 +887,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                       <span className="text-[11px] font-semibold text-slate-600 block mb-1">
                         Certificate of Incorporation / Status Report
                       </span>
-                      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-200 rounded-xl hover:border-slate-400 bg-white cursor-pointer transition text-center min-h-[76px]">
+                      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-200 rounded-xl hover:border-emerald-400 bg-white cursor-pointer transition text-center min-h-[76px]">
                         <input
                           type="file"
                           accept="image/*,application/pdf"
@@ -917,11 +917,11 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
               {/* Optional Social Links */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
                 <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <Globe className="w-3.5 h-3.5" /> Social Links <span className="font-normal normal-case text-slate-400">(Optional — shown on your store)</span>
+                  <Globe className="w-3.5 h-3.5 text-emerald-600" /> Social Links <span className="font-normal normal-case text-slate-400">(Optional — shown on your store)</span>
                 </p>
 
                 {/* Instagram */}
-                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 focus-within:border-emerald-500">
                   <span className="text-base shrink-0">📸</span>
                   <span className="text-xs text-slate-400 font-mono shrink-0">instagram.com/</span>
                   <input
@@ -934,7 +934,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                 </div>
 
                 {/* Facebook */}
-                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 focus-within:border-emerald-500">
                   <span className="text-base shrink-0">👤</span>
                   <span className="text-xs text-slate-400 font-mono shrink-0">facebook.com/</span>
                   <input
@@ -947,7 +947,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                 </div>
 
                 {/* TikTok */}
-                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 focus-within:border-emerald-500">
                   <span className="text-base shrink-0">🎵</span>
                   <span className="text-xs text-slate-400 font-mono shrink-0">tiktok.com/@</span>
                   <input
@@ -963,10 +963,10 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
               <button
                 type="submit"
                 disabled={isSigningUp}
-                className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-semibold text-sm shadow-md transition cursor-pointer flex items-center justify-center gap-2 pt-2"
+                className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm shadow-md shadow-emerald-600/30 transition cursor-pointer flex items-center justify-center gap-2 pt-2"
               >
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <span>{isSigningUp ? 'Launching Store on Cloud...' : 'Launch My Tá.shop Store'}</span>
+                <Sparkles className="w-4 h-4 text-emerald-200" />
+                <span>{isSigningUp ? 'Launching Store on Cloud...' : 'Launch My Taaa.shop Store'}</span>
               </button>
             </form>
           )}

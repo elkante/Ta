@@ -350,23 +350,23 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
         {!isOpen ? (
           <button
             onClick={() => setIsOpen(true)}
-            className="group relative flex items-center gap-2.5 p-3.5 sm:px-4 sm:py-3 rounded-full bg-slate-900 hover:bg-slate-800 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 border-2 border-amber-400 cursor-pointer"
+            className="group relative flex items-center gap-2.5 p-3.5 sm:px-4 sm:py-3 rounded-full bg-slate-900 hover:bg-slate-800 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 border-2 border-emerald-500 cursor-pointer shadow-emerald-950/20"
             aria-label={`Chat with ${botConfig.botName}`}
           >
             {/* Live Indicator Pulse */}
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-white" />
             </span>
 
-            <div className="w-7 h-7 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-bold">
+            <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold shadow-xs">
               <Bot className="w-4 h-4" />
             </div>
 
             <div className="hidden sm:block text-left pr-1">
               <span className="text-xs font-black block leading-tight text-white flex items-center gap-1">
                 <span>{botConfig.botName}</span>
-                <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400" />
+                <Sparkles className="w-3 h-3 text-emerald-300 fill-emerald-300" />
               </span>
               <span className="text-[10px] text-slate-300 block font-medium">
                 Ask about products & delivery
@@ -386,14 +386,14 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
                 <img
                   src={store.logoUrl}
                   alt={store.name}
-                  className="w-9 h-9 rounded-full object-cover border border-amber-400/80 bg-white"
+                  className="w-9 h-9 rounded-full object-cover border border-emerald-500/80 bg-white"
                 />
                 <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full" />
               </div>
               <div className="truncate">
                 <div className="flex items-center gap-1.5 font-bold text-xs truncate">
                   <span className="truncate">{botConfig.botName}</span>
-                  <span className="text-[9px] bg-amber-400/20 text-amber-300 border border-amber-400/40 px-1.5 py-0.2 rounded font-mono font-bold">
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 px-1.5 py-0.2 rounded font-mono font-bold">
                     AI
                   </span>
                 </div>
@@ -570,14 +570,14 @@ export const StoreAIBotBubble: React.FC<StoreAIBotBubbleProps> = ({
               placeholder={`Ask ${botConfig.botName}...`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              className="flex-1 bg-slate-100 rounded-full px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              className="flex-1 bg-slate-100 rounded-full px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
             <button
               type="submit"
               disabled={!input.trim()}
-              className="w-8 h-8 rounded-full bg-slate-900 disabled:opacity-40 text-white flex items-center justify-center shrink-0 cursor-pointer shadow-xs active:scale-95 transition"
+              className="w-8 h-8 rounded-full bg-emerald-600 disabled:opacity-40 text-white flex items-center justify-center shrink-0 cursor-pointer shadow-xs active:scale-95 transition"
             >
-              <Send className="w-3.5 h-3.5 text-amber-400" />
+              <Send className="w-3.5 h-3.5 text-white" />
             </button>
           </form>
         </div>
