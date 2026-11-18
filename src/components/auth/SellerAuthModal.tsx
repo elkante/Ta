@@ -25,7 +25,7 @@ import {
 import confetti from 'canvas-confetti';
 import { CurrencyCode, Product, SellerSession, Store } from '../../types';
 import { compressImage } from '../../utils/imageCompressor';
-import { sanitizeSocialInput, parseSocialLink } from '../../utils/social';
+import { sanitizeSocialInput } from '../../utils/social';
 import {
   authenticateSellerAsync,
   authenticateStaffAsync,
