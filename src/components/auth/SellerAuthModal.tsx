@@ -25,6 +25,7 @@ import {
 import confetti from 'canvas-confetti';
 import { CurrencyCode, Product, SellerSession, Store } from '../../types';
 import { compressImage } from '../../utils/imageCompressor';
+import { sanitizeSocialInput, parseSocialLink } from '../../utils/social';
 import {
   authenticateSellerAsync,
   authenticateStaffAsync,
@@ -357,9 +358,9 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
       announcement: `✨ Welcome to ${signupStoreName}! Search by Item UID to order via WhatsApp.`,
       deliveryInfo: 'Fast dispatch available nationwide. Inquire via WhatsApp for exact rates.',
       socialLinks: {
-        instagram: socialInstagram.trim() ? `https://instagram.com/${socialInstagram.trim().replace(/^@/, '')}` : undefined,
-        facebook: socialFacebook.trim() ? `https://facebook.com/${socialFacebook.trim().replace(/^@/, '')}` : undefined,
-        tiktok: socialTiktok.trim() ? `https://tiktok.com/@${socialTiktok.trim().replace(/^@/, '')}` : undefined,
+        instagram: socialInstagram.trim() ? sanitizeSocialInput('instagram', socialInstagram) : undefined,
+        facebook: socialFacebook.trim() ? sanitizeSocialInput('facebook', socialFacebook) : undefined,
+        tiktok: socialTiktok.trim() ? sanitizeSocialInput('tiktok', socialTiktok) : undefined,
       },
       tier: 'free',
       verified: false,
@@ -939,7 +940,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     type="text"
                     placeholder="yourusername"
                     value={socialInstagram}
-                    onChange={(e) => setSocialInstagram(e.target.value.replace(/^@/, ''))}
+                    onChange={(e) => setSocialInstagram(sanitizeSocialInput('instagram', e.target.value))}
                     className="flex-1 text-xs font-medium text-slate-900 bg-transparent placeholder:text-slate-300 focus:outline-none min-w-0"
                   />
                 </div>
@@ -952,7 +953,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     type="text"
                     placeholder="yourpagename"
                     value={socialFacebook}
-                    onChange={(e) => setSocialFacebook(e.target.value.replace(/^@/, ''))}
+                    onChange={(e) => setSocialFacebook(sanitizeSocialInput('facebook', e.target.value))}
                     className="flex-1 text-xs font-medium text-slate-900 bg-transparent placeholder:text-slate-300 focus:outline-none min-w-0"
                   />
                 </div>
@@ -965,7 +966,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
                     type="text"
                     placeholder="yourusername"
                     value={socialTiktok}
-                    onChange={(e) => setSocialTiktok(e.target.value.replace(/^@/, ''))}
+                    onChange={(e) => setSocialTiktok(sanitizeSocialInput('tiktok', e.target.value))}
                     className="flex-1 text-xs font-medium text-slate-900 bg-transparent placeholder:text-slate-300 focus:outline-none min-w-0"
                   />
                 </div>

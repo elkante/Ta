@@ -714,6 +714,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       marketing: true,
       finance: true,
       settings: true,
+      support: true,
     };
   });
 

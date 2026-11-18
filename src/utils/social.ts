@@ -29,26 +29,40 @@ export function parseSocialLink(platform: SocialPlatform, rawInput?: string): Cl
 
   let handle = val;
 
-  if (platform === 'tiktok') {
-    handle = handle
-      .replace(/^https?:\/\/(www\.)?tiktok\.com\/@?/i, '')
-      .replace(/^tiktok\.com\/@?/i, '');
-  } else if (platform === 'instagram') {
-    handle = handle
-      .replace(/^https?:\/\/(www\.)?instagram\.com\/?/i, '')
-      .replace(/^instagram\.com\/?/i, '');
-  } else if (platform === 'twitter') {
-    handle = handle
-      .replace(/^https?:\/\/(www\.)?(twitter|x)\.com\/?/i, '')
-      .replace(/^(twitter|x)\.com\/?/i, '');
-  } else if (platform === 'facebook') {
-    handle = handle
-      .replace(/^https?:\/\/(www\.)?facebook\.com\/?/i, '')
-      .replace(/^facebook\.com\/?/i, '');
+  // Repeatedly strip domain/protocol prefixes in case user pasted full URL into a field
+  // or it was saved with duplicated prefixes (e.g. https://tiktok.com/@https://tiktok.com/@user)
+  let prev = '';
+  while (prev !== handle) {
+    prev = handle;
+    if (platform === 'tiktok') {
+      handle = handle
+        .replace(/^https?:\/\/(www\.|m\.|vm\.|vt\.)?tiktok\.com\/@?/i, '')
+        .replace(/^(www\.|m\.|vm\.|vt\.)?tiktok\.com\/@?/i, '');
+    } else if (platform === 'instagram') {
+      handle = handle
+        .replace(/^https?:\/\/(www\.|m\.)?(instagram\.com|instagr\.am)\/?@?/i, '')
+        .replace(/^(www\.|m\.)?(instagram\.com|instagr\.am)\/?@?/i, '');
+    } else if (platform === 'twitter') {
+      handle = handle
+        .replace(/^https?:\/\/(www\.|mobile\.)?(twitter|x)\.com\/?@?/i, '')
+        .replace(/^(www\.|mobile\.)?(twitter|x)\.com\/?@?/i, '');
+    } else if (platform === 'facebook') {
+      handle = handle
+        .replace(/^https?:\/\/(www\.|m\.|web\.)?(facebook\.com|fb\.com|fb\.me)\/?@?/i, '')
+        .replace(/^(www\.|m\.|web\.)?(facebook\.com|fb\.com|fb\.me)\/?@?/i, '');
+    }
+
+    // Remove leading @ symbols and trailing slashes
+    handle = handle.replace(/^@+/, '').replace(/\/+$/, '').trim();
   }
 
-  // Remove leading @ symbols and trailing slashes
-  handle = handle.replace(/^@+/, '').replace(/\/+$/, '').trim();
+  // If there's still a slash (e.g. user/video/1234 or profile/xxx), extract the first segment
+  if (handle.includes('/')) {
+    const parts = handle.split('/').filter(Boolean);
+    if (parts.length > 0) {
+      handle = parts[0].replace(/^@+/, '');
+    }
+  }
 
   if (!handle) return null;
 

@@ -143,6 +143,41 @@ export const Storefront: React.FC<StorefrontProps> = ({
     return 'font-sans';
   }, [custom.fontFamily, activeThemeId]);
 
+  // Dynamically update document title and social link preview tags for the store
+  useEffect(() => {
+    const originalTitle = document.title;
+    document.title = `${store.name} — Shop & Order on WhatsApp | Taaa`;
+
+    const updateMeta = (prop: string, content: string, isName = false) => {
+      const selector = isName ? `meta[name="${prop}"]` : `meta[property="${prop}"]`;
+      let el = document.querySelector(selector) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement('meta');
+        if (isName) el.setAttribute('name', prop);
+        else el.setAttribute('property', prop);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    if (store.tagline || store.description) {
+      updateMeta('description', store.tagline || store.description, true);
+      updateMeta('og:description', store.tagline || store.description);
+      updateMeta('twitter:description', store.tagline || store.description);
+    }
+    updateMeta('og:title', `${store.name} — Shop & Order on WhatsApp`);
+    updateMeta('twitter:title', `${store.name} — Shop & Order on WhatsApp`);
+    if (store.logoUrl) {
+      updateMeta('og:image', store.logoUrl);
+      updateMeta('og:image:secure_url', store.logoUrl);
+      updateMeta('twitter:image', store.logoUrl);
+    }
+
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [store.name, store.tagline, store.description, store.logoUrl]);
+
   const scrollToSection = (id: string) => {
     setIsMobileNavOpen(false);
     const el = document.getElementById(id);
