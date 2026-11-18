@@ -9,11 +9,11 @@ import {
 } from '../types';
 
 export const SUPABASE_URL =
-  (import.meta as any).env?.VITE_SUPABASE_URL || 'https://hbestsjsqvfilhbeymbf.supabase.co';
+  (import.meta as any).env?.VITE_SUPABASE_URL || 'https://ryatkftfeonmoyzcecza.supabase.co';
 
 export const SUPABASE_ANON_KEY =
   (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
-  'sb_publishable_Wit92S4u1YwX7SwBCbnKHQ_Gf_-dQ07';
+  'sb_publishable_NjvsPaI4L7QsvmhwdbpXqw_5OCTigL_';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -429,6 +429,33 @@ export async function dbFetchOrders(storeId: string): Promise<StoreOrder[]> {
     return data.map(mapOrderFromDB);
   } catch (e) {
     return [];
+  }
+}
+
+/**
+ * Subscribes to real-time order changes for a specific store using Supabase Realtime WebSockets.
+ * Replaces high-frequency REST polling to eliminate database egress consumption.
+ */
+export function dbSubscribeToOrders(storeId: string, onOrderChange: (order: StoreOrder) => void): () => void {
+  try {
+    const channel = supabase
+      .channel(`orders:${storeId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'store_orders', filter: `store_id=eq.${storeId}` },
+        (payload) => {
+          if (payload.new) {
+            onOrderChange(mapOrderFromDB(payload.new));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  } catch (e) {
+    return () => {};
   }
 }
 

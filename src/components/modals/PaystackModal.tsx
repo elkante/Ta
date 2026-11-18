@@ -5,6 +5,7 @@ import { Store, StoreIdVerification, StoreTier } from '../../types';
 import { getRootDomain } from '../../utils/storage';
 import { dbSaveStore } from '../../utils/supabase';
 import { getPlanAmount } from '../../utils/planLimits';
+import { compressImage } from '../../utils/imageCompressor';
 
 const PAYSTACK_LIVE_KEY = 'pk_live_9a7abd38ef91afffaf83a4d550f0c6e597eb22a1';
 
@@ -39,7 +40,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleCertUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCertUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -55,16 +56,28 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
     setIsUploadingCert(true);
     setKycError(null);
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setCertificateUrl(reader.result as string);
-      setIsUploadingCert(false);
-    };
-    reader.onerror = () => {
+    try {
+      if (file.type.startsWith('image/')) {
+        const compressed = await compressImage(file, { maxWidth: 1000, maxHeight: 1000, quality: 0.75 });
+        if (compressed) setCertificateUrl(compressed);
+      } else {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setCertificateUrl(reader.result as string);
+          setIsUploadingCert(false);
+        };
+        reader.onerror = () => {
+          setKycError('Failed reading certificate document');
+          setIsUploadingCert(false);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    } catch {
       setKycError('Failed reading certificate document');
+    } finally {
       setIsUploadingCert(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   // Live Dynamic Pricing from Super Admin PlatformSettings

@@ -7,9 +7,13 @@
 CREATE TABLE IF NOT EXISTS public.stores (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
+  owner_name TEXT,
   slug TEXT UNIQUE NOT NULL,
   owner_email TEXT,
   owner_password TEXT,
+  featured_on_landing BOOLEAN DEFAULT false,
+  custom_domain TEXT,
+  id_verification JSONB DEFAULT NULL,
   tagline TEXT DEFAULT '',
   description TEXT DEFAULT '',
   whatsapp_country_code TEXT DEFAULT '+234',

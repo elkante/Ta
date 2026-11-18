@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CurrencyCode, Product, SellerSession, Store } from '../../types';
+import { compressImage } from '../../utils/imageCompressor';
 import {
   authenticateSellerAsync,
   authenticateStaffAsync,
@@ -181,7 +182,7 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     setSignupSlug(auto);
   };
 
-  const handleSignupLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSignupLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -197,19 +198,17 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     setIsUploadingSignupLogo(true);
     setError(null);
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setSignupLogoUrl(reader.result as string);
+    try {
+      const compressed = await compressImage(file, { maxWidth: 400, maxHeight: 400, quality: 0.8 });
+      if (compressed) setSignupLogoUrl(compressed);
+    } catch {
+      setError('Failed to process logo file. Please try again.');
+    } finally {
       setIsUploadingSignupLogo(false);
-    };
-    reader.onerror = () => {
-      setError('Failed to read logo file. Please try again.');
-      setIsUploadingSignupLogo(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
-  const handleCacDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCacDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -225,16 +224,28 @@ export const SellerAuthModal: React.FC<SellerAuthModalProps> = ({
     setIsUploadingCacDoc(true);
     setError(null);
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setSignupCacDocUrl(reader.result as string);
+    try {
+      if (file.type.startsWith('image/')) {
+        const compressed = await compressImage(file, { maxWidth: 1000, maxHeight: 1000, quality: 0.75 });
+        if (compressed) setSignupCacDocUrl(compressed);
+      } else {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setSignupCacDocUrl(reader.result as string);
+          setIsUploadingCacDoc(false);
+        };
+        reader.onerror = () => {
+          setError('Failed to read CAC document file.');
+          setIsUploadingCacDoc(false);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    } catch {
+      setError('Failed to process CAC document file.');
+    } finally {
       setIsUploadingCacDoc(false);
-    };
-    reader.onerror = () => {
-      setError('Failed to read CAC document file.');
-      setIsUploadingCacDoc(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {

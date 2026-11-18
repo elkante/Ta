@@ -25,7 +25,7 @@ const SUPABASE_ANON_KEY: string =
 /** POST to a Supabase Edge Function by name */
 async function callEdgeFunction(
   functionName: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown> | object
 ): Promise<boolean> {
   if (!SUPABASE_URL) {
     console.info('[email] VITE_SUPABASE_URL not set — skipping email.');

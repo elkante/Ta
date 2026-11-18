@@ -69,7 +69,7 @@ import {
   ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense, StoreCoupon, StoreTier, StoreStaffMember, StoreSupportTicket } from '../../types';
+import { CurrencyCode, Product, Store, StoreIdVerification, StoreOrder, WhatsAppInquiryLog, StoreNote, StoreExpense, StoreCoupon, StoreTier, StoreStaffMember, StoreSupportTicket, TabId } from '../../types';
 import { AddEditProductModal } from './AddEditProductModal';
 import { ProductLimitModal } from '../modals/ProductLimitModal';
 import { VerifiedBadge } from '../common/VerifiedBadge';
@@ -91,7 +91,8 @@ import { formatPrice, generateWhatsAppLink, openWhatsApp, openWhatsAppUrl } from
 import { sanitizeSocialInput } from '../../utils/social';
 import { generateQRCodeSVG } from '../../utils/qrCode';
 import { playOrderNotificationSound } from '../../utils/audio';
-import { dbFetchOrders, dbDeleteProduct, dbSaveProduct, dbSaveStore } from '../../utils/supabase';
+import { dbFetchOrders, dbDeleteProduct, dbSaveProduct, dbSaveStore, dbSubscribeToOrders } from '../../utils/supabase';
+import { compressImage } from '../../utils/imageCompressor';
 import {
   generateItemUid,
   getStoredInquiries,
@@ -114,27 +115,6 @@ const COVER_PRESETS = [
   { name: 'Dark Velvet', url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1600&auto=format&fit=crop&q=80' },
   { name: 'Modern Tech', url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1600&auto=format&fit=crop&q=80' },
 ];
-
-type TabId =
-  | 'home'
-  | 'storefront'
-  | 'orders'
-  | 'products'
-  | 'coupons'
-  | 'customers'
-  | 'locations'
-  | 'invoices'
-  | 'uid-bot'
-  | 'marketing'
-  | 'inquiries'
-  | 'settings'
-  | 'billing'
-  | 'analytics'
-  | 'notes'
-  | 'expenses'
-  | 'calculator'
-  | 'staff'
-  | 'support';
 
 interface NavCategory {
   id: string;
@@ -287,7 +267,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   const [supportPreviewModalImage, setSupportPreviewModalImage] = useState<string | null>(null);
   const supportImageInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSupportImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSupportImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -299,16 +279,14 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       return;
     }
     setIsUploadingSupportImage(true);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setSupportImageUrl(reader.result as string);
-      setIsUploadingSupportImage(false);
-    };
-    reader.onerror = () => {
+    try {
+      const compressed = await compressImage(file, { maxWidth: 1000, maxHeight: 1000, quality: 0.75 });
+      if (compressed) setSupportImageUrl(compressed);
+    } catch {
       alert('Failed to read image file');
+    } finally {
       setIsUploadingSupportImage(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmitSupportTicket = async (e: React.FormEvent) => {
@@ -510,11 +488,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
   // New Order Real-Time Listener + Cloud Supabase Polling Effect
   useEffect(() => {
     const checkOrders = async () => {
+      // Don't waste egress bandwidth if tab is in the background
+      if (document.hidden) return;
       try {
         const cloudOrders = await dbFetchOrders(store.id);
         if (cloudOrders && cloudOrders.length > 0) {
           setStoreOrders((prev) => {
-            const prevCount = prev.length;
             const hasNew = cloudOrders.some((co) => !prev.some((lo) => lo.id === co.id));
             if (hasNew && lastOrderCountRef.current !== -1) {
               const newest = cloudOrders[0];
@@ -526,11 +505,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
               onRefreshData();
               setTimeout(() => setNewOrderToast(false), 8000);
             }
-            if (lastOrderCountRef.current === -1) {
-              lastOrderCountRef.current = cloudOrders.length;
-            } else {
-              lastOrderCountRef.current = cloudOrders.length;
-            }
+            lastOrderCountRef.current = cloudOrders.length;
             return cloudOrders;
           });
         }
@@ -553,14 +528,29 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
       setTimeout(() => setNewOrderToast(false), 8000);
     };
 
+    // Real-time Supabase subscription: instant notifications with zero REST polling egress
+    const unsubscribeRealtime = dbSubscribeToOrders(store.id, (newOrder) => {
+      setStoreOrders((prev) => {
+        if (prev.some((o) => o.id === newOrder.id)) return prev;
+        setLatestOrderInfo({ id: newOrder.id, name: newOrder.buyerName, amount: newOrder.totalAmount });
+        playOrderNotificationSound(1.0);
+        setNewOrderToast(true);
+        setTimeout(() => setNewOrderToast(false), 8000);
+        return [newOrder, ...prev];
+      });
+      onRefreshData();
+    });
+
     window.addEventListener('tashop:order_placed', handleCustomOrderEvent);
     window.addEventListener('storage', checkOrders);
-    const interval = setInterval(checkOrders, 4000);
+    // Relaxed 60-second fallback instead of 4-second hammer to protect quota
+    const interval = setInterval(checkOrders, 60000);
 
     return () => {
       window.removeEventListener('tashop:order_placed', handleCustomOrderEvent);
       window.removeEventListener('storage', checkOrders);
       clearInterval(interval);
+      unsubscribeRealtime();
     };
   }, [store.id, onRefreshData]);
 
@@ -3546,19 +3536,31 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                         type="file"
                         accept="image/*,application/pdf"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
                           if (file.size > 5 * 1024 * 1024) {
                             setSettingsError('Certificate document must be under 5MB');
                             return;
                           }
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            setKycCertPreview(ev.target?.result as string);
-                            setSettingsError(null);
-                          };
-                          reader.readAsDataURL(file);
+                          try {
+                            if (file.type.startsWith('image/')) {
+                              const compressed = await compressImage(file, { maxWidth: 1000, maxHeight: 1000, quality: 0.75 });
+                              if (compressed) {
+                                setKycCertPreview(compressed);
+                                setSettingsError(null);
+                              }
+                            } else {
+                              const reader = new FileReader();
+                              reader.onload = (ev) => {
+                                setKycCertPreview(ev.target?.result as string);
+                                setSettingsError(null);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          } catch {
+                            setSettingsError('Could not process certificate document');
+                          }
                         }}
                       />
                     </label>

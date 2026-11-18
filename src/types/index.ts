@@ -500,3 +500,24 @@ export interface PlatformSettings {
   maintenanceMode: boolean;
   featuredStoreSlugs: string[];
 }
+
+export type TabId =
+  | 'home'
+  | 'storefront'
+  | 'orders'
+  | 'products'
+  | 'coupons'
+  | 'customers'
+  | 'locations'
+  | 'invoices'
+  | 'uid-bot'
+  | 'marketing'
+  | 'inquiries'
+  | 'settings'
+  | 'billing'
+  | 'analytics'
+  | 'notes'
+  | 'expenses'
+  | 'calculator'
+  | 'staff'
+  | 'support';

@@ -41,6 +41,7 @@ import {
 import { Product, PromoBannerSlot, Store, StorefrontCustomization, StoreThemeId } from '../../types';
 import { dbSaveStore } from '../../utils/supabase';
 import { getStoreDisplayUrl, getStoreUrl } from '../../utils/storage';
+import { compressImage } from '../../utils/imageCompressor';
 
 export interface ThemeTemplate {
   id: StoreThemeId;
@@ -615,30 +616,32 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploadingLogo(true);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setLogoUrl(reader.result as string);
+    try {
+      const compressed = await compressImage(file, { maxWidth: 400, maxHeight: 400, quality: 0.8 });
+      if (compressed) setLogoUrl(compressed);
+    } catch {
+      // ignore
+    } finally {
       setIsUploadingLogo(false);
-    };
-    reader.onerror = () => setIsUploadingLogo(false);
-    reader.readAsDataURL(file);
+    }
   };
 
-  const handleCoverBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploadingBanner(true);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setBannerUrl(reader.result as string);
+    try {
+      const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 600, quality: 0.75 });
+      if (compressed) setBannerUrl(compressed);
+    } catch {
+      // ignore
+    } finally {
       setIsUploadingBanner(false);
-    };
-    reader.onerror = () => setIsUploadingBanner(false);
-    reader.readAsDataURL(file);
+    }
   };
 
   // Navigation
@@ -742,27 +745,30 @@ export const ManageStorefrontTab: React.FC<ManageStorefrontTabProps> = ({
     setTimeout(() => setCopiedUrl(false), 2000);
   };
 
-  const handleBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+  const handleBannerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = reader.result as string;
-      const copy = [...promoBanners];
-      copy[idx] = { ...copy[idx], imageUrl: dataUrl };
-      setPromoBanners(copy);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const dataUrl = await compressImage(file, { maxWidth: 1200, maxHeight: 600, quality: 0.75 });
+      if (dataUrl) {
+        const copy = [...promoBanners];
+        copy[idx] = { ...copy[idx], imageUrl: dataUrl };
+        setPromoBanners(copy);
+      }
+    } catch {
+      // ignore
+    }
   };
 
-  const handleAboutFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAboutFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setAboutImageUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const dataUrl = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.75 });
+      if (dataUrl) setAboutImageUrl(dataUrl);
+    } catch {
+      // ignore
+    }
   };
 
   const handleTogglePublished = async () => {

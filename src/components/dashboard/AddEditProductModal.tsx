@@ -4,6 +4,7 @@ import {
 import { Product, ProductVariant, Store } from '../../types';
 import { addStoreCategory, getStoreCategories } from '../../utils/storage';
 import { generateProductDescription, getDescriptionCapByTier } from '../../utils/aiMarketing';
+import { compressImage } from '../../utils/imageCompressor';
 
 interface AddEditProductModalProps {
   isOpen: boolean;
@@ -190,7 +191,7 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -216,32 +217,24 @@ export const AddEditProductModal: React.FC<AddEditProductModalProps> = ({
     setIsUploadingImage(true);
     setError(null);
 
-    let loadedCount = 0;
-    const newImgs: string[] = [];
-
-    selectedFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          newImgs.push(reader.result);
-        }
-        loadedCount++;
-        if (loadedCount === selectedFiles.length) {
-          setImagesList((prev) => {
-            const nextList = [...prev, ...newImgs].slice(0, 5);
-            setImageUrl(nextList[0] || '');
-            return nextList;
-          });
-          setIsUploadingImage(false);
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-      };
-      reader.onerror = () => {
-        loadedCount++;
-        if (loadedCount === selectedFiles.length) setIsUploadingImage(false);
-      };
-      reader.readAsDataURL(file);
-    });
+    try {
+      const compressedImgs = await Promise.all(
+        selectedFiles.map((file) =>
+          compressImage(file, { maxWidth: 1000, maxHeight: 1000, quality: 0.75 })
+        )
+      );
+      const validImgs = compressedImgs.filter(Boolean);
+      setImagesList((prev) => {
+        const nextList = [...prev, ...validImgs].slice(0, 5);
+        setImageUrl(nextList[0] || '');
+        return nextList;
+      });
+    } catch {
+      setError('Could not process some images. Please try again.');
+    } finally {
+      setIsUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleAddUrlImage = () => {

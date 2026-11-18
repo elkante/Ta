@@ -670,8 +670,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const handleToggleTicketStatus = async (ticket: StoreSupportTicket & { store: Store }) => {
     const store = liveStores.find((s) => s.id === ticket.storeId) || ticket.store;
     const existingTickets = store.supportTickets || [];
-    const nextStatus = ticket.status === 'open' ? 'resolved' : 'open';
-    const updatedTickets = existingTickets.map((t) => t.id === ticket.id ? { ...t, status: nextStatus as const } : t);
+    const nextStatus: 'open' | 'resolved' = ticket.status === 'open' ? 'resolved' : 'open';
+    const updatedTickets = existingTickets.map((t) => t.id === ticket.id ? { ...t, status: nextStatus } : t);
     const updatedStore: Store = {
       ...store,
       supportTickets: updatedTickets,
