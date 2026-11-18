@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, KeyRound, Lock, Mail, ShieldCheck, X } from 'lucide-react';
 import { SuperAdminSession } from '../../types';
-import { setSuperAdminSession, getRootDomain } from '../../utils/storage';
-import { supabase } from '../../utils/supabase';
+import { setSuperAdminSession } from '../../utils/storage';
+
+// Admin credentials are injected via build-time env vars.
+// Set VITE_ADMIN_EMAIL and VITE_ADMIN_PASSWORD in your Netlify/Vercel dashboard.
+// Falls back to admin@ta.shop for email; password MUST be set in env or login will always fail.
+const ADMIN_EMAIL =
+  (import.meta as any).env?.VITE_ADMIN_EMAIL || 'admin@ta.shop';
+const ADMIN_PASSWORD =
+  (import.meta as any).env?.VITE_ADMIN_PASSWORD || '';
 
 interface SuperAdminLoginModalProps {
   isOpen: boolean;
@@ -28,26 +35,30 @@ export const SuperAdminLoginModal: React.FC<SuperAdminLoginModalProps> = ({
     setError(null);
     setIsLoading(true);
 
+    // Small artificial delay to prevent timing attacks
+    await new Promise((r) => setTimeout(r, 400));
+
     try {
       if (!email.trim() || !password.trim()) {
         setError('Please enter both admin email and password');
-        setIsLoading(false);
         return;
       }
 
-      // Authenticate directly against Supabase Auth using the password you set in Supabase Dashboard
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password.trim(),
-      });
+      if (!ADMIN_PASSWORD) {
+        setError('Admin password is not configured. Set VITE_ADMIN_PASSWORD in your environment variables.');
+        return;
+      }
 
-      if (authError || !data?.session) {
-        setError(authError?.message || 'Invalid administrator email or password.');
+      const emailMatch = email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      const passMatch = password.trim() === ADMIN_PASSWORD;
+
+      if (!emailMatch || !passMatch) {
+        setError('Invalid administrator email or password.');
         return;
       }
 
       const session: SuperAdminSession = {
-        email: data.user.email || email.trim(),
+        email: ADMIN_EMAIL,
         isLoggedIn: true,
         authenticatedAt: new Date().toISOString(),
       };
@@ -55,7 +66,7 @@ export const SuperAdminLoginModal: React.FC<SuperAdminLoginModalProps> = ({
       onLoginSuccess(session);
       onClose();
     } catch (err: any) {
-      setError(err?.message || 'Authentication error connecting to Supabase');
+      setError(err?.message || 'Authentication error');
     } finally {
       setIsLoading(false);
     }
@@ -111,7 +122,7 @@ export const SuperAdminLoginModal: React.FC<SuperAdminLoginModalProps> = ({
                 type="email"
                 required
                 autoFocus
-                placeholder={`admin@${getRootDomain()}`}
+                placeholder={ADMIN_EMAIL}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white font-mono"
